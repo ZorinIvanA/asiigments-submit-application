@@ -1,8 +1,9 @@
 # Спецификация системы «Сдача лабораторных работ»
 
-Версия: 1.1 · Дата: 2026-09-26
+Версия: 1.2 · Дата: 2026-09-26
 Основание: [docs/user-stories.md](user-stories.md) (v1.1), макеты [Figma «Сдача лабораторных»](https://www.figma.com/design/boOY0AZqW8bli9kIs8irws/Sdacha-laboratornyh)
 
+Изменения в 1.2: UI-библиотека клиента — PrimeNG 20+ вместо Angular Material; в §2 добавлен перечень используемых компонентов PrimeNG.
 Изменения в 1.1: добавлены регистрация (роль по умолчанию — студент), разделы «Группы» и «Доступ», редактирование профиля; семестр — номер семестра курса (1…N, не ограничен двумя); ведомость преподавателя строится по группе; API версионирован префиксом `/api/v1`.
 
 ---
@@ -25,7 +26,7 @@
 
 | Слой | Технология |
 |---|---|
-| Клиент | Angular 20+ (standalone-компоненты, TypeScript strict, SCSS, Angular Material) |
+| Клиент | Angular 20+ (standalone-компоненты, TypeScript strict, SCSS, PrimeNG 20+ — UI-компоненты) |
 | Сервер | .NET 10, ASP.NET Core (minimal APIs / controllers), EF Core 10 |
 | БД | PostgreSQL 16+, Npgsql, code-first миграции EF Core |
 | Аутентификация | JWT в httpOnly-cookie: access (15 мин) + refresh (7 дней) |
@@ -49,6 +50,13 @@
 - SPA fallback: все не-`/api` маршруты отдают `index.html` (deep-link и refresh работают).
 - Dev-режим: Angular dev-server с прокси `/api` на Kestrel; Swagger UI только в dev.
 - Развёртывание: один процесс приложения + PostgreSQL (docker-compose либо Kestrel за reverse-proxy). Конфигурация через переменные окружения (см. §10).
+- **UI-компоненты — PrimeNG** (тема `@primeuix/themes`, пресет Aura, кастомизация через design-tokens):
+  - `Table` (`p-table`) — список лабораторных и ведомость сдач: пагинация («записи с 1 по 10 из 200»), сортировка/фильтрация по семестру (US-5, US-6, US-10, US-11);
+  - `Dialog` — формы создания/редактирования лабораторной и профиля (US-7, US-18); `ConfirmDialog` — подтверждение удаления (US-8);
+  - `Toast` — уведомления об ошибках и успехе с кнопкой закрытия (US-12), в т.ч. «Неверный логин или пароль»;
+  - `Select` (`p-select`) — выбор семестра, группы; `DatePicker` (`p-datepicker`) — проставление дат сдачи в ведомости (US-10);
+  - `Checkbox` — признак «Нужна защита» (US-5); `InputText` / `InputPassword` / `Button` — формы авторизации, регистрации, восстановления пароля и смены пароля (US-1–4, US-15);
+  - `Tabs` (`p-tabs`) — разделы оболочки преподавателя «Работы» / «Группы» / «Доступ» (US-14).
 
 ---
 
