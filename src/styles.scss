@@ -1,0 +1,45 @@
+// Глобальные стили приложения (каркас). Переменные темы Aura
+// (@primeuix/themes) подключаются в app.config.ts через providePrimeNG
+// и объявляют CSS-переменные на :root — здесь только базовая типографика
+// и общие отступы страниц.
+@use 'styles/breakpoint' as bp;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--p-text-color, #334155);
+  background-color: var(--p-surface-ground, #f8fafc);
+  -webkit-font-smoothing: antialiased;
+}
+
+// Горизонтальные отступы страниц: на десктопе просторнее, на мобильной
+// ширине (меньше 768px — единственный брейкпоинт проекта) — компактнее.
+:root {
+  --page-padding: 24px;
+}
+
+@include bp.mobile {
+  :root {
+    --page-padding: 12px;
+  }
+}

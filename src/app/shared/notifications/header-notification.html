@@ -1,0 +1,7 @@
+@if (notification(); as notification) {
+  <app-notification-banner
+    [severity]="notification.severity"
+    [text]="notification.text"
+    (closed)="dismiss()"
+  />
+}

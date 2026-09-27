@@ -1,0 +1,13 @@
+// Мобильный баннер «фиксированно под шапкой» (FR-021): закреплён под
+// шапкой и над основным контентом (заголовком/таблицей). Смещение —
+// высота шапки оболочки (переменная --app-header-height); горизонтальные
+// отступы — общие отступы мобильной страницы.
+:host {
+  position: fixed;
+  top: var(--app-header-height, 56px);
+  right: 0;
+  left: 0;
+  z-index: 1100;
+  padding-right: var(--page-padding, 12px);
+  padding-left: var(--page-padding, 12px);
+}

@@ -1,0 +1,18 @@
+<div
+  class="app-notification-banner"
+  [class.app-notification-banner--error]="severity() === 'error'"
+  [class.app-notification-banner--success]="severity() === 'success'"
+  [attr.role]="role()"
+  [attr.aria-live]="severity() === 'error' ? 'assertive' : 'polite'"
+>
+  <span [class]="iconClass()" aria-hidden="true"></span>
+  <span class="app-notification-banner__text">{{ text() }}</span>
+  <button
+    type="button"
+    class="app-notification-banner__close"
+    aria-label="Закрыть"
+    (click)="closed.emit()"
+  >
+    <span class="pi pi-times" aria-hidden="true"></span>
+  </button>
+</div>
