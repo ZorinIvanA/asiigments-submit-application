@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCR-002 — Регистрация (/register) — статичный макет (design 3.2)</title>
+<style>
+  :root{
+    --primary:#4F46E5;--primary-hover:#4338CA;--text:#1E293B;--text2:#475569;--muted:#64748B;
+    --border:#E2E8F0;--page:#F1F5F9;--card:#FFFFFF;
+    --danger:#DC2626;--danger-bg:#FEF2F2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;font:14px/20px "Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--text);background:var(--page)}
+  .note{max-width:520px;margin:0 auto 16px;font-size:12px;color:var(--muted)}
+  .stage{max-width:520px;margin:0 auto;background:var(--page);border:1px dashed var(--border);padding:48px 24px}
+  .auth{width:400px;max-width:100%;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:32px}
+  .kicker{font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--primary);margin:0 0 4px}
+  h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 24px}
+  label{display:block;font-weight:600;font-size:14px;margin:0 0 8px}
+  .field{margin:0 0 16px}
+  input{width:100%;height:44px;border:1px solid var(--border);border-radius:6px;padding:0 12px;font:inherit}
+  .field.invalid input{border-color:var(--danger);background:var(--danger-bg)}
+  .err{color:var(--danger);font-size:12px;line-height:16px;margin-top:4px}
+  .hint{color:var(--muted);font-size:12px;line-height:16px;margin-top:4px}
+  .btn{display:flex;align-items:center;justify-content:center;height:44px;border-radius:6px;border:1px solid transparent;background:var(--primary);color:#fff;font:600 14px/20px inherit;font-family:inherit;cursor:pointer;width:100%}
+  .btn.loading{opacity:.7;cursor:progress}
+  .spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .center{margin-top:16px;text-align:center}
+  a{color:var(--primary-hover);font-weight:600;text-decoration:none}
+</style>
+</head>
+<body>
+<p class="note">Статичный макет SCR-002 «Регистрация» (/register) — design 3.2 по spec 3.2. Поля роли нет — регистрация всегда создаёт student (FR-007/FR-004). Требования к паролю (включая совпадение паролей) выведены на экран, как и на /reset-password (FR-010/FR-023). Кнопка — состояние загрузки 500–800 мс (мок FR-003/NFR-001). При ошибках клиентской валидации — баннер «Данные заполнены неверно» + тексты у полей по словарю FR-023; конфликты 409 — текстами FR-004 и контракта AuthService.register раздела interfaces (ISS-117/AR-015: «Пользователь с таким логином уже существует» / «Пользователь с таким email уже существует»); 429 — «Слишком много попыток. Повторите позже» (FR-021).</p>
+<div class="stage">
+  <form class="auth">
+    <p class="kicker">Сдача лабораторных</p>
+    <h1>Регистрация</h1>
+    <div class="field">
+      <label for="f">ФИО</label>
+      <input id="f" value="Новиков Никита Николаевич">
+      <div class="hint">От 1 до 200 символов</div>
+    </div>
+    <div class="field">
+      <label for="lg">Логин</label>
+      <input id="lg" value="newstudent1">
+      <div class="hint">От 1 до 100 символов, не меняется после регистрации</div>
+    </div>
+    <div class="field">
+      <label for="em">Email</label>
+      <input id="em" value="newstudent1@example.com">
+    </div>
+    <div class="field">
+      <label for="pw">Пароль</label>
+      <input id="pw" type="password" value="*********">
+      <div class="hint">Не менее 8 символов; минимум одна цифра, одна буква и один спецзнак; пароли должны совпадать</div>
+    </div>
+    <div class="field invalid">
+      <label for="pw2">Повторите пароль</label>
+      <input id="pw2" type="password" value="******">
+      <div class="err">Пароли не совпадают</div>
+    </div>
+    <button class="btn loading"><span class="spin"></span>Зарегистрироваться</button>
+    <p class="center"><a href="#">У меня уже есть аккаунт</a></p>
+  </form>
+</div>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCR-006/007 — Оболочка и список работ (/works) — статичный макет (design 3.2)</title>
+<style>
+  :root{
+    --primary:#4F46E5;--primary-hover:#4338CA;--text:#1E293B;--text2:#475569;--muted:#64748B;
+    --border:#E2E8F0;--page:#F1F5F9;--card:#FFFFFF;--muted-bg:#F8FAFC;
+    --danger:#DC2626;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/20px "Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--text);background:var(--page)}
+  .note{padding:12px 24px;font-size:12px;color:var(--muted)}
+  /* оболочка SCR-006 */
+  .topbar{display:flex;align-items:center;gap:24px;height:56px;background:var(--card);border-bottom:1px solid var(--border);padding:0 24px}
+  .brand{font-weight:600;font-size:16px}
+  .tabs{display:flex;gap:4px;height:100%}
+  .tab{display:flex;align-items:center;padding:0 16px;min-height:44px;color:var(--text2);font-weight:600;border-bottom:2px solid transparent;cursor:pointer}
+  .tab:hover{background:var(--muted-bg)}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+  .spacer{flex:1}
+  .who{font-size:12px;color:var(--muted)}
+  .logout{height:40px;padding:0 16px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text2);font:600 14px/20px inherit;font-family:inherit;cursor:pointer}
+  main{max-width:1200px;margin:0 auto;padding:24px}
+  /* заголовочная строка SCR-007 */
+  .head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+  h1{font-size:20px;line-height:28px;font-weight:600;margin:0}
+  .btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:6px;border:1px solid transparent;font:600 14px/20px inherit;font-family:inherit;cursor:pointer}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-danger{background:var(--danger);color:#fff}
+  .btn-secondary{background:var(--card);color:var(--text2);border-color:var(--border)}
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .toolbar label{font-weight:600;font-size:14px}
+  select{height:44px;border:1px solid var(--border);border-radius:6px;padding:0 12px;font:inherit;background:var(--card);min-width:200px}
+  /* таблица */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .tbl-wrap{position:relative}
+  table{width:100%;border-collapse:collapse}
+  th{background:var(--muted-bg);border-bottom:1px solid var(--border);padding:12px 16px;text-align:left;font-size:12px;color:var(--text2);white-space:nowrap}
+  td{border-bottom:1px solid var(--border);padding:12px 16px;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:var(--muted-bg)}
+  .num{text-align:center;width:88px}
+  .sort{font-size:10px;color:var(--primary)}
+  a{color:var(--primary-hover);font-weight:600;text-decoration:none}
+  .dash{color:var(--muted)}
+  .iconbtn{width:44px;height:44px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px;color:var(--text2)}
+  .iconbtn.del{color:var(--danger)}
+  .foot{display:flex;align-items:center;justify-content:space-between;padding:12px 16px}
+  .pages{display:flex;align-items:center;gap:4px}
+  .pg{min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-weight:600}
+  .pg.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .pg.nav{color:var(--text2)}
+  /* диалог удаления (FR-014) */
+  .overlay{position:absolute;inset:0;background:rgba(15,23,42,.4);display:flex;align-items:center;justify-content:center}
+  .dialog{width:420px;max-width:calc(100% - 48px);background:var(--card);border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.18);padding:24px}
+  .dialog h2{font-size:16px;line-height:24px;font-weight:600;margin:0 0 12px}
+  .dialog p{margin:0 0 24px;color:var(--text2)}
+  .drow{display:flex;justify-content:flex-end;gap:12px}
+  .dim{opacity:.35;pointer-events:none}
+</style>
+</head>
+<body>
+<p class="note">Статичный макет SCR-006 «Оболочка» (вкладки преподавателя, ФИО пользователя и кнопка «Выйти» — FR-020; переходы между вкладками мгновенны — гварды читают синхронное состояние сессии, localStorage mock.session.userId, FR-004/FR-005) и SCR-007 «Лабораторные работы» (/works) — design 3.2 по spec 3.2: фильтр семестра (FR-012: «Все семестры» + все значения 1..10), сортировка «Номер»/«Семестр» в 2 состояниях ▲/▼ повторными кликами (состояния «без сортировки» нет; порядок по умолчанию — семестр ↑, номер ↑ от мока), чекбокс «Нужна защита» только для чтения (FR-011; сид: признак установлен у чётных номеров), ссылки на задание (текст — URL, href санитизируется DomSanitizer, target="_blank", rel="noopener noreferrer" — FR-011; сид: ссылка у номеров, кратных 5; без ссылки — прочерк «—», не кликабельно), пагинация 10 записей (FR-011), диалог удаления (FR-014; кнопки «Yes»/«No» — дословно, единственное санкционированное исключение из русских текстов NFR-004). Иконки-кнопки: карандаш = «Редактировать», корзина = «Удалить» (aria-label). Для статичности показаны строки 1–3 и 5 из 10 первой страницы; подпись соответствует фильтру «семестр 1» (сид: 20 работ). Мобильные ошибки (&lt;768px) — inline-блок фиксированно под шапкой, автозакрытие 5 с (FR-021).</p>
+
+<header class="topbar">
+  <span class="brand">Сдача лабораторных</span>
+  <nav class="tabs" aria-label="Разделы">
+    <span class="tab active">Работы</span>
+    <span class="tab">Сдача работ</span>
+    <span class="tab">Группы</span>
+    <span class="tab">Доступ</span>
+    <span class="tab">Профиль</span>
+  </nav>
+  <span class="spacer"></span>
+  <span class="who">Сидоров Семён Семёнович</span>
+  <button class="logout">Выйти</button>
+</header>
+
+<main>
+  <div class="head">
+    <h1>Лабораторные работы</h1>
+    <button class="btn btn-primary">Добавить…</button>
+  </div>
+  <div class="toolbar">
+    <label for="sem">Семестр</label>
+    <select id="sem">
+      <option>Все семестры</option>
+      <option selected>1</option>
+      <option>2</option>
+    </select>
+  </div>
+
+  <div class="card tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="num">Номер <span class="sort" title="Сортировка по возрастанию">▲</span></th>
+          <th>Содержание</th>
+          <th>Семестр <span class="sort" title="Сортировка по возрастанию">▲</span></th>
+          <th>Задание</th>
+          <th style="text-align:center">Нужна защита</th>
+          <th style="text-align:center">Действия</th>
+        </tr>
+      </thead>
+      <tbody class="dim">
+        <!-- строки 1–3 и 5 (№5 — кратен 5: есть assignmentUrl); №2 — чётный: «Нужна защита» отмечена (сид FR-026) -->
+        <tr>
+          <td class="num">1</td>
+          <td>Содержание лабораторной работы №1</td>
+          <td>1</td>
+          <td><span class="dash" title="Ссылки нет">—</span></td>
+          <td style="text-align:center"><input type="checkbox" disabled aria-label="Нужна защита, недоступно для изменения"></td>
+          <td style="text-align:center;white-space:nowrap">
+            <button class="iconbtn" aria-label="Редактировать" title="Редактировать">✎</button>
+            <button class="iconbtn del" aria-label="Удалить" title="Удалить">🗑</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="num">2</td>
+          <td>Содержание лабораторной работы №2</td>
+          <td>1</td>
+          <td><span class="dash" title="Ссылки нет">—</span></td>
+          <td style="text-align:center"><input type="checkbox" checked disabled aria-label="Нужна защита, недоступно для изменения"></td>
+          <td style="text-align:center;white-space:nowrap">
+            <button class="iconbtn" aria-label="Редактировать" title="Редактировать">✎</button>
+            <button class="iconbtn del" aria-label="Удалить" title="Удалить">🗑</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="num">3</td>
+          <td>Содержание лабораторной работы №3</td>
+          <td>1</td>
+          <td><span class="dash" title="Ссылки нет">—</span></td>
+          <td style="text-align:center"><input type="checkbox" disabled aria-label="Нужна защита, недоступно для изменения"></td>
+          <td style="text-align:center;white-space:nowrap">
+            <button class="iconbtn" aria-label="Редактировать" title="Редактировать">✎</button>
+            <button class="iconbtn del" aria-label="Удалить" title="Удалить">🗑</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="num">5</td>
+          <td>Содержание лабораторной работы №5</td>
+          <td>1</td>
+          <td><a href="#" target="_blank" rel="noopener noreferrer" title="https://git.example.com/assignments/1/5" aria-label="Открыть задание (откроется в новой вкладке)">git.example.com/assignments/1/5</a></td>
+          <td style="text-align:center"><input type="checkbox" disabled aria-label="Нужна защита, недоступно для изменения"></td>
+          <td style="text-align:center;white-space:nowrap">
+            <button class="iconbtn" aria-label="Редактировать" title="Редактировать">✎</button>
+            <button class="iconbtn del" aria-label="Удалить" title="Удалить">🗑</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="foot">
+      <span style="font-size:12px;color:var(--muted)">Показать записи с 1 по 10 из 20</span>
+      <div class="pages">
+        <button class="pg nav" aria-label="Предыдущая страница">‹</button>
+        <button class="pg on">1</button>
+        <button class="pg">2</button>
+        <button class="pg nav" aria-label="Следующая страница">›</button>
+      </div>
+    </div>
+
+    <!-- Диалог подтверждения удаления (FR-014): список под ним заблокирован -->
+    <div class="overlay" role="dialog" aria-modal="true" aria-labelledby="dt">
+      <div class="dialog">
+        <h2 id="dt">Удаление лабораторной</h2>
+        <p>Вы точно хотите удалить лабораторную №1 в семестре №1?</p>
+        <div class="drow">
+          <button class="btn btn-secondary">No</button>
+          <button class="btn btn-danger">Yes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>

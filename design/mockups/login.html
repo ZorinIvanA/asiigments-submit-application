@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCR-001 — Вход (/login) — статичный макет (design 3.2)</title>
+<style>
+  :root{
+    --primary:#4F46E5;--primary-hover:#4338CA;--text:#1E293B;--text2:#475569;--muted:#64748B;
+    --border:#E2E8F0;--page:#F1F5F9;--card:#FFFFFF;--muted-bg:#F8FAFC;
+    --danger:#DC2626;--danger-bg:#FEF2F2;--danger-border:#FECACA;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;font:14px/20px "Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--text);background:var(--page)}
+  .note{max-width:1060px;margin:0 auto 16px;font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:32px;max-width:1060px;margin:0 auto;align-items:flex-start;flex-wrap:wrap}
+  figcaption{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px}
+  .stage{position:relative;background:var(--page);border:1px dashed var(--border);padding:48px 24px}
+  .stage.mobile{width:391px;padding:24px 16px}
+  .auth{width:400px;max-width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:32px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+  .kicker{font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--primary);margin:0 0 4px}
+  h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 24px}
+  label{display:block;font-weight:600;font-size:14px;margin:0 0 8px}
+  .field{margin:0 0 16px}
+  input{width:100%;height:44px;border:1px solid var(--border);border-radius:6px;padding:0 12px;font:inherit;color:var(--text)}
+  input:focus{outline:2px solid var(--card);box-shadow:0 0 0 4px var(--primary);border-color:var(--primary)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border-radius:6px;border:1px solid transparent;font:600 14px/20px inherit;font-family:inherit;cursor:pointer}
+  .btn-primary{background:var(--primary);color:#fff;width:100%}
+  .btn:disabled{background:var(--primary);color:#fff;opacity:.55;cursor:not-allowed}
+  .btn:focus-visible{outline:2px solid var(--card);box-shadow:0 0 0 4px var(--primary)}
+  .links{display:flex;justify-content:space-between;gap:16px;margin-top:16px}
+  a{color:var(--primary-hover);font-weight:600;text-decoration:none}
+  .toast{position:absolute;top:12px;right:12px;width:320px;background:var(--danger-bg);border:1px solid var(--danger);border-left:4px solid var(--danger);border-radius:6px;padding:12px 12px 12px 40px;box-shadow:0 4px 12px rgba(15,23,42,.12);font-weight:600;color:var(--danger)}
+  .toast .x{position:absolute;top:8px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--danger);font-size:16px;cursor:pointer}
+  .toast .ico{position:absolute;left:10px;top:12px;font-weight:700}
+  /* мобильный inline-баннер: ПОД ФОРМОЙ (единый якорь всех экранов с формой — FR-006/FR-021, ISS-107/AR-010/ISS-114); автозакрытие 5 с + × в обоих режимах */
+  .inline-err{margin-top:16px;background:var(--danger-bg);border:1px solid var(--danger);border-left:4px solid var(--danger);border-radius:6px;padding:10px 36px 10px 12px;position:relative;font-weight:600;color:var(--danger)}
+  .inline-err .x{position:absolute;top:6px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--danger);font-size:16px;cursor:pointer}
+</style>
+</head>
+<body>
+<p class="note">Статичный макет SCR-001 «Вход» (/login) — design 3.2 по spec 3.2. Токены: primary #4F46E5, поле 44px, радиус поля 6px, карточки 8px. Кнопка «Войти» — p-button (FR-001), заблокирована при пустом логине ИЛИ пароле (FR-006); полевых ошибок и баннера валидации на /login нет (FR-023). Ошибка 401/429 — единый механизм FR-021: desktop — тост справа сверху, mobile — inline-блок ПОД ФОРМОЙ (ISS-107/AR-010/ASM-017; размещение «под полем Пароль над кнопкой» из дизайна 3.0 не применяется — ISS-114), автозакрытие 5 с в обоих режимах + ×.</p>
+<div class="row">
+  <figure>
+    <figcaption>Desktop ≥ 768px — карточка 400px по центру; ошибка 401 = красный закрываемый тост справа сверху (автозакрытие 5 с, FR-021)</figcaption>
+    <div class="stage">
+      <div class="toast" role="alert"><span class="ico">!</span>Неверный логин или пароль<button class="x" aria-label="Закрыть">×</button></div>
+      <div class="auth">
+        <p class="kicker">Сдача лабораторных</p>
+        <h1>Вход</h1>
+        <div class="field">
+          <label for="l">Логин</label>
+          <input id="l" value="teacher">
+        </div>
+        <div class="field">
+          <label for="p">Пароль</label>
+          <input id="p" type="password" value="********">
+        </div>
+        <button class="btn btn-primary">Войти</button>
+        <div class="links">
+          <a href="#">Я забыл пароль</a>
+          <a href="#">Зарегистрироваться</a>
+        </div>
+      </div>
+    </div>
+  </figure>
+  <figure>
+    <figcaption>Mobile &lt; 768px — карточка во всю ширину; ошибка = красный inline-блок ПОД ФОРМОЙ (FR-006/FR-021, ISS-107/AR-010/ISS-114), автозакрытие 5 с + ×; пустые поля — кнопка «Войти» заблокирована, полевых ошибок нет</figcaption>
+    <div class="stage mobile">
+      <div class="auth">
+        <p class="kicker">Сдача лабораторных</p>
+        <h1>Вход</h1>
+        <div class="field">
+          <label for="l2">Логин</label>
+          <input id="l2" placeholder="логин">
+        </div>
+        <div class="field">
+          <label for="p2">Пароль</label>
+          <input id="p2" type="password" placeholder="••••••••">
+        </div>
+        <button class="btn btn-primary" disabled aria-disabled="true">Войти</button>
+        <div class="links">
+          <a href="#">Я забыл пароль</a>
+          <a href="#">Зарегистрироваться</a>
+        </div>
+        <div class="inline-err" role="alert">Неверный логин или пароль<button class="x" aria-label="Закрыть">×</button></div>
+      </div>
+    </div>
+  </figure>
+</div>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCR-009 — Ведомость сдач (/submissions) — статичный макет (design 3.2)</title>
+<style>
+  :root{
+    --primary:#4F46E5;--primary-hover:#4338CA;--text:#1E293B;--text2:#475569;--muted:#64748B;
+    --border:#E2E8F0;--page:#F1F5F9;--card:#FFFFFF;--muted-bg:#F8FAFC;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/20px "Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--text);background:var(--page)}
+  .note{padding:12px 24px;font-size:12px;color:var(--muted)}
+  .topbar{display:flex;align-items:center;gap:24px;height:56px;background:var(--card);border-bottom:1px solid var(--border);padding:0 24px}
+  .brand{font-weight:600;font-size:16px}
+  .tabs{display:flex;gap:4px;height:100%}
+  .tab{display:flex;align-items:center;padding:0 16px;min-height:44px;color:var(--text2);font-weight:600;border-bottom:2px solid transparent}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+  .spacer{flex:1}
+  .fullname{font-size:12px;color:var(--text2)}
+  .logout{height:40px;padding:0 16px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text2);font:600 14px/20px inherit;font-family:inherit}
+  main{max-width:1200px;margin:0 auto;padding:24px}
+  h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 16px}
+  .toolbar{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+  .toolbar label{font-weight:600;display:inline-block;margin-right:8px}
+  select{height:44px;border:1px solid var(--border);border-radius:6px;padding:0 12px;font:inherit;background:var(--card);min-width:180px}
+  select.off{background:var(--muted-bg);color:var(--muted);cursor:not-allowed}
+  .cap{font-size:12px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:auto;position:relative}
+  table{width:100%;border-collapse:collapse;min-width:820px}
+  th{background:var(--muted-bg);border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:10px 14px;font-size:12px;color:var(--text2);text-align:center;white-space:nowrap}
+  th.student{text-align:left;position:sticky;left:0;background:var(--muted-bg);z-index:2}
+  td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:10px 14px;text-align:center;white-space:nowrap}
+  td.student{text-align:left;position:sticky;left:0;background:var(--card);font-weight:600;z-index:1}
+  tbody tr:hover td{background:var(--muted-bg)}
+  tbody tr:hover td.student{background:var(--muted-bg)}
+  td.empty-row{padding:32px 16px;color:var(--muted);text-align:center}
+  /* ячейка даты: дд.мм.гггг или ПУСТАЯ ячейка — без прочерка (FR-015) */
+  .date{display:inline-block;min-width:88px;padding:6px 10px;border-radius:6px;border:1px dashed var(--border);cursor:pointer}
+  .date:hover{background:var(--muted-bg)}
+  .foot{display:flex;align-items:center;justify-content:space-between;padding:12px 16px}
+  .pages{display:flex;gap:4px}
+  .pg{min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;background:var(--card);font-weight:600}
+  .pg.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .pg.nav{color:var(--text2)}
+  /* календарь (p-datepicker, локаль ru) */
+  .dp{position:absolute;top:96px;left:330px;width:280px;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(15,23,42,.12);padding:12px;z-index:5}
+  .dp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-weight:600}
+  .dp-head button{width:32px;height:32px;border:1px solid var(--border);background:var(--card);border-radius:6px;cursor:pointer;color:var(--text2)}
+  .dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center}
+  .dp-grid span{padding:6px 0;font-size:12px;color:var(--muted)}
+  .dp-grid button{height:36px;border:0;background:none;border-radius:6px;font:inherit;cursor:pointer}
+  .dp-grid button:hover{background:var(--muted-bg)}
+  .dp-grid button.sel{background:var(--primary);color:#fff;font-weight:600}
+  /* вырожденные состояния (FR-015) */
+  .states{max-width:1200px;margin:0 auto;padding:0 24px 24px}
+  .states>h2{font-size:16px;line-height:24px;font-weight:600;margin:0 0 12px}
+  .st-row{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+  .st-row figure{margin:0;flex:1;min-width:380px}
+  .st-row figcaption{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px}
+  .st-stage{background:var(--page);border:1px dashed var(--border);padding:16px}
+  .st-stage .card table{min-width:0}
+  .stub{margin:0;padding:24px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<p class="note">Статичный макет SCR-009 «Сдача работ» (/submissions) — design 3.2 по spec 3.2 (FR-015): селекторы «Группа» (по умолчанию — первая группа списка, упорядоченного по названию по возрастанию без учёта регистра, порядок задаёт мок; сид: «ИК-221») и «Семестр» (семестры, в которых есть лабораторные, из GET /semesters; по умолчанию — НАИМЕНЬШИЙ из возвращённых; сид: 1). Двухуровневая шапка «Лаб N» → подколонки «Сдача»/«Защита» — пара у КАЖДОЙ работы независимо от defenseRequired (ASM-010/OQ-007; у лабораторной №3 признак «Нужна защита» выключен — колонка «Защита» всё равно выводится и доступна для ввода). Даты дд.мм.гггг; пустая дата — ПУСТАЯ ячейка БЕЗ ПРОЧЕРКА. Выбор/очистка даты → SubmissionsService.update (upsert по паре studentId+labId — ISS-109), клиент всегда передаёт актуальные значения обеих дат (null = сброс; ASM-013). Календарь — русская локаль, переключение месяцев. Пагинация по 5 студентов. Вырожденные состояния: пустая группа — пустая таблица «В группе нет студентов», подпись «Показать записи с 1 по 0 из 0»; нет семестров с работами — селектор пуст и заблокирован, подпись «Нет семестров с работами» (ISS-108/ASM-015), таблица не отображается; нет групп — селектор пуст и заблокирован, подпись «Нет групп», таблица не отображается. Мобильные ошибки (&lt;768px) — красный inline-блок фиксированно под шапкой (экран без формы — ISS-106/AR-013), автозакрытие 5 с + × (FR-021).</p>
+
+<header class="topbar">
+  <span class="brand">Сдача лабораторных</span>
+  <nav class="tabs" aria-label="Разделы">
+    <span class="tab">Работы</span>
+    <span class="tab active">Сдача работ</span>
+    <span class="tab">Группы</span>
+    <span class="tab">Доступ</span>
+    <span class="tab">Профиль</span>
+  </nav>
+  <span class="spacer"></span>
+  <span class="fullname">Сидоров Семён Семёнович</span>
+  <button class="logout">Выйти</button>
+</header>
+
+<main>
+  <h1>Сдача работ</h1>
+  <div class="toolbar">
+    <div>
+      <label for="g">Группа</label>
+      <select id="g"><option selected>ИК-221</option><option>ИК-222</option><option>ИК-223</option></select>
+    </div>
+    <div>
+      <label for="s">Семестр</label>
+      <select id="s"><option selected>1</option><option>2</option><option>…</option><option>10</option></select>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th class="student" rowspan="2">Студент</th>
+          <th colspan="2">Лаб 1</th>
+          <th colspan="2">Лаб 2</th>
+          <th colspan="2">Лаб 3</th>
+        </tr>
+        <tr>
+          <th>Сдача</th><th>Защита</th>
+          <th>Сдача</th><th>Защита</th>
+          <th>Сдача</th><th>Защита</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- для статичности показаны 2 из 5 строк первой страницы (семестр 1 сид: 20 работ «Лаб 1..20»; №3 — defenseRequired=false, пара колонок сохранена) -->
+        <tr>
+          <td class="student">Иванов Иван Иванович 01</td>
+          <td><span class="date">01.09.2026</span></td>
+          <td><span class="date">11.09.2026</span></td>
+          <td><span class="date">02.09.2026</span></td>
+          <td><span class="date">12.09.2026</span></td>
+          <td><span class="date">03.09.2026</span></td>
+          <td><span class="date"></span></td>
+        </tr>
+        <tr>
+          <td class="student">Иванов Иван Иванович 02</td>
+          <td><span class="date">01.09.2026</span></td>
+          <td><span class="date"></span></td>
+          <td><span class="date"></span></td>
+          <td><span class="date"></span></td>
+          <td><span class="date"></span></td>
+          <td><span class="date"></span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="foot">
+      <span class="cap">Показать записи с 1 по 5 из 25</span>
+      <div class="pages">
+        <button class="pg nav" aria-label="Предыдущая страница">‹</button>
+        <button class="pg on">1</button>
+        <button class="pg">2</button>
+        <button class="pg">3</button>
+        <button class="pg">4</button>
+        <button class="pg">5</button>
+        <button class="pg nav" aria-label="Следующая страница">›</button>
+      </div>
+    </div>
+
+    <!-- Календарь из ячейки «Сдача» лабы №6 первого студента (FR-015: выбор 15.09.2026) -->
+    <div class="dp" role="dialog" aria-label="Выбор даты">
+      <div class="dp-head">
+        <button aria-label="Предыдущий месяц">‹</button>
+        <span>Сентябрь 2026</span>
+        <button aria-label="Следующий месяц">›</button>
+      </div>
+      <div class="dp-grid">
+        <span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span>сб</span><span>вс</span>
+        <button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button>
+        <button>8</button><button>9</button><button>10</button><button>11</button><button>12</button><button>13</button><button>14</button>
+        <button class="sel">15</button><button>16</button><button>17</button><button>18</button><button>19</button><button>20</button><button>21</button>
+        <button>22</button><button>23</button><button>24</button><button>25</button><button>26</button><button>27</button><button>28</button>
+        <button>29</button><button>30</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<section class="states">
+  <h2>Пустые и вырожденные состояния (FR-015)</h2>
+  <div class="st-row">
+    <figure>
+      <figcaption>Пустая группа («ИК-223») — пустая таблица с сообщением «В группе нет студентов», селекторы активны</figcaption>
+      <div class="st-stage">
+        <div class="toolbar">
+          <div>
+            <label for="g2">Группа</label>
+            <select id="g2"><option>ИК-221</option><option>ИК-222</option><option selected>ИК-223</option></select>
+          </div>
+          <div>
+            <label for="s2">Семестр</label>
+            <select id="s2"><option selected>1</option><option>2</option></select>
+          </div>
+        </div>
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th class="student" rowspan="2">Студент</th>
+                <th colspan="2">Лаб 1</th>
+                <th colspan="2">Лаб 2</th>
+                <th colspan="2">Лаб 3</th>
+              </tr>
+              <tr>
+                <th>Сдача</th><th>Защита</th>
+                <th>Сдача</th><th>Защита</th>
+                <th>Сдача</th><th>Защита</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="empty-row" colspan="7">В группе нет студентов</td></tr>
+            </tbody>
+          </table>
+          <div class="foot">
+            <span class="cap">Показать записи с 1 по 0 из 0</span>
+            <div class="pages">
+              <button class="pg nav" aria-label="Предыдущая страница">‹</button>
+              <button class="pg on">1</button>
+              <button class="pg nav" aria-label="Следующая страница">›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>Нет семестров с работами (GET /semesters пуст) — селектор семестра пуст и заблокирован, подпись «Нет семестров с работами» рядом, таблица не отображается</figcaption>
+      <div class="st-stage">
+        <div class="toolbar">
+          <div>
+            <label for="g3">Группа</label>
+            <select id="g3"><option selected>ИК-221</option></select>
+          </div>
+          <div>
+            <label for="s3">Семестр</label>
+            <select id="s3" class="off" disabled aria-disabled="true"><option selected value=""></option></select>
+            <span class="cap">Нет семестров с работами</span>
+          </div>
+        </div>
+        <p class="stub">Таблица не отображается</p>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>Нет групп (все удалены) — селектор группы пуст и заблокирован, подпись «Нет групп» рядом, таблица не отображается</figcaption>
+      <div class="st-stage">
+        <div class="toolbar">
+          <div>
+            <label for="g4">Группа</label>
+            <select id="g4" class="off" disabled aria-disabled="true"><option selected value=""></option></select>
+            <span class="cap">Нет групп</span>
+          </div>
+        </div>
+        <p class="stub">Таблица не отображается</p>
+      </div>
+    </figure>
+  </div>
+</section>
+</body>
+</html>
