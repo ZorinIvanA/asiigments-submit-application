@@ -1,0 +1,234 @@
+{
+ "name": "p11_ts385",
+ "viewport": {
+  "width": 1280,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "teacher"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "teacher123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const db = JSON.parse(localStorage.getItem('mock.db.v1')); const lab = db.labs.find(l => l.semester === 1 && l.number === 20); if (!lab) return 'no-lab'; lab.id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; localStorage.setItem('mock.db.v1', JSON.stringify(db)); return 'ok'; })()",
+   "as": "tamper"
+  },
+  {
+   "do": "goto",
+   "url": "/submissions",
+   "waitFor": ".submissions-page tbody tr",
+   "timeout": 40000
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const tr = document.querySelectorAll('.submissions-page tbody tr')[0]; const inps = tr.querySelectorAll('app-submission-date-cell input'); inps[38].focus(); return { count: inps.length }; })()",
+   "as": "focusTampered"
+  },
+  {
+   "do": "typePage",
+   "text": "10.11.2026"
+  },
+  {
+   "do": "press",
+   "key": "Enter"
+  },
+  {
+   "do": "press",
+   "key": "Escape"
+  },
+  {
+   "do": "wait",
+   "ms": 1800
+  },
+  {
+   "do": "screenshot",
+   "name": "TS385-toast-desktop",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "errToast"
+  },
+  {
+   "do": "click",
+   "sel": ".p-toast-close-button, .p-toast-icon-close"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "screenshot",
+   "name": "TS385-toast-desktop-closed",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "errToastClosed"
+  },
+  {
+   "do": "goto",
+   "url": "/access",
+   "waitFor": ".access__search-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": ".access__search-input",
+   "text": "student31"
+  },
+  {
+   "do": "wait",
+   "ms": 1400
+  },
+  {
+   "do": "screenshot",
+   "name": "TS385-access-before",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const row = [...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('student31')); if (!row) return 'no-row'; const sel = row.querySelector('.p-select'); if (!sel) return 'no-select'; sel.click(); return 'opened'; })()",
+   "as": "rowSelectOpen"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const o = document.querySelector('.p-select-overlay'); if (!o) return 'no-overlay'; const opt = [...o.querySelectorAll('li, .p-select-option')].find(li => li.textContent.includes('ИК-222')); if (!opt) return { opts: o.innerText.slice(0, 100) }; opt.click(); return 'picked'; })()",
+   "as": "pickGroup"
+  },
+  {
+   "do": "wait",
+   "ms": 1800
+  },
+  {
+   "do": "screenshot",
+   "name": "TS385-access-after-set",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ toasts: document.querySelectorAll('.p-toast-message').length, row: [...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('student31'))?.innerText.slice(0, 120) }))()",
+   "as": "accessAfter"
+  },
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "viewport",
+   "viewport": {
+    "width": 767,
+    "height": 900
+   },
+   "wait": 500
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "teacher"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "teacher123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const db = JSON.parse(localStorage.getItem('mock.db.v1')); const lab = db.labs.find(l => l.semester === 1 && l.number === 20); if (!lab) return 'no-lab'; lab.id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; localStorage.setItem('mock.db.v1', JSON.stringify(db)); return 'ok'; })()",
+   "as": "tamperM"
+  },
+  {
+   "do": "goto",
+   "url": "/submissions",
+   "waitFor": ".submissions-page tbody tr",
+   "timeout": 40000
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const tr = document.querySelectorAll('.submissions-page tbody tr')[0]; const inps = tr.querySelectorAll('app-submission-date-cell input'); inps[38].focus(); return inps.length; })()",
+   "as": "focusTamperedM"
+  },
+  {
+   "do": "typePage",
+   "text": "11.11.2026"
+  },
+  {
+   "do": "press",
+   "key": "Enter"
+  },
+  {
+   "do": "press",
+   "key": "Escape"
+  },
+  {
+   "do": "wait",
+   "ms": 1800
+  },
+  {
+   "do": "screenshot",
+   "name": "TS385-mobile-inline-banner",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const els = [...document.querySelectorAll('.app-notification-banner, [class*=banner]')].filter(e => e.offsetParent !== null); const head = document.querySelector('.app-topbar'); return { headBottom: head ? Math.round(head.getBoundingClientRect().bottom) : null, banners: els.map(e => ({ cls: e.className.toString().slice(0, 90), text: e.innerText.trim().slice(0, 100), y: Math.round(e.getBoundingClientRect().top), icon: !!e.querySelector('.pi, svg, [class*=icon]'), close: !!e.querySelector('button') })), toasts: document.querySelectorAll('.p-toast-message').length }; })()",
+   "as": "mobileBannerPos"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "mobileToastCheck"
+  }
+ ]
+}

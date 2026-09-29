@@ -99,7 +99,10 @@ export const PRIME_NG_RU: Translation = {
     'Ноя',
     'Дек',
   ],
-  dateFormat: 'dd.mm.yyyy',
+  // В паттерне PrimeNG четырёхзначный год — токен 'yy' ('yyyy' рендерит год
+  // дважды — «20262026», primeng-datepicker.mjs); каждый p-datepicker
+  // дополнительно задаёт явный dateFormat="dd.mm.yy" (конвенция T-114).
+  dateFormat: 'dd.mm.yy',
   firstDayOfWeek: 1,
   weekHeader: 'Н',
   chooseYear: 'Выбрать год',

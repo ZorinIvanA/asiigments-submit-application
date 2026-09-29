@@ -1,0 +1,49 @@
+<div class="auth-page">
+  <form
+    class="auth-card"
+    [attr.id]="formId"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+  >
+    <p class="auth-card__kicker">Сдача лабораторных</p>
+    <h1 class="auth-card__title">Вход</h1>
+
+    <div class="field">
+      <label for="login-input">Логин</label>
+      <input
+        id="login-input"
+        type="text"
+        pInputText
+        formControlName="login"
+        autocomplete="username"
+      />
+    </div>
+
+    <div class="field">
+      <label for="password-input">Пароль</label>
+      <input
+        id="password-input"
+        type="password"
+        pInputText
+        formControlName="password"
+        autocomplete="current-password"
+      />
+    </div>
+
+    <button
+      pButton
+      type="submit"
+      class="auth-card__submit"
+      label="Войти"
+      [loading]="submitState.busy()"
+      [disabled]="form.invalid || submitState.busy()"
+    ></button>
+
+    <div class="auth-card__links">
+      <a routerLink="/recovery">Я забыл пароль</a>
+      <a routerLink="/register">Зарегистрироваться</a>
+    </div>
+
+    <app-notification-anchor [formId]="formId" />
+  </form>
+</div>

@@ -1,0 +1,215 @@
+{
+ "name": "p06_works",
+ "viewport": {
+  "width": 1280,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "teacher"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "teacher123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "goto",
+   "url": "/works",
+   "waitFor": ".works-page table",
+   "timeout": 30000
+  },
+  {
+   "do": "screenshot",
+   "name": "TS229-works-desktop",
+   "fullPage": false
+  },
+  {
+   "do": "textDump",
+   "as": "worksText"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const heads = [...document.querySelectorAll('.works-page th')].map(t => t.textContent.trim()); const cbs = [...document.querySelectorAll('.works-page p-checkbox input, .works-page .p-checkbox input')]; const delBtns = document.querySelectorAll(\"button[title='Удалить']\").length; const penBtns = document.querySelectorAll(\"button[title='Редактировать']\").length; const report = (document.querySelector('.works-page__report') || {}).textContent || null; const sel = !!document.querySelector('.works-page__toolbar .p-select'); const btn = document.querySelector('.p-select-label'); return { heads, checkboxes: cbs.length, allDisabled: cbs.every(c => c.disabled), delBtns, penBtns, report, semesterSelect: sel, selectLabel: btn ? btn.textContent.trim() : null }; })()",
+   "as": "worksStructure"
+  },
+  {
+   "do": "click",
+   "sel": ".works-page__toolbar .p-select"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "TS229-semester-select-open",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const o = document.querySelector('.p-select-overlay'); return o ? { visible: getComputedStyle(o).display !== 'none', options: o.innerText.slice(0, 120) } : 'no-overlay'; })()",
+   "as": "selectOverlay"
+  },
+  {
+   "do": "press",
+   "key": "Escape"
+  },
+  {
+   "do": "wait",
+   "ms": 400
+  },
+  {
+   "do": "goto",
+   "url": "/works/new",
+   "waitFor": "form",
+   "timeout": 30000
+  },
+  {
+   "do": "screenshot",
+   "name": "TS230-labform-desktop",
+   "fullPage": false
+  },
+  {
+   "do": "textDump",
+   "as": "labFormText"
+  },
+  {
+   "do": "hover",
+   "sel": ".pi-link"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "TS230-chain-tooltip",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const t = document.querySelector('.p-tooltip'); return t ? t.innerText : 'no-tooltip'; })()",
+   "as": "tooltipText"
+  },
+  {
+   "do": "click",
+   "sel": "form .p-select"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "TS230-select-open",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const o = document.querySelector('.p-select-overlay'); return o ? { visible: getComputedStyle(o).display !== 'none', opts: o.innerText.slice(0, 100) } : 'no-overlay'; })()",
+   "as": "formSelectOverlay"
+  },
+  {
+   "do": "press",
+   "key": "Escape"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сохранить",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "screenshot",
+   "name": "TS230-labform-errors",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ banner: document.body.innerText.includes('Данные заполнены неверно'), invalid: document.querySelectorAll('form .ng-invalid').length }))()",
+   "as": "labFormErrCheck"
+  },
+  {
+   "do": "goto",
+   "url": "/works",
+   "waitFor": ".works-page table",
+   "timeout": 30000
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const rows = [...document.querySelectorAll('.works-page tbody tr')]; const row = rows.find(r => r.cells[0].innerText.trim() === '2' && r.cells[2].innerText.trim() === '1'); if (!row) return 'row-not-found'; const b = (() => { const bs = row.querySelectorAll('p-button button'); return bs[bs.length - 1]; })(); if (!b) return 'no-btn'; b.click(); return 'clicked'; })()",
+   "as": "delClick"
+  },
+  {
+   "do": "wait",
+   "ms": 1000
+  },
+  {
+   "do": "screenshot",
+   "name": "TS231-delete-dialog",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const d = document.querySelector('.p-confirmdialog'); if (!d) return 'no-dialog'; const msg = (d.querySelector('.p-confirmdialog-message') || {}).textContent || ''; const btns = [...d.querySelectorAll('button')].map(b => b.textContent.trim()); const locked = !!document.querySelector('.works-page__list--locked'); return { msg: msg.trim(), btns, locked }; })()",
+   "as": "dialogCheck"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "noToastOnDialog"
+  },
+  {
+   "do": "clickText",
+   "sel": ".p-confirmdialog button",
+   "text": "No",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "TS231-after-no",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ dialogGone: !document.querySelector('.p-confirmdialog'), row2: [...document.querySelectorAll('.works-page tbody tr')].some(r => r.cells[0].innerText.trim() === '2') }))()",
+   "as": "afterNoCheck"
+  }
+ ]
+}

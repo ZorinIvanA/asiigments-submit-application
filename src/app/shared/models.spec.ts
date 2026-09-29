@@ -89,17 +89,21 @@ describe('Константы и модели DTO (IF-011)', () => {
     expect(page.pageSize).toBe(10);
   });
 
-  it('StudentDto — строка списка студентов раздела «Доступ»: groupName string|null', () => {
+  it('StudentDto — строка списка студентов раздела «Доступ»: groupId и groupName string|null', () => {
     const student: StudentDto = {
       id: '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b',
       fullName: 'Иванов Иван Иванович 26',
       login: 'student26',
       email: 'student26@example.com',
+      groupId: 'c0c0c0c0-0000-4000-8000-000000000222',
       groupName: 'ИК-222',
     };
+    expect(student.groupId).toBe('c0c0c0c0-0000-4000-8000-000000000222');
     expect(student.groupName).toBe('ИК-222');
 
-    const withoutGroup: StudentDto = { ...student, groupName: null };
+    // Аменда 6: у безгруппного студента null и ключевое groupId, и отображаемое groupName.
+    const withoutGroup: StudentDto = { ...student, groupId: null, groupName: null };
+    expect(withoutGroup.groupId).toBeNull();
     expect(withoutGroup.groupName).toBeNull();
   });
 

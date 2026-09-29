@@ -27,6 +27,22 @@ describe('AppRoot — корневой компонент-каркас', () => {
     expect(element.querySelector('router-outlet')).not.toBeNull();
   });
 
+  it('содержит глобальный хост уведомлений перед router-outlet (IF-109, T-109)', () => {
+    const fixture = TestBed.createComponent(AppRoot);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const toastHost = element.querySelector('app-notification-toast');
+    const outlet = element.querySelector('router-outlet');
+    expect(toastHost).not.toBeNull();
+    expect(outlet).not.toBeNull();
+    // Хост объявлен ДО outlet: Toast смонтирован для всех экранов,
+    // включая страницы auth вне app-shell.
+    expect(
+      toastHost!.compareDocumentPosition(outlet!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it('рендерится без ошибок шаблона', () => {
     const fixture = TestBed.createComponent(AppRoot);
     expect(() => fixture.detectChanges()).not.toThrow();

@@ -1,0 +1,82 @@
+{
+ "name": "p16_ts383",
+ "viewport": {
+  "width": 767,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "teacher"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "teacher123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "screenshot",
+   "name": "TS383-topbar-767",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const tb = document.querySelector('.app-topbar'); const r = tb.getBoundingClientRect(); const tabs = tb.querySelector('.app-topbar__tabs'); return { height: Math.round(r.height), tabCount: tb.querySelectorAll('.app-topbar__tab').length, whoVisible: !!tb.querySelector('.app-topbar__who') && getComputedStyle(tb.querySelector('.app-topbar__who')).display !== 'none', brand: (tb.querySelector('.app-topbar__brand') || {}).textContent, tabsScrollW: tabs ? tabs.scrollWidth : null, tabsClientW: tabs ? tabs.clientWidth : null }; })()",
+   "as": "topbar767"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const tabs = document.querySelector('.app-topbar__tabs'); tabs.scrollLeft = tabs.scrollWidth; return { scrolled: tabs.scrollLeft }; })()",
+   "as": "scrollTabs"
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "screenshot",
+   "name": "TS383-topbar-767-scrolled",
+   "fullPage": false
+  },
+  {
+   "do": "viewport",
+   "viewport": {
+    "width": 768,
+    "height": 900
+   },
+   "wait": 500
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "screenshot",
+   "name": "TS383-topbar-768",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const tb = document.querySelector('.app-topbar'); return { height: Math.round(tb.getBoundingClientRect().height), who: (tb.querySelector('.app-topbar__who') || {}).textContent || 'hidden' }; })()",
+   "as": "topbar768"
+  }
+ ]
+}

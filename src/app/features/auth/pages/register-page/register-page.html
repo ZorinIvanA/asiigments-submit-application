@@ -1,0 +1,100 @@
+<div class="auth-page">
+  <form
+    class="auth-card"
+    [attr.id]="formId"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+  >
+    <p class="auth-card__kicker">Сдача лабораторных</p>
+    <h1 class="auth-card__title">Регистрация</h1>
+
+    <div
+      class="field"
+      [class.field--invalid]="errorTextOf('fullName') !== null"
+    >
+      <label for="full-name-input">ФИО</label>
+      <input
+        id="full-name-input"
+        type="text"
+        pInputText
+        formControlName="fullName"
+      />
+      <div class="field__hint">От 1 до 200 символов</div>
+      @if (errorTextOf("fullName"); as text) {
+        <div class="field__error">{{ text }}</div>
+      }
+    </div>
+
+    <div class="field" [class.field--invalid]="errorTextOf('login') !== null">
+      <label for="login-input">Логин</label>
+      <input id="login-input" type="text" pInputText formControlName="login" />
+      <div class="field__hint">
+        От 1 до 100 символов, не меняется после регистрации
+      </div>
+      @if (errorTextOf("login"); as text) {
+        <div class="field__error">{{ text }}</div>
+      }
+    </div>
+
+    <div class="field" [class.field--invalid]="errorTextOf('email') !== null">
+      <label for="email-input">Email</label>
+      <input id="email-input" type="text" pInputText formControlName="email" />
+      @if (errorTextOf("email"); as text) {
+        <div class="field__error">{{ text }}</div>
+      }
+    </div>
+
+    <div
+      class="field"
+      [class.field--invalid]="errorTextOf('password') !== null"
+    >
+      <label for="password-input">Пароль</label>
+      <input
+        id="password-input"
+        type="password"
+        pInputText
+        formControlName="password"
+        autocomplete="new-password"
+      />
+      <div class="field__hint">
+        Не менее 8 символов; минимум одна цифра, одна буква и один спецзнак;
+        пароли должны совпадать
+      </div>
+      @if (errorTextOf("password"); as text) {
+        <div class="field__error">{{ text }}</div>
+      }
+    </div>
+
+    <div
+      class="field"
+      [class.field--invalid]="errorTextOf('repeatPassword') !== null"
+    >
+      <label for="repeat-password-input">Повторите пароль</label>
+      <input
+        id="repeat-password-input"
+        type="password"
+        pInputText
+        formControlName="repeatPassword"
+        autocomplete="new-password"
+      />
+      @if (errorTextOf("repeatPassword"); as text) {
+        <div class="field__error">{{ text }}</div>
+      }
+    </div>
+
+    <button
+      pButton
+      type="submit"
+      class="auth-card__submit"
+      label="Зарегистрироваться"
+      [loading]="submitState.busy()"
+      [disabled]="submitState.busy()"
+    ></button>
+
+    <p class="auth-card__center">
+      <a routerLink="/login">У меня уже есть аккаунт</a>
+    </p>
+
+    <app-notification-anchor [formId]="formId" />
+  </form>
+</div>

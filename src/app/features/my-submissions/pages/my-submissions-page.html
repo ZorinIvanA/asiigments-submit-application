@@ -1,0 +1,85 @@
+<h1 class="page-title">Сдача работ</h1>
+
+<div class="toolbar">
+  <label class="toolbar__label" for="my-submissions-semester">Семестр</label>
+  <select
+    id="my-submissions-semester"
+    class="toolbar__select"
+    [disabled]="semesters().length === 0"
+    (change)="onSemesterChange($event)"
+  >
+    @for (semester of semesters(); track semester) {
+      <option [value]="semester" [selected]="semester === selectedSemester()">
+        {{ semester }}
+      </option>
+    }
+  </select>
+</div>
+
+@if (showNoGroupWarning()) {
+  <!-- Постоянный баннер вместо таблицы (студент без группы); не авто-закрывается. -->
+  <div class="no-group" role="status">
+    <span class="no-group__icon" aria-hidden="true">i</span>
+    <span>{{ noGroupText }}</span>
+  </div>
+} @else if (showEmptyState()) {
+  <!-- Единый пустой компонент: семестров нет вовсе или у выбранного семестра
+       нет работ (CR-004); селектор активен, если семестры в принципе есть. -->
+  <div class="no-data">{{ noSemestersText }}</div>
+} @else if (showTable()) {
+  @if (isMobile()) {
+    <!-- Мобильная вёрстка (<768px): карточки «Лаб N» без горизонтального скролла. -->
+    <div class="cards">
+      @for (row of rows(); track row.labId) {
+        <section class="card">
+          <h2 class="card__title">Лаб {{ row.number }}</h2>
+          <div class="card__row">
+            <span class="card__name">Сдача</span>
+            <span class="card__value">{{ row.submitDate }}</span>
+          </div>
+          <div class="card__row">
+            <span class="card__name">Защита</span>
+            <span class="card__value">{{ row.defenseDate }}</span>
+          </div>
+        </section>
+      }
+    </div>
+  } @else {
+    <!-- Десктоп (>=768px): p-table (ADR-111) с двухуровневой шапкой — своя
+         строка только для чтения, календарь не открывается. -->
+    <div class="table-wrap">
+      <p-table
+        [value]="tableValue"
+        [loading]="loading()"
+        [tableStyle]="{ 'min-width': '600px' }"
+      >
+        <ng-template #header>
+          <!-- «Лаб N» (colspan 2) → «Сдача»/«Защита» у КАЖДОЙ работы
+               независимо от defenseRequired (ASM-010/OQ-007). -->
+          <tr>
+            <th class="table-wrap__student" rowspan="2">Студент</th>
+            @for (row of rows(); track row.labId) {
+              <th colspan="2">Лаб {{ row.number }}</th>
+            }
+          </tr>
+          <tr>
+            @for (row of rows(); track row.labId) {
+              <th>Сдача</th>
+              <th>Защита</th>
+            }
+          </tr>
+        </ng-template>
+
+        <ng-template #body let-row>
+          <tr>
+            <td class="table-wrap__student">{{ fullName() }}</td>
+            @for (cell of rows(); track cell.labId) {
+              <td>{{ cell.submitDate }}</td>
+              <td>{{ cell.defenseDate }}</td>
+            }
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  }
+}

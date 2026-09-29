@@ -1,0 +1,111 @@
+<section class="groups-page">
+  <div class="groups-page__head">
+    <h1 class="groups-page__title">Группы</h1>
+    <p-button label="Создать группу" (onClick)="openCreate()" />
+  </div>
+
+  <div class="groups-page__card">
+    <p-table [value]="groups()">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Название</th>
+          <th>Студентов</th>
+          <th class="groups-page__actions-col">Действия</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-group>
+        <tr>
+          <td>
+            <a class="groups-page__link" [routerLink]="['/groups', group.id]">{{ group.name }}</a>
+          </td>
+          <td>{{ group.studentCount }}</td>
+          <td class="groups-page__actions-col">
+            <p-button
+              icon="pi pi-pencil"
+              variant="outlined"
+              severity="secondary"
+              ariaLabel="Переименовать"
+              (onClick)="openRename(group)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              variant="outlined"
+              severity="danger"
+              ariaLabel="Удалить"
+              (onClick)="confirmRemove(group)"
+            />
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</section>
+
+<!-- Диалог создания (SCR-011): ошибки 400/409 — внутри диалога. -->
+<p-dialog
+  header="Создать группу"
+  [(visible)]="createVisible"
+  [modal]="true"
+  [closable]="false"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '420px', maxWidth: 'calc(100% - 48px)' }"
+>
+  <form [formGroup]="createForm" (ngSubmit)="submitCreate()">
+    <label class="groups-page__field-label" for="group-create-name">Название</label>
+    <input pInputText id="group-create-name" type="text" formControlName="name" maxlength="100" />
+    @if (nameError(); as error) {
+      <small class="groups-page__field-error">{{ error }}</small>
+    }
+  </form>
+  @if (dialogError(); as message) {
+    <div class="groups-page__dialog-error" role="alert">{{ message }}</div>
+  }
+  <ng-template pTemplate="footer">
+    <div class="groups-page__dialog-actions">
+      <p-button label="Отмена" variant="outlined" severity="secondary" (onClick)="cancelCreate()" />
+      <p-button
+        label="Создать"
+        [loading]="createSubmit.busy()"
+        [disabled]="createSubmit.busy()"
+        (onClick)="submitCreate()"
+      />
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Диалог переименования: те же правила, что и в создании (T-116). -->
+<p-dialog
+  header="Переименовать группу"
+  [(visible)]="renameVisible"
+  [modal]="true"
+  [closable]="false"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '420px', maxWidth: 'calc(100% - 48px)' }"
+>
+  <form [formGroup]="renameForm" (ngSubmit)="submitRename()">
+    <label class="groups-page__field-label" for="group-rename-name">Название</label>
+    <input pInputText id="group-rename-name" type="text" formControlName="name" maxlength="100" />
+    @if (nameError(); as error) {
+      <small class="groups-page__field-error">{{ error }}</small>
+    }
+  </form>
+  @if (dialogError(); as message) {
+    <div class="groups-page__dialog-error" role="alert">{{ message }}</div>
+  }
+  <ng-template pTemplate="footer">
+    <div class="groups-page__dialog-actions">
+      <p-button label="Отмена" variant="outlined" severity="secondary" (onClick)="cancelRename()" />
+      <p-button
+        label="Сохранить"
+        [loading]="renameSubmit.busy()"
+        [disabled]="renameSubmit.busy()"
+        (onClick)="submitRename()"
+      />
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Подтверждение удаления: кнопки «Yes»/«No» из перевода PRIME_NG_RU (ADR-111). -->
+<p-confirmDialog [closable]="false" />

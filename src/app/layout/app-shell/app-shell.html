@@ -1,0 +1,28 @@
+<header class="app-topbar">
+  <span class="app-topbar__brand">Сдача лабораторных</span>
+  <nav class="app-topbar__tabs" aria-label="Разделы">
+    @for (item of navItems(); track item.path) {
+      <a
+        class="app-topbar__tab"
+        [routerLink]="item.path"
+        routerLinkActive="app-topbar__tab--active"
+        ariaCurrentWhenActive="page"
+        >{{ item.label }}</a
+      >
+    }
+  </nav>
+  <span class="app-topbar__spacer"></span>
+  @if (currentUser(); as user) {
+    <span class="app-topbar__who">{{ user.fullName }}</span>
+  }
+  <button type="button" class="app-topbar__logout" (click)="logout()">
+    Выйти
+  </button>
+</header>
+
+<!-- Хост мобильного баннера «под шапкой» (IF-109: экраны без формы и успехи). -->
+<app-header-notification />
+
+<main class="app-shell__content">
+  <router-outlet />
+</main>

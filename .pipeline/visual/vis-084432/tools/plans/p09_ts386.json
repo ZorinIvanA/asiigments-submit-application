@@ -1,0 +1,92 @@
+{
+ "name": "p09_ts386",
+ "viewport": {
+  "width": 1280,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "teacher"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "teacher123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "goto",
+   "url": "/submissions",
+   "waitFor": ".submissions-page tbody tr",
+   "timeout": 40000
+  },
+  {
+   "do": "screenshot",
+   "name": "TS386-submissions-desktop",
+   "fullPage": false
+  },
+  {
+   "do": "textDump",
+   "as": "subsText"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const labHeads = [...document.querySelectorAll('.submissions-page thead th')].map(t => (t.textContent || '').trim()); const rows = document.querySelectorAll('.submissions-page tbody tr').length; const caption = (document.querySelector('[data-test=range-caption]') || {}).textContent || null; const labels = [...document.querySelectorAll('.submissions-page__toolbar label')].map(l => l.textContent.trim()); const pickers = document.querySelectorAll('.submissions-page app-submission-date-cell input').length; return { headSample: labHeads.slice(0, 8), labHeadCount: labHeads.length, rows, caption, labels, pickers }; })()",
+   "as": "subsStructure"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const inputs = [...document.querySelectorAll('.submissions-page app-submission-date-cell input')]; return { filled: inputs.filter(i => i.value).slice(0, 6).map(i => i.value), emptySample: inputs.filter(i => !i.value).length, dashes: inputs.filter(i => i.value.includes('—') || i.value.includes('-') && !/^\\d{2}\\.\\d{2}\\.\\d{4}$/.test(i.value)).length }; })()",
+   "as": "subsCells"
+  },
+  {
+   "do": "click",
+   "sel": "#submissions-group + .p-select, .submissions-page__toolbar .p-select"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "TS386-group-select-open",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const o = document.querySelector('.p-select-overlay'); return o ? o.innerText.slice(0, 80) : 'none'; })()",
+   "as": "groupOverlay"
+  },
+  {
+   "do": "press",
+   "key": "Escape"
+  },
+  {
+   "do": "wait",
+   "ms": 300
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const sels = document.querySelectorAll('.submissions-page__toolbar .p-select'); return { count: sels.length }; })()",
+   "as": "selCount"
+  }
+ ]
+}

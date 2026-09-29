@@ -1,0 +1,65 @@
+{
+ "name": "p17_vs009",
+ "viewport": {
+  "width": 767,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/recovery",
+   "waitFor": "#email-input",
+   "timeout": 30000
+  },
+  {
+   "do": "screenshot",
+   "name": "VS009-recovery-767",
+   "fullPage": false
+  },
+  {
+   "do": "type",
+   "sel": "#email-input",
+   "text": "not-an-email"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "VS009-recovery-767-error",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ err: document.body.innerText.includes('Введите корректный email'), scrollW: document.documentElement.scrollWidth, clientW: document.documentElement.clientWidth }))()",
+   "as": "recovery767"
+  },
+  {
+   "do": "viewport",
+   "viewport": {
+    "width": 768,
+    "height": 900
+   },
+   "wait": 500
+  },
+  {
+   "do": "goto",
+   "url": "/recovery",
+   "waitFor": "#email-input",
+   "timeout": 30000
+  },
+  {
+   "do": "screenshot",
+   "name": "VS009-recovery-768",
+   "fullPage": false
+  }
+ ]
+}

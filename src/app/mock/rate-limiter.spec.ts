@@ -102,7 +102,18 @@ describe('RateLimiter — скользящие окна (C-002)', () => {
         expect(limiter.wouldAcquire(marks, NOW)).toBeTrue();
       }
       expect(marks).toEqual([]); // ни одной метки не записано
+      // Проверка без записи не наполняет счётчик: на пустом массиве
+      // wouldAcquire проходит повторно (контракт «проверяет без записи»,
+      // ревью T-119: прежнее ожидание false противоречило реализации —
+      // отказ был бы только у записывающего tryAcquire).
+      expect(limiter.wouldAcquire(marks, NOW)).toBeTrue();
+      // Противофаза «would»: как только метки реально записаны tryAcquire'ом
+      // до MAX, проверка на полном окне даёт отказ — и тоже без записи.
+      for (let i = 0; i < MAX; i++) {
+        expect(limiter.tryAcquire(marks, NOW)).toBeTrue();
+      }
       expect(limiter.wouldAcquire(marks, NOW)).toBeFalse();
+      expect(marks.length).withContext('wouldAcquire и здесь не пишет').toBe(MAX);
     });
 
     it('массив-ключи независимы: переполнение одного не блокирует другой', () => {

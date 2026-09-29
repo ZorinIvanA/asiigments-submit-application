@@ -1,0 +1,199 @@
+{
+ "name": "p08_ts233",
+ "viewport": {
+  "width": 767,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "teacher"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "teacher123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "goto",
+   "url": "/works/new",
+   "waitFor": "form",
+   "timeout": 30000
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сохранить",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "screenshot",
+   "name": "TS233-new-767-error",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "newToast"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const els = [...document.querySelectorAll('.app-notification-banner, [class*=banner]')].filter(e => e.offsetParent !== null); const head = document.querySelector('.app-topbar'); return { headBottom: head ? Math.round(head.getBoundingClientRect().bottom) : null, banners: els.map(e => ({ cls: e.className.toString().slice(0, 90), text: e.innerText.trim().slice(0, 100), y: Math.round(e.getBoundingClientRect().top), icon: !!e.querySelector('.pi, svg, [class*=icon]'), close: !!e.querySelector('button') })), toasts: document.querySelectorAll('.p-toast-message').length }; })()",
+   "as": "newErrPos"
+  },
+  {
+   "do": "goto",
+   "url": "/works",
+   "waitFor": ".works-page table",
+   "timeout": 30000
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const rows = [...document.querySelectorAll('.works-page tbody tr')]; const row = rows.find(r => r.cells[0].innerText.trim() === '2' && r.cells[2].innerText.trim() === '1'); if (!row) return 'no-row'; const bs = row.querySelectorAll('p-button button'); bs[bs.length-1].click(); return 'ok'; })()",
+   "as": "delOkClick"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "clickText",
+   "sel": ".p-confirmdialog button",
+   "text": "Yes",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "screenshot",
+   "name": "TS233-works-767-success",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const els = [...document.querySelectorAll('.app-notification-banner, [class*=banner]')].filter(e => e.offsetParent !== null); const head = document.querySelector('.app-topbar'); return { headBottom: head ? Math.round(head.getBoundingClientRect().bottom) : null, banners: els.map(e => ({ cls: e.className.toString().slice(0, 90), text: e.innerText.trim().slice(0, 100), y: Math.round(e.getBoundingClientRect().top), icon: !!e.querySelector('.pi, svg, [class*=icon]'), close: !!e.querySelector('button') })), toasts: document.querySelectorAll('.p-toast-message').length }; })()",
+   "as": "worksSuccessPos"
+  },
+  {
+   "do": "goto",
+   "url": "/works/new?id=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+   "waitFor": "form",
+   "timeout": 30000
+  },
+  {
+   "do": "wait",
+   "ms": 1800
+  },
+  {
+   "do": "screenshot",
+   "name": "TS233-works-404-767",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const els = [...document.querySelectorAll('.app-notification-banner, [class*=banner]')].filter(e => e.offsetParent !== null); const head = document.querySelector('.app-topbar'); return { headBottom: head ? Math.round(head.getBoundingClientRect().bottom) : null, banners: els.map(e => ({ cls: e.className.toString().slice(0, 90), text: e.innerText.trim().slice(0, 100), y: Math.round(e.getBoundingClientRect().top), icon: !!e.querySelector('.pi, svg, [class*=icon]'), close: !!e.querySelector('button') })), toasts: document.querySelectorAll('.p-toast-message').length }; })()",
+   "as": "works404Pos"
+  },
+  {
+   "do": "viewport",
+   "viewport": {
+    "width": 768,
+    "height": 900
+   },
+   "wait": 500
+  },
+  {
+   "do": "goto",
+   "url": "/works",
+   "waitFor": ".works-page table",
+   "timeout": 30000
+  },
+  {
+   "do": "wait",
+   "ms": 600
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const rows = [...document.querySelectorAll('.works-page tbody tr')]; const row = rows.find(r => r.cells[0].innerText.trim() === '3' && r.cells[2].innerText.trim() === '1'); if (!row) return 'no-row'; const bs = row.querySelectorAll('p-button button'); bs[bs.length-1].click(); return 'ok'; })()",
+   "as": "delOk2"
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "clickText",
+   "sel": ".p-confirmdialog button",
+   "text": "Yes",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1500
+  },
+  {
+   "do": "screenshot",
+   "name": "TS233-works-768-toast",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "edgeToast"
+  },
+  {
+   "do": "goto",
+   "url": "/works/new",
+   "waitFor": "form",
+   "timeout": 30000
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сохранить",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1200
+  },
+  {
+   "do": "screenshot",
+   "name": "TS233-new-768-control",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "edgeNewToast"
+  }
+ ]
+}

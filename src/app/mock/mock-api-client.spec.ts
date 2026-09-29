@@ -12,7 +12,7 @@
  */
 import { fakeAsync, tick } from '@angular/core/testing';
 
-import { ApiError, Group, STORAGE_KEYS } from '../shared/models';
+import { ApiError, Group, MOCK_DELAY_MS, STORAGE_KEYS } from '../shared/models';
 import { MockApiClient } from './mock-api-client';
 import { MockDbData } from './mock-db';
 import { MockErrorStatus, MockValidationError } from './mock-error';
@@ -129,7 +129,7 @@ describe('MockApiClient — конвейер мок-вызова (IF-001)', () =
         return performance.now() - startedAt;
       };
 
-      // mock_call_duration_ms (observability): шесть разных методов параллельно.
+      // mock_call_duration_bounds (observability): шесть разных методов параллельно.
       const durations = await Promise.all([
         measure(() => client.call('test.echo', { marker: 'ping' })),
         measure(() => client.call('test.validation', {})),
@@ -141,7 +141,14 @@ describe('MockApiClient — конвейер мок-вызова (IF-001)', () =
 
       expect(durations.length).toBe(6);
       for (const duration of durations) {
-        expect(duration).withContext(`длительность ${duration} мс`).toBeGreaterThanOrEqual(500);
+        // Нижняя граница с допуском 1 мс (фикс flaky, ревью T-119): реализация
+        // считает задержку по Date.now, замер здесь — по performance.now;
+        // расхождение часов даёт 499.x мс при фактически отработавшей
+        // задержке (setTimeout срабатывает не ранее срока). Верхняя граница
+        // NFR-001 — строго 800 мс.
+        expect(duration)
+          .withContext(`длительность ${duration} мс`)
+          .toBeGreaterThanOrEqual(MOCK_DELAY_MS - 1);
         expect(duration).withContext(`длительность ${duration} мс`).toBeLessThanOrEqual(800);
       }
     });

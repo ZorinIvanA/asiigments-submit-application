@@ -105,6 +105,8 @@ export interface StudentDto {
   fullName: string;
   login: string;
   email: string;
+  /** Идентификатор текущей группы студента (uuid) либо null = без группы (аменда 6). */
+  groupId: string | null;
   /** Имя текущей группы студента либо null = без группы. */
   groupName: string | null;
 }
@@ -144,6 +146,20 @@ export interface MySubmissionsDto {
     submitDate: string | null;
     defenseDate: string | null;
   }>;
+}
+
+/**
+ * Текущий пользователь — ответ auth.register/auth.login/auth.me (контракт
+ * IF-101). Тип живёт в общем словаре DTO (ревью CR-001 T-101): нужен и
+ * мок-обработчикам (домен Auth), и сервисам core со страницами; мок-слой
+ * реэкспортирует его как часть контракта IF-101.
+ */
+export interface MeDto {
+  login: string;
+  fullName: string;
+  role: UserRole;
+  /** Имя группы студента; null = без группы или роль teacher. */
+  groupName?: string | null;
 }
 
 /**
@@ -200,3 +216,11 @@ export const STORAGE_KEYS = {
 
 /** Задержка мок-вызовов в миллисекундах — имитация бэкенда (FR-002/FR-003). */
 export const MOCK_DELAY_MS = 500;
+
+/**
+ * Верхняя граница номера семестра курса (спека §4.3: выпадающий список
+ * 1…Labs__MaxSemester; правило валидации — labSemester в
+ * shared/validation/validators: целое 1–10 включительно). Служит для
+ * построения перечня семестров в формах и селекторах экранов.
+ */
+export const MAX_SEMESTER = 10;

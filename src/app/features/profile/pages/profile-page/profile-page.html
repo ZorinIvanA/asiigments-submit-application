@@ -1,0 +1,196 @@
+<!-- Страница «Профиль» (/profile) — макет SCR-014: две карточки-формы,
+     у каждой свой якорь мобильных уведомлений (AR-017). -->
+<div class="profile-page">
+  <h1 class="profile-page__title" data-test="page-title">Профиль</h1>
+
+  @if (loading()) {
+    <p class="profile-page__status" data-test="loading">Загрузка…</p>
+  } @else {
+    @if (profile(); as profile) {
+      <section class="profile-card">
+        <h2 class="profile-card__title" data-test="profile-card-title">Основные данные</h2>
+
+        <form
+          class="profile-card__form"
+          [formGroup]="profileForm"
+          (ngSubmit)="saveProfile()"
+          data-test="profile-form"
+        >
+          <div class="profile-field" data-test="login-field">
+            <label class="profile-field__label">Логин</label>
+            <div class="profile-field__value" data-test="login-value">{{ profile.login }}</div>
+          </div>
+
+          <div class="profile-field" data-test="role-field">
+            <label class="profile-field__label">Роль</label>
+            <div class="profile-field__value" data-test="role-value">{{ roleLabel() }}</div>
+          </div>
+
+          @if (profile.role === 'student') {
+            <div class="profile-field" data-test="group-field">
+              <label class="profile-field__label">Группа</label>
+              <div class="profile-field__value" data-test="group-value">
+                {{ profile.groupName ?? '—' }}
+              </div>
+            </div>
+          }
+
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="emailError() !== null"
+            data-test="email-field"
+          >
+            <label class="profile-field__label" for="profile-email">Email</label>
+            <input
+              id="profile-email"
+              class="profile-field__input"
+              type="text"
+              pInputText
+              formControlName="email"
+              autocomplete="email"
+              data-test="email-input"
+            />
+            @if (emailError(); as error) {
+              <div class="profile-field__error" data-test="email-error">{{ error }}</div>
+            }
+          </div>
+
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="fullNameError() !== null"
+            data-test="full-name-field"
+          >
+            <label class="profile-field__label" for="profile-full-name">ФИО</label>
+            <input
+              id="profile-full-name"
+              class="profile-field__input"
+              type="text"
+              pInputText
+              formControlName="fullName"
+              data-test="full-name-input"
+            />
+            @if (fullNameError(); as error) {
+              <div class="profile-field__error" data-test="full-name-error">{{ error }}</div>
+            } @else {
+              <div class="profile-field__hint" data-test="full-name-hint">{{ fullNameHint }}</div>
+            }
+          </div>
+
+          <div class="profile-card__actions">
+            <p-button
+              type="submit"
+              label="Сохранить"
+              [loading]="saveProfileState.busy()"
+              [disabled]="saveProfileState.busy()"
+              data-test="profile-submit"
+            />
+          </div>
+        </form>
+
+        <!-- Мобильный баннер ошибок ЭТОЙ формы: клиентская валидация и 409 email (AR-017). -->
+        <app-notification-anchor [formId]="profileFormId" data-test="profile-anchor" />
+      </section>
+
+      <section class="profile-card">
+        <h2 class="profile-card__title" data-test="password-card-title">Смена пароля</h2>
+
+        <div class="profile-requirements" data-test="password-requirements">
+          <b class="profile-requirements__title" data-test="password-requirements-title">
+            {{ passwordRequirementsTitle }}
+          </b>
+          <span data-test="password-requirements-text">{{ passwordRequirements }}</span>
+        </div>
+
+        <form
+          class="profile-card__form"
+          [formGroup]="passwordForm"
+          (ngSubmit)="changePassword()"
+          data-test="password-form"
+        >
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="currentPasswordError() !== null"
+            data-test="current-password-field"
+          >
+            <label class="profile-field__label" for="profile-current-password">
+              Текущий пароль
+            </label>
+            <input
+              id="profile-current-password"
+              class="profile-field__input"
+              type="password"
+              pInputText
+              formControlName="currentPassword"
+              autocomplete="current-password"
+              data-test="current-password-input"
+            />
+            @if (currentPasswordError(); as error) {
+              <div class="profile-field__error" data-test="current-password-error">
+                {{ error }}
+              </div>
+            }
+          </div>
+
+          <div aria-hidden="true"></div>
+
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="newPasswordError() !== null"
+            data-test="new-password-field"
+          >
+            <label class="profile-field__label" for="profile-new-password">Новый пароль</label>
+            <input
+              id="profile-new-password"
+              class="profile-field__input"
+              type="password"
+              pInputText
+              formControlName="password"
+              autocomplete="new-password"
+              data-test="new-password-input"
+            />
+            @if (newPasswordError(); as error) {
+              <div class="profile-field__error" data-test="new-password-error">{{ error }}</div>
+            }
+          </div>
+
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="repeatPasswordError() !== null"
+            data-test="repeat-password-field"
+          >
+            <label class="profile-field__label" for="profile-repeat-password">
+              Повторите пароль
+            </label>
+            <input
+              id="profile-repeat-password"
+              class="profile-field__input"
+              type="password"
+              pInputText
+              formControlName="confirmPassword"
+              autocomplete="new-password"
+              data-test="repeat-password-input"
+            />
+            @if (repeatPasswordError(); as error) {
+              <div class="profile-field__error" data-test="repeat-password-error">
+                {{ error }}
+              </div>
+            }
+          </div>
+
+          <div class="profile-card__actions">
+            <p-button
+              type="submit"
+              label="Сменить пароль"
+              [loading]="changePasswordState.busy()"
+              [disabled]="changePasswordState.busy()"
+              data-test="password-submit"
+            />
+          </div>
+        </form>
+
+        <!-- Мобильный баннер ошибок ЭТОЙ формы: «Неверный текущий пароль» и валидация (AR-017). -->
+        <app-notification-anchor [formId]="passwordFormId" data-test="password-anchor" />
+      </section>
+    }
+  }
+</div>

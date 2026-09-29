@@ -1,0 +1,114 @@
+// Оболочка приложения (шапка SCR-006, FR-020): высота шапки 56px публикуется
+// переменной --app-header-height — её используют хосты мобильных баннеров
+// (notification-banner) и все экраны-якоря 'header' (IF-109).
+@use '../../../styles/breakpoint' as bp;
+
+:host {
+  --app-header-height: 56px;
+
+  display: block;
+  min-height: 100vh;
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: var(--app-header-height);
+  padding: 0 24px;
+  background: var(--p-surface-card, #fff);
+  border-bottom: 1px solid var(--p-surface-border, #e2e8f0);
+}
+
+.app-topbar__brand {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--p-text-color, #1e293b);
+  white-space: nowrap;
+}
+
+.app-topbar__tabs {
+  display: flex;
+  gap: 4px;
+  height: 100%;
+}
+
+.app-topbar__tab {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--p-text-muted-color, #475569);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+
+  &:hover {
+    background: var(--p-surface-50, #f8fafc);
+  }
+
+  &.app-topbar__tab--active {
+    color: var(--p-primary-color, #4f46e5);
+    border-bottom-color: var(--p-primary-color, #4f46e5);
+  }
+}
+
+.app-topbar__spacer {
+  flex: 1;
+}
+
+.app-topbar__who {
+  color: var(--p-text-muted-color, #64748b);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.app-topbar__logout {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--p-surface-card, #fff);
+  color: var(--p-text-muted-color, #475569);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+// Колонка контента страницы (SCR-006/007): 1200px по центру, отступы
+// страницы из глобальной переменной --page-padding (styles.scss).
+.app-shell__content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px var(--page-padding, 24px);
+}
+
+// Мобильная ширина (OQ-005): высота топбара сохраняется, вкладки скроллятся
+// горизонтально (полоса скролла скрыта — сами вкладки видимы целиком при
+// прокрутке), ФИО скрывается.
+@include bp.mobile {
+  .app-topbar {
+    gap: 12px;
+    padding: 0 var(--page-padding, 12px);
+  }
+
+  .app-topbar__tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .app-topbar__tab {
+    white-space: nowrap;
+  }
+
+  .app-topbar__who {
+    display: none;
+  }
+}

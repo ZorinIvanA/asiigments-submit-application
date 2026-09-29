@@ -1,0 +1,18 @@
+{
+ "name": "p13b_ts388_loaded",
+ "viewport": {"width": 1280, "height": 900},
+ "steps": [
+  {"do": "clearStorage"},
+  {"do": "goto", "url": "/login", "waitFor": "#login-input"},
+  {"do": "type", "sel": "#login-input", "text": "teacher"},
+  {"do": "type", "sel": "#password-input", "text": "teacher123!"},
+  {"do": "click", "sel": "button[type=submit]"},
+  {"do": "wait", "ms": 1700},
+  {"do": "goto", "url": "/access", "waitFor": ".access__search-input"},
+  {"do": "waitSelector", "sel": "tbody tr", "timeout": 20000},
+  {"do": "wait", "ms": 800},
+  {"do": "screenshot", "name": "TS388-access-desktop-loaded"},
+  {"do": "eval", "js": "(() => { const heads = [...document.querySelectorAll('th')].map(t => t.textContent.trim()); const rows = document.querySelectorAll('tbody tr').length; const sels = document.querySelectorAll('tbody .p-select').length; const caption = [...document.querySelectorAll('span,p')].map(e => e.textContent).find(t => t.includes('Показать записи')); const muted = document.body.innerText.includes('Без группы'); return { heads, rows, sels, caption, muted }; })()", "as": "loaded"},
+  {"do": "eval", "js": "(() => { const inp = document.querySelector('.access__search-input'); const r = inp.getBoundingClientRect(); const cs = getComputedStyle(inp); const span = document.createElement('span'); span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:' + cs.font; span.textContent = inp.placeholder; document.body.appendChild(span); const pw = span.getBoundingClientRect().width; span.remove(); return { inputW: Math.round(r.width), placeholderW: Math.round(pw), fits: pw <= r.width - 40, placeholder: inp.placeholder }; })()", "as": "placeholderFit"}
+ ]
+}

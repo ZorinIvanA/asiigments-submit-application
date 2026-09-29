@@ -1,0 +1,164 @@
+{
+ "name": "p02_vs002",
+ "viewport": {
+  "width": 1280,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/register",
+   "waitFor": "#full-name-input",
+   "timeout": 30000
+  },
+  {
+   "do": "screenshot",
+   "name": "VS002-register-desktop-initial",
+   "fullPage": false
+  },
+  {
+   "do": "textDump",
+   "as": "initialText"
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ selects: document.querySelectorAll('select, .p-select').length, roleText: document.body.innerText.includes('Роль') }))()",
+   "as": "roleCheck"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "VS002-register-desktop-empty-errors",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ errCount: document.querySelectorAll('.ng-invalid, [class*=error]').length }))()",
+   "as": "emptyErr"
+  },
+  {
+   "do": "type",
+   "sel": "#full-name-input",
+   "text": "Визуал Тест Визуалович"
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "vsreg01"
+  },
+  {
+   "do": "type",
+   "sel": "#email-input",
+   "text": "bad-email"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "123"
+  },
+  {
+   "do": "type",
+   "sel": "#repeat-password-input",
+   "text": "456"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 900
+  },
+  {
+   "do": "screenshot",
+   "name": "VS002-register-desktop-invalid",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => document.body.innerText.slice(0, 1500))()",
+   "as": "invalidText"
+  },
+  {
+   "do": "setValue",
+   "sel": "#email-input",
+   "value": "student01@example.com"
+  },
+  {
+   "do": "setValue",
+   "sel": "#password-input",
+   "value": "ValidPass1!"
+  },
+  {
+   "do": "setValue",
+   "sel": "#repeat-password-input",
+   "value": "ValidPass1!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1800
+  },
+  {
+   "do": "screenshot",
+   "name": "VS002-register-409-email",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "toastEmail409"
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ t: document.body.innerText.includes('Пользователь с таким email уже существует') }))()",
+   "as": "email409Check"
+  },
+  {
+   "do": "setValue",
+   "sel": "#login-input",
+   "value": "student02"
+  },
+  {
+   "do": "setValue",
+   "sel": "#email-input",
+   "value": "vsreg01@example.com"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1800
+  },
+  {
+   "do": "screenshot",
+   "name": "VS002-register-409-login",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "toastLogin409"
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ t: document.body.innerText.includes('Пользователь с таким логином уже существует') }))()",
+   "as": "login409Check"
+  }
+ ]
+}

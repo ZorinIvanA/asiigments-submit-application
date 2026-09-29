@@ -1,0 +1,124 @@
+{
+ "name": "p12_ts387",
+ "viewport": {
+  "width": 1280,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "teacher"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "teacher123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "goto",
+   "url": "/groups",
+   "waitFor": "table",
+   "timeout": 30000
+  },
+  {
+   "do": "screenshot",
+   "name": "TS387-groups-list",
+   "fullPage": false
+  },
+  {
+   "do": "textDump",
+   "as": "groupsText"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const heads = [...document.querySelectorAll('th')].map(t => t.textContent.trim()); const rows = [...document.querySelectorAll('tbody tr')].map(r => r.innerText.replace(/\\t/g, ' | ').slice(0, 60)); return { heads, rows }; })()",
+   "as": "groupsStructure"
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Создать группу",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1000
+  },
+  {
+   "do": "screenshot",
+   "name": "TS387-create-dialog",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const d = document.querySelector('.p-dialog'); if (!d) return 'no-dialog'; return { header: (d.querySelector('.p-dialog-title') || {}).textContent, hasName: !!d.querySelector('#group-create-name'), btns: [...d.querySelectorAll('button')].map(b => b.textContent.trim()).filter(Boolean) }; })()",
+   "as": "createDialogCheck"
+  },
+  {
+   "do": "clickText",
+   "sel": ".p-dialog button",
+   "text": "Отмена",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 800
+  },
+  {
+   "do": "screenshot",
+   "name": "TS387-create-dialog-closed",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ gone: !document.querySelector('.p-dialog') }))()",
+   "as": "dialogClosed"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const row = [...document.querySelectorAll('tbody tr')].find(r => r.innerText.includes('ИК-221')); if (!row) return 'no-row'; const link = row.querySelector('a') || row.querySelector('button'); (link || row).click(); return 'clicked'; })()",
+   "as": "openIk221"
+  },
+  {
+   "do": "wait",
+   "ms": 1600
+  },
+  {
+   "do": "eval",
+   "js": "(() => location.pathname)()",
+   "as": "groupCardPath"
+  },
+  {
+   "do": "screenshot",
+   "name": "TS387-group-card",
+   "fullPage": false
+  },
+  {
+   "do": "textDump",
+   "as": "groupCardText"
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ crumbs: document.body.innerText.includes('Группы') && document.body.innerText.includes('ИК-221'), count25: document.body.innerText.includes('Студентов: 25'), exclude: document.body.innerText.includes('Исключить из группы') }))()",
+   "as": "groupCardCheck"
+  }
+ ]
+}

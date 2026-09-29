@@ -1,0 +1,100 @@
+<section class="lab-form">
+  <div class="lab-form__card">
+    <p class="lab-form__kicker">Сдача лабораторных</p>
+    <h1 class="lab-form__title">{{ title() }}</h1>
+
+    <form [attr.id]="formId" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <div class="lab-form__field">
+        <label for="lab-number">Номер</label>
+        <input
+          pInputText
+          id="lab-number"
+          formControlName="number"
+          inputmode="numeric"
+          autocomplete="off"
+        />
+        @if (errorText('number'); as text) {
+          <small class="lab-form__error">{{ text }}</small>
+        }
+      </div>
+
+      <div class="lab-form__field">
+        <label for="lab-semester">Семестр</label>
+        <p-select
+          inputId="lab-semester"
+          [options]="semesters"
+          formControlName="semester"
+          placeholder="Выберите семестр"
+        />
+        @if (errorText('semester'); as text) {
+          <small class="lab-form__error">{{ text }}</small>
+        }
+      </div>
+
+      <div class="lab-form__field">
+        <label for="lab-content">Содержание работы</label>
+        <input
+          pInputText
+          id="lab-content"
+          formControlName="content"
+          maxlength="500"
+          autocomplete="off"
+        />
+        @if (errorText('content'); as text) {
+          <small class="lab-form__error">{{ text }}</small>
+        }
+      </div>
+
+      <div class="lab-form__field lab-form__field--checkbox">
+        <p-checkbox [binary]="true" inputId="lab-defense" formControlName="defenseRequired" />
+        <label for="lab-defense">Нужна защита</label>
+      </div>
+
+      <div class="lab-form__field">
+        @if (urlVisible()) {
+          <!-- Метка рендерится только вместе с полем: в скрытом состоянии
+               ей не на что указывать (CR-003). -->
+          <label for="lab-url">{{ urlFieldLabel }}</label>
+          <input
+            pInputText
+            id="lab-url"
+            formControlName="assignmentUrl"
+            placeholder="https://"
+            autocomplete="off"
+          />
+          @if (errorText('assignmentUrl'); as text) {
+            <small class="lab-form__error">{{ text }}</small>
+          }
+        } @else {
+          <!-- Кнопка-цепочка: директива pButton (не p-button) — pTooltip на
+               компоненте p-button не инстанцирует директиву Tooltip. Имя
+               доступности — из той же константы, что и метка поля (без
+               дублирования текста). -->
+          <button
+            pButton
+            type="button"
+            icon="pi pi-link"
+            [text]="true"
+            [outlined]="true"
+            [pTooltip]="linkButtonTooltip"
+            [attr.aria-label]="urlFieldLabel"
+            (click)="openUrlField()"
+          ></button>
+        }
+      </div>
+
+      <div class="lab-form__actions">
+        <p-button type="submit" label="Сохранить" [loading]="busy()" [disabled]="busy()" />
+        <p-button
+          type="button"
+          label="Назад"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="back()"
+        />
+      </div>
+    </form>
+
+    <app-notification-anchor [formId]="formId" />
+  </div>
+</section>

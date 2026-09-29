@@ -1,0 +1,271 @@
+{
+ "name": "p04_vs005",
+ "viewport": {
+  "width": 1280,
+  "height": 900
+ },
+ "steps": [
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "student01"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "student123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "goto",
+   "url": "/profile",
+   "waitFor": ".profile-page, main, h1",
+   "timeout": 30000
+  },
+  {
+   "do": "screenshot",
+   "name": "VS005-profile-desktop",
+   "fullPage": false
+  },
+  {
+   "do": "textDump",
+   "as": "profileText"
+  },
+  {
+   "do": "eval",
+   "js": "(() => ({ loginIsValue: !!document.querySelector('[data-test=login-value]'), loginInput: !!document.querySelector('#profile-login-input, input[formcontrolname=login]') }))()",
+   "as": "loginRO"
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сохранить",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1600
+  },
+  {
+   "do": "screenshot",
+   "name": "VS005-profile-desktop-saved",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "savedToast"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-current-password",
+   "value": "badpass1!"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-new-password",
+   "value": "NewPass123!"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-repeat-password",
+   "value": "NewPass123!"
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сменить пароль",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1600
+  },
+  {
+   "do": "screenshot",
+   "name": "VS005-profile-desktop-passwd-err",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "pwErrToast"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const els = [...document.querySelectorAll('div,section,p,span')].filter(e => e.children.length === 0 && e.textContent.trim().length > 2 && e.textContent.trim().length < 200 && (e.className || '').toString().match(/(banner|anchor|notification)/)); return els.map(e => ({ cls: e.className.toString().slice(0, 120), text: e.textContent.trim().slice(0, 120), y: Math.round(e.getBoundingClientRect().top) })); })()",
+   "as": "pwErrBanner"
+  },
+  {
+   "do": "eval",
+   "js": "(() => document.body.innerText.includes('Неверный текущий пароль'))()",
+   "as": "pwWrongCurrentText"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-current-password",
+   "value": "student123!"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-new-password",
+   "value": "NewPass123!"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-repeat-password",
+   "value": "NewPass123!"
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сменить пароль",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1800
+  },
+  {
+   "do": "screenshot",
+   "name": "VS005-profile-desktop-passwd",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "pwOkToast"
+  },
+  {
+   "do": "clearStorage"
+  },
+  {
+   "do": "viewport",
+   "viewport": {
+    "width": 767,
+    "height": 900
+   },
+   "wait": 500
+  },
+  {
+   "do": "goto",
+   "url": "/login",
+   "waitFor": "#login-input",
+   "timeout": 30000
+  },
+  {
+   "do": "type",
+   "sel": "#login-input",
+   "text": "student01"
+  },
+  {
+   "do": "type",
+   "sel": "#password-input",
+   "text": "student123!"
+  },
+  {
+   "do": "click",
+   "sel": "button[type=submit]"
+  },
+  {
+   "do": "wait",
+   "ms": 1700
+  },
+  {
+   "do": "goto",
+   "url": "/profile",
+   "waitFor": ".profile-page, main, h1",
+   "timeout": 30000
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сохранить",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1600
+  },
+  {
+   "do": "screenshot",
+   "name": "VS005-profile-mobile-saved",
+   "fullPage": false
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "mobileSavedToast"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const els = [...document.querySelectorAll('div,section,p,span')].filter(e => e.children.length === 0 && e.textContent.trim().length > 2 && e.textContent.trim().length < 200 && (e.className || '').toString().match(/(banner|anchor|notification)/)); return els.map(e => ({ cls: e.className.toString().slice(0, 120), text: e.textContent.trim().slice(0, 120), y: Math.round(e.getBoundingClientRect().top) })); })()",
+   "as": "mobileSavedBanner"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const h = document.querySelector('.app-topbar'); const t = document.querySelector('.p-toast-message'); if (!h || !t) return { topbar: !!h, toast: !!t }; return { topbarBottom: Math.round(h.getBoundingClientRect().bottom), toastTop: Math.round(t.getBoundingClientRect().top) }; })()",
+   "as": "mobileToastPos"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-current-password",
+   "value": "badpass1!"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-new-password",
+   "value": "NewPass123!"
+  },
+  {
+   "do": "setValue",
+   "sel": "#profile-repeat-password",
+   "value": "NewPass123!"
+  },
+  {
+   "do": "scrollTo",
+   "sel": "[data-test=password-card-title]"
+  },
+  {
+   "do": "clickText",
+   "sel": "button",
+   "text": "Сменить пароль",
+   "idx": 0
+  },
+  {
+   "do": "wait",
+   "ms": 1600
+  },
+  {
+   "do": "screenshot",
+   "name": "VS005-profile-mobile-passwd-err",
+   "fullPage": true
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const ts = [...document.querySelectorAll('.p-toast-message')]; return ts.map(t => { const r = t.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), text: t.innerText.slice(0, 200), cls: t.className.slice(0, 160), icon: !!t.querySelector('.p-toast-message-icon'), close: !!(t.querySelector('.p-toast-icon-close') || t.querySelector('.p-toast-close-button') || t.querySelector('button')) }; }); })()",
+   "as": "mobilePwErrToast"
+  },
+  {
+   "do": "eval",
+   "js": "(() => { const els = [...document.querySelectorAll('div,section,p,span')].filter(e => e.children.length === 0 && e.textContent.trim().length > 2 && e.textContent.trim().length < 200 && (e.className || '').toString().match(/(banner|anchor|notification)/)); return els.map(e => ({ cls: e.className.toString().slice(0, 120), text: e.textContent.trim().slice(0, 120), y: Math.round(e.getBoundingClientRect().top) })); })()",
+   "as": "mobilePwErrBanner"
+  }
+ ]
+}
