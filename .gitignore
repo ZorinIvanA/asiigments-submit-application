@@ -427,3 +427,6 @@ FodyWeavers.xsd
 # Test output
 /test-output
 /coverage
+
+/.pipeline
+/.vscode
