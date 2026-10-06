@@ -11,7 +11,7 @@
  *
  * Инфраструктура:
  *  - изоляция батча: общие процедуры батчей resetDemoEnv() (beforeEach) и
- *    resetDemoEnvAfterSpec() (afterEach) из src/app/testing/integration-env.ts,
+ *    resetDemoEnvAfterSpec() (afterEach) из src/client/app/testing/integration-env.ts,
  *    свежий MockApiClient с обработчиками всех доменов на каждый сценарий;
  *  - сессия teacher поднимается настоящим auth.login (teacher/teacher123!,
  *    ADR-107) — как в демонстрации;
@@ -38,7 +38,7 @@ import { NOTIFICATION_AUTO_CLOSE_MS } from '../../../shared/notifications/notifi
 import { NotificationService } from '../../../shared/notifications/notification-service';
 import { NotificationToast } from '../../../shared/notifications/notification-toast';
 import { resetDemoEnv, resetDemoEnvAfterSpec } from '../../integration-env';
-// Заглушка BreakpointObserver живёт в src/testing (корневая зона тестов).
+// Заглушка BreakpointObserver живёт в src/client/testing (корневая зона тестов).
 import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
 
 /**
