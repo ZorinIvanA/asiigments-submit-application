@@ -1,0 +1,89 @@
+// Форма лабораторной (ADR-103): карточка в стиле макетов 400px
+// (токены: primary #4F46E5, поле 44px, радиус полей 6px, карточек 8px).
+@use '../../../../../styles/breakpoint' as bp;
+
+.lab-form {
+  display: flex;
+  justify-content: center;
+  // Паддинг страницы задаёт shell (.app-shell__content, --page-padding):
+  // двойной паддинг «shell + страница» убран (ревью T-109).
+}
+
+.lab-form__card {
+  width: 400px;
+  max-width: 100%;
+  background: var(--p-content-background, #ffffff);
+  border: 1px solid var(--p-content-border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.lab-form__kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--p-primary-color, #4f46e5);
+}
+
+.lab-form__title {
+  margin: 0 0 24px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+.lab-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+
+  label {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  input {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 6px;
+  }
+
+  // Подсветка невалидных полей после отправки (markAllAsTouched) или правки.
+  input.ng-invalid.ng-touched,
+  input.ng-invalid.ng-dirty {
+    border-color: var(--p-red-500, #dc2626);
+  }
+
+  &--checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.lab-form__error {
+  color: var(--p-red-500, #dc2626);
+  font-size: 12px;
+}
+
+.lab-form__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@include bp.mobile {
+  .lab-form {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .lab-form__card {
+    padding: 24px 16px;
+  }
+}

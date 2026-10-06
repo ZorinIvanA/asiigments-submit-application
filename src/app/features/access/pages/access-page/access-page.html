@@ -1,0 +1,122 @@
+<main class="access">
+  <h1 class="access__title">Доступ</h1>
+
+  <div class="access__toolbar">
+    <div class="access__search">
+      <span class="access__search-icon" aria-hidden="true">⌕</span>
+      <input
+        type="search"
+        maxlength="200"
+        class="access__search-input"
+        placeholder="Поиск по ФИО, логину или email"
+        aria-label="Поиск по ФИО, логину или email"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="onSearchInput($event)"
+      />
+      <button
+        type="button"
+        class="access__search-clear"
+        aria-label="Очистить поиск"
+        (click)="clearSearch()"
+      >
+        ×
+      </button>
+    </div>
+    <label class="access__no-group">
+      <input
+        type="checkbox"
+        [ngModel]="onlyWithoutGroup()"
+        (ngModelChange)="onOnlyWithoutGroupChange($event)"
+      />
+      Без группы
+    </label>
+  </div>
+
+  <div class="access__card">
+    <p-table [value]="rows()" styleClass="access__table">
+      <ng-template #header>
+        <tr>
+          <th>ФИО</th>
+          <th>Логин</th>
+          <th>Email</th>
+          <th>Группа</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-row>
+        <tr>
+          <td>{{ row.student.fullName }}</td>
+          <td>{{ row.student.login }}</td>
+          <td>{{ row.student.email }}</td>
+          <td>
+            <!-- Деградация (аменда 6, ревью CR-007 T-117/iter2): при недоступном
+                 справочнике групп селектор не рендерится — в ячейке DTO-имя
+                 группы, чтобы не показывать пустую подпись селектора. -->
+            @if (groupsFailed()) {
+              <span class="access__group-fallback" data-test="group-fallback">{{
+                row.student.groupName ?? 'Без группы'
+              }}</span>
+            } @else {
+              <p-select
+                [options]="groupOptions()"
+                optionLabel="label"
+                optionValue="value"
+                [ngModel]="row.groupId"
+                (ngModelChange)="onGroupChange(row, $event)"
+                [disabled]="row.saving"
+                [styleClass]="row.groupId === null ? 'access__select--no-group' : ''"
+                [ariaLabel]="'Группа студента ' + row.student.fullName"
+              />
+            }
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="4">Записей нет</td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <div class="access__foot">
+      <span class="access__caption">
+        @if (busy()) {
+          <span class="access__spinner" aria-hidden="true"></span>
+        }
+        {{ caption() }}
+      </span>
+      <div class="access__pages">
+        <button
+          type="button"
+          class="access__page access__page--nav"
+          aria-label="Предыдущая страница"
+          [disabled]="page() <= 1 || loading()"
+          (click)="goToPage(page() - 1)"
+        >
+          ‹
+        </button>
+        @for (pageNumber of pageNumbers(); track pageNumber) {
+          <button
+            type="button"
+            class="access__page"
+            [class.access__page--current]="pageNumber === page()"
+            [disabled]="loading()"
+            (click)="goToPage(pageNumber)"
+          >
+            {{ pageNumber }}
+          </button>
+        }
+        <button
+          type="button"
+          class="access__page access__page--nav"
+          aria-label="Следующая страница"
+          [disabled]="page() >= totalPages() || loading()"
+          (click)="goToPage(page() + 1)"
+        >
+          ›
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p-confirmdialog [closable]="false" />
+</main>

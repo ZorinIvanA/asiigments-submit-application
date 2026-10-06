@@ -1,0 +1,132 @@
+<!-- Экран «Лабораторные работы» /works — макет design/mockups/works.html (SCR-007). -->
+<section class="works-page">
+  <div class="works-page__head">
+    <h1>Лабораторные работы</h1>
+    <p-button label="Добавить…" (onClick)="add()" />
+  </div>
+
+  <div class="works-page__toolbar">
+    <label for="works-semester">Семестр</label>
+    <p-select
+      inputId="works-semester"
+      [options]="semesterOptions()"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="filterSemester()"
+      (ngModelChange)="onSemesterChange($event)"
+    />
+  </div>
+
+  <div class="works-page__card">
+    <!-- Список блокируется, пока открыт диалог удаления (FR-014, макет SCR-007). -->
+    <div class="works-page__list" [class.works-page__list--locked]="dialogOpen()">
+      <p-table [value]="rows()" [loading]="loading()">
+        <ng-template #header>
+          <tr>
+            <th
+              class="works-page__num works-page__sortable"
+              (click)="toggleSort('number')"
+              [attr.aria-sort]="sortField() === 'number' ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'"
+            >
+              Номер
+              @if (sortField() === 'number') {
+                <span
+                  class="works-page__sort"
+                  [title]="sortDir() === 'asc' ? 'Сортировка по возрастанию' : 'Сортировка по убыванию'"
+                  >{{ sortDir() === 'asc' ? '▲' : '▼' }}</span
+                >
+              }
+            </th>
+            <th>Содержание</th>
+            <th
+              class="works-page__sortable"
+              (click)="toggleSort('semester')"
+              [attr.aria-sort]="sortField() === 'semester' ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'"
+            >
+              Семестр
+              @if (sortField() === 'semester') {
+                <span
+                  class="works-page__sort"
+                  [title]="sortDir() === 'asc' ? 'Сортировка по возрастанию' : 'Сортировка по убыванию'"
+                  >{{ sortDir() === 'asc' ? '▲' : '▼' }}</span
+                >
+              }
+            </th>
+            <th>Задание</th>
+            <th class="works-page__center">Нужна защита</th>
+            <th class="works-page__center">Действия</th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-lab>
+          <tr>
+            <td class="works-page__num">{{ lab.number }}</td>
+            <td>{{ lab.content }}</td>
+            <td>{{ lab.semester }}</td>
+            <td>
+              @if (lab.assignmentUrl !== null) {
+                <a
+                  class="works-page__assignment"
+                  [href]="assignmentHref(lab.assignmentUrl)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  [title]="lab.assignmentUrl"
+                  aria-label="Открыть задание (откроется в новой вкладке)"
+                  >{{ assignmentLabel(lab.assignmentUrl) }}</a
+                >
+              } @else {
+                <span class="works-page__dash" title="Ссылки нет">—</span>
+              }
+            </td>
+            <td class="works-page__center">
+              <p-checkbox
+                [binary]="true"
+                [ngModel]="lab.defenseRequired"
+                [disabled]="true"
+                ariaLabel="Нужна защита, недоступно для изменения"
+              />
+            </td>
+            <td class="works-page__center works-page__actions">
+              <p-button
+                icon="pi pi-pencil"
+                [outlined]="true"
+                title="Редактировать"
+                ariaLabel="Редактировать"
+                (onClick)="edit(lab)"
+                [disabled]="removeState.busy()"
+              />
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                [outlined]="true"
+                title="Удалить"
+                ariaLabel="Удалить"
+                (onClick)="requestRemove(lab)"
+                [disabled]="removeState.busy()"
+              />
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr>
+            <td colspan="6" class="works-page__empty">Записей нет</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+
+    <div class="works-page__foot">
+      @if (pageReport() !== null) {
+        <span class="works-page__report">{{ pageReport() }}</span>
+      }
+      <p-paginator
+        [first]="first()"
+        [rows]="pageSize"
+        [totalRecords]="total()"
+        (onPageChange)="onPageChange($event)"
+      />
+    </div>
+  </div>
+
+  <!-- Диалог подтверждения удаления: «Yes»/«No» из primeng-ru (ADR-111). -->
+  <p-confirmdialog (onHide)="dialogOpen.set(false)" />
+</section>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCR-014 — Профиль (/profile) — статичный макет (design 3.2)</title>
+<style>
+  :root{
+    --primary:#4F46E5;--primary-hover:#4338CA;--text:#1E293B;--text2:#475569;--muted:#64748B;
+    --border:#E2E8F0;--page:#F1F5F9;--card:#FFFFFF;--muted-bg:#F8FAFC;
+    --danger:#DC2626;--danger-bg:#FEF2F2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;font:14px/20px "Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--text);background:var(--page)}
+  .note{max-width:720px;margin:0 auto 16px;font-size:12px;color:var(--muted)}
+  .stage{max-width:720px;margin:0 auto;background:var(--page);border:1px dashed var(--border);padding:24px}
+  h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:16px}
+  h2{font-size:16px;line-height:24px;font-weight:600;margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}
+  label{display:block;font-weight:600;font-size:14px;margin:0 0 8px}
+  .value{height:44px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--border);border-radius:6px;background:var(--muted-bg);color:var(--text2)}
+  input{width:100%;height:44px;border:1px solid var(--border);border-radius:6px;padding:0 12px;font:inherit}
+  .field.invalid input{border-color:var(--danger);background:var(--danger-bg)}
+  .err{color:var(--danger);font-size:12px;margin-top:4px}
+  .hint{color:var(--muted);font-size:12px;margin-top:4px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 20px;border-radius:6px;border:1px solid transparent;background:var(--primary);color:#fff;font:600 14px/20px inherit;font-family:inherit;cursor:pointer;margin-top:8px}
+  .req{margin:0 0 16px;padding:12px 16px;background:var(--muted-bg);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;line-height:20px}
+  .req b{display:block;margin-bottom:4px;color:var(--text)}
+  /* мобильные inline-баннеры на /profile — под формой, инициировавшей действие (AR-017): ошибки профиля — под карточкой 1, ошибки смены пароля — под карточкой 2; автозакрытие 5 с + × */
+  .inline-err{margin-top:16px;background:var(--danger-bg);border:1px solid var(--danger);border-left:4px solid var(--danger);border-radius:6px;padding:10px 36px 10px 12px;position:relative;font-weight:600;color:var(--danger)}
+  .inline-err .x{position:absolute;top:6px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--danger);font-size:16px;cursor:pointer}
+</style>
+</head>
+<body>
+<p class="note">Статичный макет SCR-014 «Профиль» (/profile) — design 3.2 по spec 3.2 (FR-019): логин только чтение, роль по-русски, группа только у студента; редактирование ФИО/email; смена пароля с требованиями. Пример ошибки валидации email — текст словаря FR-023; при ошибках клиентской валидации — баннер «Данные заполнены неверно» + тексты у полей (FR-023); успехи — зелёные «Сохранено»/«Пароль изменён» (FR-021). Мобильные inline-баннеры (&lt;768px) — ПОД ФОРМОЙ, ИНИЦИИРОВАВШЕЙ ДЕЙСТВИЕ (AR-017): как ошибки мока (409 «Пользователь с таким email уже существует», «Неверный текущий пароль»), так и баннер клиентской валидации «Данные заполнены неверно» — ошибки формы профиля под карточкой «Основные данные», ошибки формы смены пароля под карточкой «Смена пароля»; не в общем слоте экрана; автозакрытие 5 с + ×.</p>
+<div class="stage">
+  <h1>Профиль</h1>
+
+  <section class="card" aria-labelledby="t1">
+    <h2 id="t1">Основные данные</h2>
+    <div class="grid">
+      <div>
+        <label>Логин</label>
+        <div class="value">student01</div>
+      </div>
+      <div>
+        <label>Роль</label>
+        <div class="value">Студент</div>
+      </div>
+      <div>
+        <label>Группа</label>
+        <div class="value">ИК-221</div>
+      </div>
+      <div>
+        <label for="em">Email</label>
+        <div class="field invalid">
+          <input id="em" value="abc">
+          <div class="err">Введите корректный email</div>
+        </div>
+      </div>
+      <div>
+        <label for="fn">ФИО</label>
+        <input id="fn" value="Иванов Иван Иванович 01">
+        <div class="hint">От 1 до 200 символов</div>
+      </div>
+    </div>
+    <button class="btn">Сохранить</button>
+    <!-- mobile: inline-баннер ошибок ЭТОЙ формы (валидация «Данные заполнены неверно» и 409) — здесь, под формой (AR-017) -->
+    <div class="inline-err" role="alert">Данные заполнены неверно<button class="x" aria-label="Закрыть">×</button></div>
+  </section>
+
+  <section class="card" aria-labelledby="t2">
+    <h2 id="t2">Смена пароля</h2>
+    <div class="req">
+      <b>Требования к новому паролю</b>
+      не менее 8 символов; минимум одна цифра; минимум одна буква; минимум один спецзнак; пароли должны совпадать
+    </div>
+    <div class="grid">
+      <div>
+        <label for="cp">Текущий пароль</label>
+        <input id="cp" type="password">
+      </div>
+      <div></div>
+      <div>
+        <label for="np">Новый пароль</label>
+        <input id="np" type="password">
+      </div>
+      <div>
+        <label for="np2">Повторите пароль</label>
+        <input id="np2" type="password">
+      </div>
+    </div>
+    <button class="btn">Сменить пароль</button>
+    <!-- mobile: inline-баннер ошибок ЭТОЙ формы («Неверный текущий пароль», валидация) — здесь, под формой (AR-017) -->
+    <div class="inline-err" role="alert">Неверный текущий пароль<button class="x" aria-label="Закрыть">×</button></div>
+  </section>
+</div>
+</body>
+</html>

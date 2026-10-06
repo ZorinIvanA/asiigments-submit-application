@@ -1,0 +1,72 @@
+// Страница «Группы» (SCR-011): макет design/mockups/groups.html —
+// заголовок с кнопкой создания, карточка-таблица, диалоги 420px.
+
+.groups-page {
+  max-width: 1060px;
+  margin: 0 auto;
+}
+
+.groups-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.groups-page__title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+.groups-page__card {
+  // Карточка-таблица по макету SCR-011 (.card) — образец works-page__card.
+  background: var(--p-content-background, #ffffff);
+  border: 1px solid var(--p-content-border-color, #e2e8f0);
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.groups-page__link {
+  color: var(--p-primary-color, #4f46e5);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.groups-page__actions-col {
+  text-align: center;
+  white-space: nowrap;
+
+  p-button + p-button {
+    margin-left: 8px;
+  }
+}
+
+.groups-page__field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.groups-page__field-error {
+  display: block;
+  margin-top: 8px;
+  color: var(--p-red-500, #dc2626);
+}
+
+.groups-page__dialog-error {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--p-red-200, #fecaca);
+  border-radius: 6px;
+  background: var(--p-red-50, #fef2f2);
+  color: var(--p-red-600, #dc2626);
+}
+
+.groups-page__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}

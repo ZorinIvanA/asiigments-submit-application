@@ -1,0 +1,109 @@
+// Стили экрана «Лабораторные работы» /works — макет design/mockups/works.html
+// (SCR-007): заголовочная строка, тулбар фильтра, карточка таблицы с
+// подписью пагинации, блокировка списка под диалогом удаления (FR-014).
+
+.works-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  h1 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+  }
+}
+
+.works-page__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  label {
+    font-weight: 600;
+  }
+
+  p-select {
+    min-width: 200px;
+  }
+}
+
+.works-page__card {
+  background: var(--p-content-background, #ffffff);
+  border: 1px solid var(--p-content-border-color, #e2e8f0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+// Пока открыт диалог подтверждения удаления, список не интерактивен
+// и приглушён — дословно макет SCR-007 (.dim).
+.works-page__list--locked {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.works-page__num {
+  width: 88px;
+  text-align: center;
+}
+
+.works-page__center {
+  text-align: center;
+}
+
+.works-page__sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.works-page__sort {
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--p-primary-color, #4f46e5);
+}
+
+.works-page__assignment {
+  color: var(--p-primary-hover-color, #4338ca);
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.works-page__dash {
+  color: var(--p-text-muted-color, #64748b);
+}
+
+.works-page__actions {
+  white-space: nowrap;
+
+  p-button + p-button {
+    margin-left: 8px;
+  }
+}
+
+.works-page__empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--p-text-muted-color, #64748b);
+}
+
+.works-page__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--p-content-border-color, #e2e8f0);
+}
+
+.works-page__report {
+  font-size: 12px;
+  color: var(--p-text-muted-color, #64748b);
+}

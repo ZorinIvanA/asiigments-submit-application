@@ -416,3 +416,17 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Angular CLI
+/.angular/cache
+/dist
+
+# Dependencies
+/node_modules
+
+# Test output
+/test-output
+/coverage
+
+/.pipeline
+/.vscode

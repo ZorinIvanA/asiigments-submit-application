@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCR-003/004/005 — Восстановление пароля — статичный макет (design 3.2)</title>
+<style>
+  :root{
+    --primary:#4F46E5;--primary-hover:#4338CA;--text:#1E293B;--text2:#475569;--muted:#64748B;
+    --border:#E2E8F0;--page:#F1F5F9;--card:#FFFFFF;
+    --danger:#DC2626;--danger-bg:#FEF2F2;--danger-border:#FECACA;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;font:14px/20px "Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--text);background:var(--page)}
+  .note{max-width:1060px;margin:0 auto 16px;font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:32px;max-width:1060px;margin:0 auto;align-items:flex-start;flex-wrap:wrap}
+  figcaption{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px}
+  .stage{background:var(--page);border:1px dashed var(--border);padding:48px 24px}
+  .auth{width:400px;max-width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:32px;position:relative}
+  .kicker{font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--primary);margin:0 0 4px}
+  h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 4px}
+  .step{font-size:12px;color:var(--muted);margin:0 0 20px}
+  label{display:block;font-weight:600;font-size:14px;margin:0 0 8px}
+  .field{margin:0 0 16px}
+  input{width:100%;height:44px;border:1px solid var(--border);border-radius:6px;padding:0 12px;font:inherit;color:var(--text)}
+  .field.invalid input{border-color:var(--danger);background:var(--danger-bg)}
+  .err{color:var(--danger);font-size:12px;line-height:16px;margin-top:4px}
+  .hint{color:var(--muted);font-size:12px;line-height:16px;margin-top:4px}
+  .req{margin:0 0 16px;padding:12px 16px;background:var(--page);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:12px;line-height:20px}
+  .req b{display:block;margin-bottom:4px;color:var(--text)}
+  .btnrow{display:flex;gap:12px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 20px;border-radius:6px;border:1px solid transparent;font:600 14px/20px inherit;font-family:inherit;cursor:pointer}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-secondary{background:var(--card);color:var(--text2);border-color:var(--border)}
+  a{color:var(--primary-hover);font-weight:600;text-decoration:none}
+  .toast{position:relative;margin:0 0 12px;background:var(--danger-bg);border:1px solid var(--danger);border-left:4px solid var(--danger);border-radius:6px;padding:10px 36px 10px 12px;font-weight:600;color:var(--danger)}
+  .toast .x{position:absolute;top:6px;right:6px;width:24px;height:24px;border:0;background:none;color:var(--danger);font-size:16px;cursor:pointer}
+  .autoclose{display:block;font-size:11px;font-weight:400}
+</style>
+</head>
+<body>
+<p class="note">Статичный макет SCR-003 (/recovery), SCR-004 (/recovery/code), SCR-005 (/reset-password) — design 3.2 по spec 3.2 (FR-008, FR-009, FR-010). Все карточки 400px. Носитель состояния потока — RecoveryFlowStore: sessionStorage по ключу recovery.flow.v1 (email после шага 1, resetToken после шага 2); переживает F5 В ПРЕДЕЛАХ ВКЛАДКИ; прямой заход (deep-link в новой вкладке) без состояния — безопасный рестарт: редирект на /recovery без ошибок в консоли (FR-005/ASM-011); предикаты guard (AR-016): /recovery/code доступен при наличии email в store, /reset-password — при наличии resetToken; очищается store при завершении, отмене («Отмена» на любом шаге) или перезапуске потока. Незарегистрированный email: код на шаге 1 генерируется и пишется в console идентично, но подтверждение на шаге 2 ВСЕГДА возвращает «Код восстановления не подходит» (400) без выдачи resetToken (ISS-104/AR-014/ASM-014). У «Ввести код» нет ошибки 429: все неверные/просроченные/аннулированные попытки — 400; на 5-й неверной попытке код аннулируется, RecoveryFlowStore НЕ очищается (email сохранён), экран остаётся открытым — продолжение только «Переотправить код» (ISS-110, ISS-113/AR-011). Терминальная ветка шага 3 (FR-010, ISS-103): неверный/просроченный/использованный resetToken → баннер «Ссылка восстановления недействительна или истекла», ЭКРАН ОСТАЁТСЯ ОТКРЫТЫМ со ссылкой «Запросить код заново» (→ /recovery); токен аннулирован и удалён из store (email сохранён), повторная отправка того же токена даёт ту же ошибку; автоматического перехода нет; F5 или повторный заход на /reset-password ПОСЛЕ этой ошибки — guard не находит resetToken и выполняет редирект на /recovery без ошибок в консоли (AR-016). Баннеры ошибок: desktop ≥768px — всплывающий справа вверху, автозакрытие 5 с; mobile &lt;768px — inline-блок под формой, автозакрытие 5 с в обоих режимах + закрытие × (FR-021).</p>
+<div class="row">
+  <figure>
+    <figcaption>Шаг 1 — /recovery: ошибка формата email у поля, без запроса к моку; успех → email в RecoveryFlowStore</figcaption>
+    <div class="stage">
+      <form class="auth">
+        <h1>Восстановление пароля</h1>
+        <p class="step">Шаг 1 из 3</p>
+        <div class="field invalid">
+          <label for="e">Email</label>
+          <input id="e" value="abc">
+          <div class="err">Введите корректный email</div>
+        </div>
+        <div class="btnrow">
+          <button type="button" class="btn btn-secondary">Отмена</button>
+          <button type="button" class="btn btn-primary">Отправить код</button>
+        </div>
+      </form>
+    </div>
+  </figure>
+  <figure>
+    <figcaption>Шаг 2 — /recovery/code: неверный код (тост/inline), ссылка «Переотправить код»; email — из RecoveryFlowStore</figcaption>
+    <div class="stage">
+      <form class="auth">
+        <h1>Восстановление пароля</h1>
+        <p class="step">Шаг 2 из 3</p>
+        <div class="field">
+          <label for="c">Код восстановления</label>
+          <input id="c" inputmode="numeric" value="000000">
+          <div class="hint">Код из 6 цифр</div>
+          <div class="hint">В демо-режиме код отправляется в консоль браузера (F12) — [mock-email]</div>
+        </div>
+        <div class="btnrow">
+          <button type="button" class="btn btn-secondary">Отмена</button>
+          <button type="button" class="btn btn-primary">Ввести код</button>
+        </div>
+        <p style="text-align:center;margin:16px 0 0"><a href="#">Переотправить код</a></p>
+        <div class="toast" role="alert">Код восстановления не подходит <span class="autoclose">автозакрытие 5 с; ×</span></div>
+        <p class="hint" style="margin-top:8px">F5 в этой вкладке — email восстановлен из sessionStorage recovery.flow.v1, ввод кода доступен; прямой заход без email — редирект на /recovery (guard по email, AR-016).</p>
+        <p class="hint">Тот же текст — для незарегистрированного email (resetToken не выдаётся) и для аннулированного кода после 5 неверных попыток; 429 у «Ввести код» нет (только 400). После аннулирования экран открыт, email сохранён — работает «Переотправить код».</p>
+      </form>
+    </div>
+  </figure>
+  <figure>
+    <figcaption>Шаг 3 — /reset-password: требования к паролю видны на экране; resetToken — из RecoveryFlowStore</figcaption>
+    <div class="stage">
+      <form class="auth">
+        <h1>Новый пароль</h1>
+        <p class="step">Шаг 3 из 3</p>
+        <div class="req">
+          <b>Требования к паролю</b>
+          не менее 8 символов; минимум одна цифра;<br>
+          минимум одна буква; минимум один спецзнак;<br>
+          пароли должны совпадать
+        </div>
+        <div class="field">
+          <label for="n1">Новый пароль</label>
+          <input id="n1" type="password">
+        </div>
+        <div class="field">
+          <label for="n2">Повторите пароль</label>
+          <input id="n2" type="password">
+        </div>
+        <div class="btnrow">
+          <button type="button" class="btn btn-secondary">Отмена</button>
+          <button type="button" class="btn btn-primary">Сменить пароль</button>
+        </div>
+        <p class="hint" style="margin-top:8px">F5 в этой вкладке — resetToken восстановлен, смена пароля доступна (guard находит resetToken — AR-016).</p>
+      </form>
+    </div>
+  </figure>
+  <figure>
+    <figcaption>Шаг 3 — невалидный resetToken: экран остаётся открытым, баннер + ссылка «Запросить код заново» (FR-010, ISS-103); F5 после ошибки — редирект на /recovery (AR-016)</figcaption>
+    <div class="stage">
+      <form class="auth">
+        <h1>Новый пароль</h1>
+        <p class="step">Шаг 3 из 3</p>
+        <div class="req">
+          <b>Требования к паролю</b>
+          не менее 8 символов; минимум одна цифра;<br>
+          минимум одна буква; минимум один спецзнак;<br>
+          пароли должны совпадать
+        </div>
+        <div class="field">
+          <label for="n3">Новый пароль</label>
+          <input id="n3" type="password" value="Newpass#1">
+        </div>
+        <div class="field">
+          <label for="n4">Повторите пароль</label>
+          <input id="n4" type="password" value="Newpass#1">
+        </div>
+        <div class="btnrow">
+          <button type="button" class="btn btn-secondary">Отмена</button>
+          <button type="button" class="btn btn-primary">Сменить пароль</button>
+        </div>
+        <div class="toast" role="alert">Ссылка восстановления недействительна или истекла <span class="autoclose">автозакрытие 5 с; ×</span></div>
+        <p style="margin:12px 0 0;text-align:center"><a href="#">Запросить код заново</a></p>
+        <p class="hint" style="margin-top:8px">Экран остаётся открытым; токен аннулирован и удалён из store (email сохранён) — повторная отправка того же токена даст ту же ошибку (переход потока token_issued → idle); автоматического возврата на /recovery нет — навигацию выполняет пользователь по ссылке.</p>
+        <p class="hint">После этой ошибки F5 или повторный заход на /reset-password — guard не находит resetToken → редирект на /recovery без ошибок в консоли (FR-005/FR-010, AR-016); для продолжения пользователь запрашивает код заново с шага 1.</p>
+      </form>
+    </div>
+  </figure>
+</div>
+</body>
+</html>

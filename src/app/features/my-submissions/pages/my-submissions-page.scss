@@ -1,0 +1,178 @@
+// Страница «Сдача работ» студента (SCR-010). Переключение вёрсток делает
+// компонент по BreakpointObserver (MockBreakpointObserver в тестах), поэтому
+// стили описывают обе вёрстки независимо; медиазапрос — только компактные
+// отступы тулбара на мобильной ширине (единственный брейкпоинт FR-022).
+@use '../../../../styles/breakpoint' as bp;
+
+:host {
+  display: block;
+  // Горизонтальные отступы страницы задаёт shell (.app-shell__content через
+  // --page-padding): двойной паддинг «shell + страница» убран (ревью T-109).
+}
+
+.page-title {
+  margin: 0 0 16px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--p-text-color, #1e293b);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.toolbar__label {
+  font-weight: 600;
+}
+
+.toolbar__select {
+  min-width: 180px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--p-surface-card, #fff);
+  color: inherit;
+  font: inherit;
+
+  &:disabled {
+    background: var(--p-surface-ground, #f8fafc);
+    color: var(--p-text-muted-color, #64748b);
+    cursor: not-allowed;
+  }
+}
+
+// Десктоп (>=768px): карточка-обёртка p-table (ADR-111). Скроллится сама
+// таблица (tableStyle min-width), а не страница. Стили th/td применяются
+// к ячейкам шаблонов #header/#body — они несут область видимости этой
+// страницы (см. образец features/submissions).
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--p-surface-card, #fff);
+
+  p-table {
+    display: block;
+  }
+
+  th {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--p-surface-border, #e2e8f0);
+    border-right: 1px solid var(--p-surface-border, #e2e8f0);
+    background: var(--p-surface-ground, #f8fafc);
+    color: var(--p-text-muted-color, #475569);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--p-surface-border, #e2e8f0);
+    border-right: 1px solid var(--p-surface-border, #e2e8f0);
+    text-align: center;
+    white-space: nowrap;
+    cursor: default;
+  }
+
+  .table-wrap__student {
+    text-align: left;
+    font-weight: 600;
+  }
+}
+
+// Мобильная вёрстка (<768px): карточки «Лаб N» со строками Сдача/Защита.
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  padding: 16px;
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--p-surface-card, #fff);
+}
+
+.card__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+  padding: 2px 0;
+  font-size: 14px;
+}
+
+.card__name {
+  font-weight: 600;
+}
+
+.card__value {
+  color: var(--p-text-muted-color, #64748b);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+// Постоянное предупреждение «без группы» — жёлтый баннер макета
+// (--warn-*), не авто-закрывается, в отличие от уведомлений IF-009.
+.no-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.no-group__icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #92400e;
+  color: #fffbeb;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+// Единый пустой компонент «Нет семестров с работами»
+// (ISS-108/ASM-015 + CR-004: одинаковый текст в обеих ситуациях).
+.no-data {
+  padding: 32px 16px;
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--p-surface-card, #fff);
+  color: var(--p-text-muted-color, #64748b);
+  text-align: center;
+}
+
+@include bp.mobile {
+  :host {
+    padding-top: 16px;
+  }
+
+  .toolbar__select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

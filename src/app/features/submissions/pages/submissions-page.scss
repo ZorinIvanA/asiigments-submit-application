@@ -1,0 +1,135 @@
+// Стили страницы «Сдача работ» (ведомость, SCR-009): карточка-таблица
+// с двухуровневой шапкой, липкая колонка «Студент», панель селекторов
+// и нижняя панель пагинации. Цвета — токены темы Aura с запасными
+// значениями макета (design/mockups/submissions.html).
+$border: var(--p-content-border-color, #e2e8f0);
+$muted: var(--p-text-muted-color, #64748b);
+$muted-bg: var(--p-surface-50, #f8fafc);
+
+// Паддинг и центрирование страницы задаёт shell (.app-shell__content:
+// --page-padding, max-width 1200px, margin auto) — собственные инертные
+// max-width/margin и двойной паддинг убраны (ревью T-109, CR-003 T-120).
+
+.submissions-page h1 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+.submissions-page__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.submissions-page__toolbar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  label {
+    font-weight: 600;
+  }
+}
+
+.submissions-page__selector-caption {
+  font-size: 12px;
+  color: $muted;
+}
+
+.submissions-page__card {
+  overflow: auto;
+  background: var(--p-content-background, #fff);
+  border: 1px solid $border;
+  border-radius: 8px;
+}
+
+.submissions-page table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+
+  th {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--p-text-color, #475569);
+    text-align: center;
+    white-space: nowrap;
+    background: $muted-bg;
+    border-bottom: 1px solid $border;
+    border-right: 1px solid $border;
+  }
+
+  td {
+    padding: 10px 14px;
+    text-align: center;
+    white-space: nowrap;
+    border-bottom: 1px solid $border;
+    border-right: 1px solid $border;
+  }
+}
+
+// Колонка «Студент»: липкая по горизонтали при прокрутке широких ведомостей.
+.submissions-page__student-cell {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left !important;
+  font-weight: 600;
+  background: var(--p-content-background, #fff);
+}
+
+thead .submissions-page__student-cell {
+  z-index: 2;
+  background: $muted-bg;
+}
+
+// Ячейка даты: дд.мм.гггг или ПУСТАЯ ячейка — без прочерка (FR-015).
+// Контрол живёт внутри изолированной OnPush-обёртки
+// app-submission-date-cell (VBUG-003: 200 инстансов p-datepicker).
+.submissions-page app-submission-date-cell {
+  display: inline-block;
+  line-height: 1;
+}
+
+.submissions-page td p-datepicker input {
+  width: 96px;
+  height: 36px;
+  text-align: center;
+}
+
+.submissions-page__empty-row {
+  padding: 32px 16px !important;
+  color: $muted;
+  text-align: center !important;
+}
+
+.submissions-page__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+}
+
+.submissions-page__caption {
+  font-size: 12px;
+  color: $muted;
+}
+
+// Мобильная ширина (<768px — единственный брейкпоинт проекта): компактнее.
+@media (max-width: 767.98px) {
+  .submissions-page {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .submissions-page table {
+    min-width: 640px;
+  }
+}

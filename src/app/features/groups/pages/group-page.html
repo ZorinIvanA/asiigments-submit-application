@@ -1,0 +1,80 @@
+<section class="group-page">
+  <nav class="group-page__crumbs">
+    <a class="group-page__crumbs-link" routerLink="/groups">Группы</a>
+    <span class="group-page__crumbs-separator">/</span>
+    <span class="group-page__crumbs-name">{{ groupName() }}</span>
+  </nav>
+
+  <h1 class="group-page__title">{{ groupName() }}</h1>
+  <p class="group-page__count">Студентов: {{ total() }}</p>
+
+  <div class="group-page__card">
+    <p-table [value]="students()">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>ФИО</th>
+          <th>Логин</th>
+          <th>Email</th>
+          <th class="group-page__actions-col">Действия</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-student>
+        <tr>
+          <td>{{ student.fullName }}</td>
+          <td>{{ student.login }}</td>
+          <td>{{ student.email }}</td>
+          <td class="group-page__actions-col">
+            <p-button
+              label="Исключить из группы"
+              variant="outlined"
+              severity="danger"
+              [disabled]="excludeSubmit.busy()"
+              (onClick)="confirmExclude(student)"
+            />
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <!-- Аменда 7 (ADR-111): подпись выводится всегда, включая total=0
+         («Показать записи с 1 по 0 из 0»); при total=0 кнопки страниц скрыты. -->
+    <div class="group-page__pager">
+      <span class="group-page__range">{{ rangeLabel() }}</span>
+      @if (total() > 0) {
+        <div class="group-page__pages">
+          <button
+            type="button"
+            class="group-page__nav"
+            aria-label="Предыдущая страница"
+            [disabled]="page() === 1"
+            (click)="goToPage(page() - 1)"
+          >
+            ‹
+          </button>
+          @for (pageNumber of pageNumbers(); track pageNumber) {
+            <button
+              type="button"
+              class="group-page__page"
+              [class.group-page__page--active]="pageNumber === page()"
+              (click)="goToPage(pageNumber)"
+            >
+              {{ pageNumber }}
+            </button>
+          }
+          <button
+            type="button"
+            class="group-page__nav"
+            aria-label="Следующая страница"
+            [disabled]="page() === pagesCount()"
+            (click)="goToPage(page() + 1)"
+          >
+            ›
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Подтверждение исключения: кнопки «Yes»/«No» из перевода PRIME_NG_RU (ADR-111). -->
+<p-confirmDialog [closable]="false" />

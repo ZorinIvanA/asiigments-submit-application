@@ -1,0 +1,43 @@
+// Шаг 2 восстановления пароля (SCR-004): карточка 400px, пара кнопок
+// «Отмена»/«Ввести код» и ссылка «Переотправить код» по центру; при
+// ширине окна < 768px — во всю ширину при компактных отступах (FR-022).
+// Общие блоки карточки и полей — в pages/_auth-shared.scss (ревью CR-004 T-110).
+@use '../auth-shared';
+
+.auth-card__title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--p-text-color, #1e293b);
+}
+
+// Подпись шага потока («Шаг 2 из 3») — по макету SCR-004.
+.auth-card__step {
+  margin: 0 0 20px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--p-text-muted-color, #64748b);
+}
+
+// Ссылка-действие «Переотправить код» — по центру под кнопками (макет).
+.auth-card__center {
+  margin: 16px 0 0;
+  text-align: center;
+}
+
+.auth-card__link-button {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--p-primary-hover-color, #4338ca);
+  text-decoration: none;
+  cursor: pointer;
+
+  &:disabled {
+    color: var(--p-text-muted-color, #64748b);
+    cursor: default;
+  }
+}

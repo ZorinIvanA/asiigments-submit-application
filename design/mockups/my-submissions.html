@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCR-010 — Мои сдачи (/my-submissions) — статичный макет (design 3.2)</title>
+<style>
+  :root{
+    --primary:#4F46E5;--primary-hover:#4338CA;--text:#1E293B;--text2:#475569;--muted:#64748B;
+    --border:#E2E8F0;--page:#F1F5F9;--card:#FFFFFF;--muted-bg:#F8FAFC;
+    --warn-bg:#FFFBEB;--warn-text:#92400E;--warn-border:#FDE68A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;font:14px/20px "Segoe UI",system-ui,Roboto,Arial,sans-serif;color:var(--text);background:var(--page)}
+  .note{max-width:1060px;margin:0 auto 16px;font-size:12px;color:var(--muted)}
+  .row{display:flex;gap:24px;max-width:1060px;margin:0 auto;align-items:flex-start;flex-wrap:wrap}
+  figure{margin:0}
+  figcaption{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 8px}
+  .stage{background:var(--page);border:1px dashed var(--border);padding:24px}
+  .stage.mobile{width:391px;padding:16px}
+  .topbar{display:flex;align-items:center;gap:24px;height:56px;background:var(--card);border-bottom:1px solid var(--border);padding:0 16px;margin:-24px -24px 24px}
+  .stage.mobile .topbar{margin:-16px -16px 16px;flex-wrap:wrap;height:auto;padding-bottom:0}
+  .brand{font-weight:600;font-size:16px}
+  .tabs{display:flex;gap:4px}
+  .tab{display:flex;align-items:center;padding:0 16px;min-height:44px;color:var(--text2);font-weight:600;border-bottom:2px solid transparent}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+  .spacer{flex:1}
+  .fullname{font-size:12px;color:var(--text2)}
+  .logout{height:40px;padding:0 16px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text2);font:600 14px/20px inherit;font-family:inherit}
+  h1{font-size:20px;line-height:28px;font-weight:600;margin:0 0 16px}
+  .toolbar{margin-bottom:16px}
+  .toolbar label{font-weight:600;display:inline-block;margin-right:8px}
+  select{height:44px;border:1px solid var(--border);border-radius:6px;padding:0 12px;font:inherit;background:var(--card);min-width:180px}
+  select.off{background:var(--muted-bg);color:var(--muted);cursor:not-allowed}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:auto}
+  table{width:100%;border-collapse:collapse;min-width:600px}
+  th{background:var(--muted-bg);border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:10px 14px;font-size:12px;color:var(--text2);text-align:center}
+  th.student{text-align:left}
+  td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:10px 14px;text-align:center;white-space:nowrap;cursor:default;min-width:88px}
+  td.student{text-align:left;font-weight:600}
+  .nodata{padding:32px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--muted);text-align:center}
+  .warn{display:flex;gap:12px;align-items:flex-start;background:var(--warn-bg);border:1px solid var(--warn-border);border-left:4px solid var(--warn-border);border-radius:8px;padding:16px;color:var(--warn-text);font-weight:600}
+  .warn .i{width:24px;height:24px;flex:none;border-radius:50%;background:var(--warn-text);color:var(--warn-bg);display:flex;align-items:center;justify-content:center;font-size:14px}
+  /* мобильные карточки вместо таблицы (FR-022: без горизонтального скролла страницы) */
+  .lab{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px}
+  .lab h2{font-size:16px;line-height:24px;font-weight:600;margin:0 0 8px}
+  .kv{display:flex;justify-content:space-between;font-size:14px;padding:2px 0;min-height:24px}
+  .kv b{font-weight:600}
+  .kv span{color:var(--muted)}
+</style>
+</head>
+<body>
+<p class="note">Статичный макет SCR-010 «Сдача работ» студента (/my-submissions) — design 3.2 по spec 3.2 (FR-016): своя строка только для чтения; селектор семестров — семестры, в которых есть лабораторные (GET /semesters), по умолчанию НАИМЕНЬШИЙ из возвращённых (сид: 1); колонки «Лаб 1..N» с парами подколонок «Сдача»/«Защита» у КАЖДОЙ работы независимо от defenseRequired (ASM-010; у №3 признак выключен — строка «Защита» в карточке всё равно есть); даты дд.мм.гггг, пустая дата — ПУСТАЯ ЯЧЕЙКА БЕЗ ПРОЧЕРКА. Состояние «без группы» (hasGroup=false) — постоянный жёлтый баннер вместо таблицы, селектор семестра остаётся. Вырожденные состояния: нет семестров с работами (GET /semesters пуст, студент в группе) — селектор пуст и заблокирован, сообщение «Нет семестров с работами» (ISS-108/ASM-015; заглушка «Нет данных» из дизайна 3.0 не применяется — ISS-116); «без группы И нет лабораторных» — приоритет у предупреждения, сообщение не дублируется (решение дизайна). Мобильные ошибки (&lt;768px) — красный inline-блок в фиксированной области под шапкой (экран без формы — ISS-106/AR-013), автозакрытие 5 с + × (FR-021).</p>
+<div class="row">
+  <figure>
+    <figcaption>Студент в группе — таблица только для чтения (календарь не открывается)</figcaption>
+    <div class="stage">
+      <div class="topbar">
+        <span class="brand">Сдача лабораторных</span>
+        <nav class="tabs"><span class="tab active">Сдача работ</span><span class="tab">Профиль</span></nav>
+        <span class="spacer"></span>
+        <span class="fullname">Иванов Иван Иванович 01</span>
+        <button class="logout">Выйти</button>
+      </div>
+      <h1>Сдача работ</h1>
+      <div class="toolbar">
+        <label for="s1">Семестр</label>
+        <select id="s1"><option selected>1</option><option>2</option><option>…</option><option>10</option></select>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th class="student" rowspan="2">Студент</th>
+              <th colspan="2">Лаб 1</th>
+              <th colspan="2">Лаб 2</th>
+              <th colspan="2">Лаб 3</th>
+            </tr>
+            <tr><th>Сдача</th><th>Защита</th><th>Сдача</th><th>Защита</th><th>Сдача</th><th>Защита</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="student">Иванов Иван Иванович 01</td>
+              <td>01.09.2026</td><td>11.09.2026</td>
+              <td>02.09.2026</td><td>12.09.2026</td>
+              <td>03.09.2026</td><td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption>Студент без группы — вместо таблицы предупреждение, селектор семестра остаётся</figcaption>
+    <div class="stage">
+      <h1>Сдача работ</h1>
+      <div class="toolbar">
+        <label for="s2">Семестр</label>
+        <select id="s2"><option selected>1</option><option>2</option></select>
+      </div>
+      <div class="warn" role="status">
+        <span class="i">i</span>
+        Вы не включены в группу, доступ к сдаче лабораторных не выдан
+      </div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption>Нет семестров с работами, студент в группе — селектор пуст и заблокирован, сообщение «Нет семестров с работами» (ISS-108/ASM-015/ISS-116)</figcaption>
+    <div class="stage">
+      <h1>Сдача работ</h1>
+      <div class="toolbar">
+        <label for="s4">Семестр</label>
+        <select id="s4" class="off" disabled aria-disabled="true"><option selected value=""></option></select>
+      </div>
+      <div class="nodata">Нет семестров с работами</div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption>Без группы И без лабораторных — только предупреждение, сообщения «Нет семестров с работами» нет (приоритет предупреждения)</figcaption>
+    <div class="stage">
+      <h1>Сдача работ</h1>
+      <div class="toolbar">
+        <label for="s5">Семестр</label>
+        <select id="s5" class="off" disabled aria-disabled="true"><option selected value=""></option></select>
+      </div>
+      <div class="warn" role="status">
+        <span class="i">i</span>
+        Вы не включены в группу, доступ к сдаче лабораторных не выдан
+      </div>
+    </div>
+  </figure>
+
+  <figure>
+    <figcaption>Mobile &lt; 768px — список карточек вместо таблицы (нет горизонтального скролла страницы); строки «Сдача»/«Защита» у каждой работы, пустое значение — пусто</figcaption>
+    <div class="stage mobile">
+      <h1>Сдача работ</h1>
+      <div class="toolbar">
+        <label for="s3">Семестр</label>
+        <select id="s3"><option selected>1</option><option>2</option></select>
+      </div>
+      <div class="lab">
+        <h2>Лаб 1</h2>
+        <div class="kv"><b>Сдача</b><span>01.09.2026</span></div>
+        <div class="kv"><b>Защита</b><span>11.09.2026</span></div>
+      </div>
+      <div class="lab">
+        <h2>Лаб 2</h2>
+        <div class="kv"><b>Сдача</b><span>02.09.2026</span></div>
+        <div class="kv"><b>Защита</b><span>12.09.2026</span></div>
+      </div>
+      <div class="lab">
+        <h2>Лаб 3</h2>
+        <div class="kv"><b>Сдача</b><span>03.09.2026</span></div>
+        <div class="kv"><b>Защита</b><span></span></div>
+      </div>
+    </div>
+  </figure>
+</div>
+</body>
+</html>

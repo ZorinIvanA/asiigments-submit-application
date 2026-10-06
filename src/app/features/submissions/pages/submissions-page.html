@@ -1,0 +1,122 @@
+<!-- Страница «Сдача работ» — ведомость преподавателя (SCR-009, FR-4.4).
+     Тексты дословно по макету design/mockups/submissions.html. -->
+<main class="submissions-page">
+  <h1>Сдача работ</h1>
+
+  <div class="submissions-page__toolbar" data-test="toolbar">
+    <div class="submissions-page__toolbar-item">
+      <label for="submissions-group">Группа</label>
+      <p-select
+        inputId="submissions-group"
+        [options]="groups()"
+        optionLabel="name"
+        optionValue="id"
+        [ngModel]="selectedGroupId()"
+        (ngModelChange)="onGroupChange($event)"
+        [disabled]="!hasGroups()"
+      />
+      @if (!hasGroups()) {
+        <span class="submissions-page__selector-caption" data-test="no-groups-caption"
+          >Нет групп</span
+        >
+      }
+    </div>
+
+    <!-- Состояние «Нет групп» (макет SCR-009): в тулбаре остаётся только
+         селектор группы — элемент семестра скрыт целиком (ревью CR-002 T-114). -->
+    @if (hasGroups()) {
+      <div class="submissions-page__toolbar-item">
+        <label for="submissions-semester">Семестр</label>
+        <p-select
+          inputId="submissions-semester"
+          [options]="semesters()"
+          [ngModel]="selectedSemester()"
+          (ngModelChange)="onSemesterChange($event)"
+          [disabled]="!hasSemesters()"
+        />
+        @if (!hasSemesters()) {
+          <span class="submissions-page__selector-caption" data-test="no-semesters-caption"
+            >Нет семестров с работами</span
+          >
+        }
+      </div>
+    }
+  </div>
+
+  @if (tableVisible()) {
+    <div class="submissions-page__card">
+      <p-table [value]="students()" [loading]="loading()">
+        <ng-template #header>
+          <!-- Двухуровневая шапка: «Лаб N» (colspan 2) → «Сдача»/«Защита»
+               у КАЖДОЙ работы независимо от defenseRequired (ASM-010/OQ-007). -->
+          <tr>
+            <th class="submissions-page__student-cell" rowspan="2">Студент</th>
+            @for (lab of labs(); track lab.id) {
+              <th colspan="2">Лаб {{ lab.number }}</th>
+            }
+          </tr>
+          <tr>
+            @for (lab of labs(); track lab.id) {
+              <th>Сдача</th>
+              <th>Защита</th>
+            }
+          </tr>
+        </ng-template>
+
+        <ng-template #body let-student>
+          <tr>
+            <td class="submissions-page__student-cell">{{ student.fullName }}</td>
+            @for (lab of labs(); track lab.id) {
+              <!-- Ячейка даты: изолированный OnPush-компонент с примитивными
+                   входами (VBUG-003: исключает writeValue-шторм 200 инстансов
+                   p-datepicker на каждом проходе CD). -->
+              <td>
+                <app-submission-date-cell
+                  [value]="recordDate(student.id, lab.id, 'submitDate')"
+                  [saving]="isCellSaving(student.id, lab.id, 'submitDate')"
+                  [revision]="cellRevision(student.id, lab.id, 'submitDate')"
+                  (dateChange)="onCellDateChange(student.id, lab.id, 'submitDate', $event)"
+                />
+              </td>
+              <td>
+                <app-submission-date-cell
+                  [value]="recordDate(student.id, lab.id, 'defenseDate')"
+                  [saving]="isCellSaving(student.id, lab.id, 'defenseDate')"
+                  [revision]="cellRevision(student.id, lab.id, 'defenseDate')"
+                  (dateChange)="onCellDateChange(student.id, lab.id, 'defenseDate', $event)"
+                />
+              </td>
+            }
+          </tr>
+        </ng-template>
+
+        <!-- Пустая группа: таблица с сообщением, селекторы активны (FR-015). -->
+        <ng-template #emptymessage>
+          <tr>
+            <td
+              class="submissions-page__empty-row"
+              data-test="empty-group-row"
+              [attr.colspan]="1 + labs().length * 2"
+            >
+              В группе нет студентов
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      <div class="submissions-page__foot">
+        <span class="submissions-page__caption" data-test="range-caption">{{
+          rangeCaption()
+        }}</span>
+        <p-paginator
+          [rows]="pageSize"
+          [totalRecords]="grid()?.total ?? 0"
+          [first]="firstIndex()"
+          [pageLinkSize]="5"
+          [showFirstLastIcon]="false"
+          (onPageChange)="onPageChange($event)"
+        />
+      </div>
+    </div>
+  }
+</main>
