@@ -1,0 +1,106 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-08 (выход/текущий пользователь/восстановление
+    пароля: POST /auth/logout, GET /auth/me, POST /auth/recovery/request,
+    POST /auth/recovery/confirm — FR-015, FR-016, FR-017, FR-018, FR-043, FR-080,
+    NFR-004, NFR-006; кейсы TS-061..TS-075). Зона батча: tests/integration/B-08.
+    Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона
+    ссылается на него ProjectReference и не включается в solution src/api —
+    батчи пишут зоны параллельно (образец — зоны B-01..B-07; урок BL-001
+    BUG-001: собственный проект зоны вместо правки общего LabsApp.Tests).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-07):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Проверяемое поведение — HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--
+    Поддерево Groups/ (волна B-08 «репозитории», TS-165..TS-169; доменные
+    кейсы групп TS-122..TS-128/TS-202/TS-204 снесены — владелец зона
+    tests/integration/B-17/Groups)
+    исключено из компиляции этого проекта: оно собирается собственным
+    тестовым проектом tests/integration/B-08/Groups/LabsApp.IntegrationTests.B08.Groups.csproj.
+    Без исключения глоббинговый Compile-шаринг дал бы дублирующиеся Assembly-
+    атрибуты (CS0579) из obj/ вложенного проекта.
+  -->
+  <ItemGroup>
+    <Compile Remove="Groups\**\*.cs" />
+    <None Remove="Groups\**" />
+    <Content Remove="Groups\**" />
+  </ItemGroup>
+
+  <!--
+    Поддерево Auth/ (волна B-08 «вход/KDF/cookie», кейсы TS-026..TS-029,
+    TS-048..TS-052, TS-151..TS-153, TS-157) исключено из компиляции этого
+    проекта: оно собирается собственным тестовым проектом
+    tests/integration/B-08/Auth/LabsApp.IntegrationTests.B08.Auth.csproj
+    (тот же образец изоляции, что для Groups/; без исключения глоббинговый
+    Compile-шаринг дал бы дублирующиеся Assembly-атрибуты (CS0579) из obj/
+    вложенного проекта).
+  -->
+  <ItemGroup>
+    <Compile Remove="Auth\**\*.cs" />
+    <None Remove="Auth\**" />
+    <Content Remove="Auth\**" />
+  </ItemGroup>
+
+  <!--
+    Поддерево Limiters/ (волна B-08 «лимитер/матрица лимитов/KDF», кейсы
+    TS-011..TS-025) исключено из компиляции этого проекта: оно собирается
+    собственным тестовым проектом
+    tests/integration/B-08/Limiters/LabsApp.IntegrationTests.B08.Limiters.csproj
+    (тот же образец изоляции, что для Auth/ и Groups/; без исключения
+    глоббинговый Compile-шаринг включил бы файлы волны в этот проект, которому
+    не нужен пакет FakeTimeProvider, и породил бы CS0246 на движковых
+    сценариях).
+  -->
+  <ItemGroup>
+    <Compile Remove="Limiters\**\*.cs" />
+    <None Remove="Limiters\**" />
+    <Content Remove="Limiters\**" />
+  </ItemGroup>
+
+  <!--
+    Поддерево Repositories/ (волна B-08 «репозитории: подмена реализаций и
+    атомарность уникальностей», кейсы TS-175..TS-178) исключено из компиляции
+    этого проекта: оно собирается собственным тестовым проектом
+    tests/integration/B-08/Repositories/LabsApp.IntegrationTests.B08.Repositories.csproj
+    (тот же образец изоляции, что для Auth/Groups/Limiters; без исключения
+    глоббинговый Compile-шаринг включил бы файлы волны в этот проект и породил
+    бы дублирующиеся Assembly-атрибуты (CS0579) из obj/ вложенного проекта).
+  -->
+  <ItemGroup>
+    <Compile Remove="Repositories\**\*.cs" />
+    <None Remove="Repositories\**" />
+    <Content Remove="Repositories\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+</Project>

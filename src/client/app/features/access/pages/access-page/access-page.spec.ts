@@ -9,36 +9,40 @@
  * при ошибке справочника групп (аменда 6), отсутствие success-тостов,
  * обработка ошибки setGroup (notifyError + перезагрузка страницы списка).
  *
- * Мок-слой реальный: обработчики доменов Students/Groups регистрируются на
- * экземпляре MockApiClient из TestBed (так же, как в spec сервисов core);
- * сессия преподавателя — SessionStore; задержка мок-вызова гасится
- * fakeAsync + tick. PrimeNG-оверлеи (p-select, p-confirmdialog) управляются
- * DOM-событиями при provideNoopAnimations; уведомления проверяются по
- * сигналам NotificationService с MockBreakpointObserver.
+ * HTTP-ядро реальное (FR-026): настоящие StudentsService/GroupsService поверх
+ * HttpClient + authInterceptor на программируемом HttpTestingController-
+ * бэкенде GridBackendStub с собственным сидом спека (15 студентов, 3 группы);
+ * серверная сессия преподавателя — serverSession (роли домена students/groups).
+ * Задержек бэкенда нет — «волны» settle() отвечают перехваченные запросы и
+ * продвигают виртуальное время (fakeAsync + tick: дебаунс 300 мс). PrimeNG-
+ * оверлеи (p-select, p-confirmdialog) управляются DOM-событиями при
+ * provideNoopAnimations; уведомления проверяются по сигналам
+ * NotificationService с MockBreakpointObserver.
  */
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
-import { BreakpointObserver } from '@angular/cdk/layout';
 import { By } from '@angular/platform-browser';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Select } from 'primeng/select';
 
-import { MockBreakpointObserver } from '../../../../../testing/mock-breakpoint-observer';
 import { GroupsService } from '../../../../core/services/groups.service';
 import { StudentsService } from '../../../../core/services/students.service';
-import { SessionStore } from '../../../../mock/auth/session-store';
-import { MockApiClient } from '../../../../mock/mock-api-client';
-import { MockDbData, emptyMockDbData } from '../../../../mock/mock-db';
-import { registerGroupsHandlers } from '../../../../mock/groups/handlers';
-import { registerStudentsHandlers } from '../../../../mock/students/handlers';
-import { ApiError, STORAGE_KEYS, User } from '../../../../shared/models';
+import { ApiError } from '../../../../shared/models';
 import {
   NOTIFICATION_AUTO_CLOSE_MS,
 } from '../../../../shared/notifications/notification-model';
 import { NotificationService } from '../../../../shared/notifications/notification-service';
+import { GridBackendSeed } from '../../../../testing/integration/grid-groups-access/grid-backend-stub';
+import {
+  GridAccessEnv,
+  openSelect,
+  pickOption,
+  qsIn,
+  qsAllIn,
+  selectLabelOf,
+  selectModelValueOf,
+} from '../../../../testing/integration/grid-groups-access/integration-env';
 import { ACCESS_ROUTES } from '../../access.routes';
 import { AccessPage } from './access-page';
 
-const TEACHER_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const GROUP_221 = 'bbbbbbbb-0000-4000-8000-000000000001';
 const GROUP_222 = 'bbbbbbbb-0000-4000-8000-000000000002';
 const GROUP_223 = 'bbbbbbbb-0000-4000-8000-000000000003';
@@ -51,22 +55,13 @@ function studentId(nn: number): string {
 }
 
 /**
- * Сид по правилам демо-данных (ADR-107): 15 студентов — «Антонов Иванов 05»
- * и «Иванов Иван Иванович NN» (NN = 01..14); последние noGroupCount студентов
- * без группы (по умолчанию 13 и 14 — аналог студентов 31/32 сида в AC
- * no-group-filter), остальные в ИК-221.
+ * Сид спека (аналог прежнего демо-сида, ADR-107): 15 студентов — «Антонов
+ * Иванов 05» и «Иванов Иван Иванович NN» (NN = 01..14); последние
+ * noGroupCount студентов без группы (по умолчанию 13 и 14), остальные
+ * в ИК-221; работ и сдач нет.
  */
-function seedDb(noGroupCount = 2): void {
-  const teacher: User = {
-    id: TEACHER_ID,
-    login: 'teacher',
-    email: 'teacher@example.com',
-    fullName: 'Сидоров Семён Семёнович',
-    role: 'teacher',
-    groupId: null,
-    password: 'teacher123!',
-  };
-  const students: User[] = [
+function accessSeed(noGroupCount = 2): GridBackendSeed {
+  const students: GridBackendSeed['users'] = [
     {
       id: ANT_ID,
       login: 'antonov05',
@@ -89,55 +84,47 @@ function seedDb(noGroupCount = 2): void {
       password: 'student123!',
     });
   }
-  const data: MockDbData = {
-    ...emptyMockDbData(),
-    users: [teacher, ...students],
-    groups: [
-      { id: GROUP_221, name: 'ИК-221', studentCount: 0 },
-      { id: GROUP_222, name: 'ИК-222', studentCount: 0 },
-      { id: GROUP_223, name: 'ИК-223', studentCount: 0 },
+  return {
+    users: [
+      {
+        login: 'teacher',
+        email: 'teacher@example.com',
+        fullName: 'Сидоров Семён Семёнович',
+        role: 'teacher',
+        groupId: null,
+        password: 'teacher123!',
+      },
+      ...students,
     ],
+    groups: [
+      { id: GROUP_221, name: 'ИК-221' },
+      { id: GROUP_222, name: 'ИК-222' },
+      { id: GROUP_223, name: 'ИК-223' },
+    ],
+    labs: [],
+    submissions: [],
   };
-  localStorage.setItem(STORAGE_KEYS.mockDb, JSON.stringify(data));
 }
 
-/** Сессия выставляется через владельца ключа — SessionStore домена Auth. */
-const sessionStore = new SessionStore();
-
-describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
-  let breakpoints: MockBreakpointObserver;
+describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
+  let env: GridAccessEnv;
   let studentsService: StudentsService;
   let groupsService: GroupsService;
   let notifications: NotificationService;
   let fixture: ComponentFixture<AccessPage>;
 
   beforeEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    seedDb();
-    sessionStore.setUserId(TEACHER_ID);
-
-    breakpoints = new MockBreakpointObserver();
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: BreakpointObserver, useValue: breakpoints },
-        provideNoopAnimations(),
-      ],
-    });
-    const client = TestBed.inject(MockApiClient);
-    registerGroupsHandlers(client);
-    registerStudentsHandlers(client);
+    env = GridAccessEnv.setup({ seed: accessSeed() });
+    env.serverSession('teacher');
     studentsService = TestBed.inject(StudentsService);
     groupsService = TestBed.inject(GroupsService);
-    notifications = TestBed.inject(NotificationService);
-    fixture = TestBed.createComponent(AccessPage);
+    notifications = env.notifications;
   });
 
   afterEach(() => {
     notifications.dismissMobile();
-    fixture.destroy();
-    localStorage.clear();
-    sessionStorage.clear();
+    fixture?.destroy();
+    env.stop();
   });
 
   /** Корневой элемент фикстуры (nativeElement ComponentFixture типизирован any). */
@@ -145,41 +132,22 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     return fixture.nativeElement as HTMLElement;
   }
 
-  /** Поиск по фикстуре, при пустом результате — по документу (оверлеи). */
+  /** Поиск по фикстуре с фолбэком в документ (оверлеи PrimeNG). */
   function qs(selector: string): HTMLElement | null {
-    return root().querySelector(selector) ?? (document.querySelector(selector) as HTMLElement | null);
+    return qsIn(fixture, selector);
   }
 
   function qsAll(selector: string): HTMLElement[] {
-    const inFixture = Array.from(root().querySelectorAll<HTMLElement>(selector));
-    return inFixture.length > 0
-      ? inFixture
-      : Array.from(document.querySelectorAll<HTMLElement>(selector));
+    return qsAllIn(fixture, selector);
   }
 
   /**
-   * Дожидается мок-задержки ms, рендерит пришедшие строки и дотягивает
-   * микрозадачи NgModel: синхронизация [ngModel] → writeValue селектора
-   * выполняется Angular в микрозадаче (resolvedPromise.then) и без неё
-   * подпись свежесозданного p-select показывает прежнее значение.
+   * Создаёт фикстуру и доводит init-загрузку до конца: волна 1 — справочник
+   * групп, волна 2 — первая страница списка (+ дренаж микрозадач NgModel).
    */
-  function settle(ms: number): void {
-    tick(ms);
-    fixture.detectChanges();
-    tick(0);
-    fixture.detectChanges();
-  }
-
-  /** Создаёт фикстуру и дожидается init-загрузки: группы (500) → список (500). */
   function createPage(): void {
-    fixture.detectChanges();
-    settle(1100);
-  }
-
-  /** Микрозадачи NgModel для существующих селекторов (без мок-задержки). */
-  function flushNgModel(): void {
-    tick(0);
-    fixture.detectChanges();
+    fixture = env.mount(AccessPage);
+    env.settle(fixture, 2);
   }
 
   /** ФИО строк таблицы в порядке отображения. */
@@ -204,22 +172,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
 
   /** Подпись выбранной опции селектора строки. */
   function selectLabel(select: HTMLElement): string {
-    return select.querySelector('.p-select-label')!.textContent?.trim() ?? '';
-  }
-
-  /** Открывает оверлей селектора строки (клик по p-select). */
-  function openSelect(select: HTMLElement): void {
-    select.click();
-    fixture.detectChanges();
-  }
-
-  /** Выбирает опцию с подписью label в открытом оверлее. */
-  function pickOption(label: string): void {
-    const option = qsAll('li.p-select-option').find(
-      (element) => element.textContent?.trim() === label,
-    )!;
-    option.click();
-    fixture.detectChanges();
+    return selectLabelOf(select);
   }
 
   /** Ввод в поле поиска (событие input — как при наборе пользователем). */
@@ -253,19 +206,19 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     fixture.detectChanges();
   }
 
-  /** Гасит таймер автозакрытия уведомления (5000 мс, FR-021). */
+  /** Гасит таймер автозакрытия уведомления (5000 мс, IF-009). */
   function drainNotificationTimer(): void {
-    tick(NOTIFICATION_AUTO_CLOSE_MS + 1);
+    env.drainNotifications();
   }
 
+  /** groupId студента в состоянии бэкенда (сервер — истина). */
   function storedGroupId(userId: string): string | null {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.mockDb) ?? 'null') as {
-      users: Array<{ id: string; groupId: string | null }>;
-    };
-    return stored.users.find((user) => user.id === userId)?.groupId ?? null;
+    return (
+      env.backend.read().users.find((user) => user.id === userId)?.groupId ?? null
+    );
   }
 
-  it('начальная загрузка: страница 1 — 10 из 15, подпись, порядок мока неизменен', fakeAsync(() => {
+  it('начальная загрузка: страница 1 — 10 из 15, подпись, порядок бэкенда неизменен', fakeAsync(() => {
     createPage();
 
     expect(tableRowFullNames()).toEqual([
@@ -296,7 +249,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     expect(selectInstance(9).modelValue()).toBe(GROUP_221);
 
     clickPageButton('2');
-    settle(600);
+    env.settle(fixture, 1);
 
     // студенты 13 и 14 без группы: null из DTO
     expect(selectInstance(3).modelValue()).toBeNull();
@@ -309,7 +262,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     expect(rowSelect(0).classList).not.toContain('access__select--no-group');
 
     clickPageButton('2');
-    settle(600);
+    env.settle(fixture, 1);
 
     // студенты 13 и 14 без группы
     expect(rowSelect(3).classList).toContain('access__select--no-group');
@@ -321,7 +274,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     createPage();
 
     clickPageButton('2');
-    settle(600);
+    env.settle(fixture, 1);
 
     expect(tableRowFullNames()).toEqual([
       'Иванов Иван Иванович 10',
@@ -332,7 +285,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     ]);
     expect(qs('.access__caption')!.textContent).toContain('Показать записи с 11 по 15 из 15');
     expect((qs('button[aria-label="Следующая страница"]') as HTMLButtonElement).disabled).toBeTrue();
-    // студенты 13 и 14 без группы — аналог 31/32 сида
+    // студенты 13 и 14 без группы
     expect(selectLabel(rowSelect(3))).toBe('Без группы');
   }));
 
@@ -342,7 +295,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     expect(getListSpy.calls.count()).toBe(1);
 
     clickPageButton('›');
-    settle(600);
+    env.settle(fixture, 1);
     expect(getListSpy.calls.count()).toBe(2);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: '', groupId: null, page: 2 });
 
@@ -360,9 +313,9 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
       page: 1,
     });
 
-    settle(600); // ответ мока
+    env.settle(fixture, 1); // ответ бэкенда
     // Многословный поиск (уточнение IF-105, CR-010): оба студента содержат
-    // токены «иванов» и «05» в ФИО; порядок мока ФИО↑ сохранён
+    // токены «иванов» и «05» в ФИО; порядок ФИО↑ сохранён
     expect(tableRowFullNames()).toEqual(['Антонов Иванов 05', 'Иванов Иван Иванович 05']);
     expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 2 из 2');
   }));
@@ -381,7 +334,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
       page: 1,
     });
 
-    settle(600); // ответ мока
+    env.settle(fixture, 1); // ответ бэкенда
     expect(tableRowFullNames()).toEqual(['Антонов Иванов 05', 'Иванов Иван Иванович 05']);
   }));
 
@@ -418,11 +371,11 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     createPage();
 
     typeSearch('иванов 05');
-    settle(950); // дебаунс 300 + ответ мока 500
+    env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
     expect(tableRowFullNames()).toEqual(['Антонов Иванов 05', 'Иванов Иван Иванович 05']);
 
     (qs('button[aria-label="Очистить поиск"]') as HTMLButtonElement).click();
-    settle(950);
+    env.settle(fixture, 1);
 
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: '', groupId: null, page: 1 });
     expect(root().querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('');
@@ -433,7 +386,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     createPage();
 
     typeSearch('петров');
-    settle(950); // дебаунс 300 + ответ мока 500
+    env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
 
     expect(tableRowFullNames()).toEqual(['Записей нет']);
     expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 0 из 0');
@@ -445,10 +398,10 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     createPage();
 
     clickPageButton('›');
-    settle(600);
+    env.settle(fixture, 1);
 
     clickNoGroupFilter();
-    settle(600);
+    env.settle(fixture, 1);
 
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: '',
@@ -461,7 +414,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
 
     // Снятие фильтра возвращает полный список, также на страницу 1
     clickNoGroupFilter();
-    settle(600);
+    env.settle(fixture, 1);
 
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: '',
@@ -476,10 +429,10 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     const notifySuccessSpy = spyOn(notifications, 'notifySuccess');
     createPage();
     clickNoGroupFilter();
-    settle(600);
+    env.settle(fixture, 1);
 
-    openSelect(rowSelect(0)); // студент 13, без группы
-    pickOption('ИК-222');
+    openSelect(fixture, rowSelect(0)); // студент 13, без группы
+    pickOption(fixture, 'ИК-222');
 
     // Немедленно: запрос без подтверждения, строка заблокирована, спиннер
     expect(setGroupSpy).toHaveBeenCalledWith(studentId(13), GROUP_222);
@@ -487,7 +440,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     expect(rowSelect(0).classList).toContain('p-disabled');
     expect(qs('.access__spinner')).not.toBeNull();
 
-    settle(1100); // setGroup (500) + перезагрузка страницы (500)
+    env.settle(fixture, 2); // setGroup + перезагрузка страницы
 
     expect(rowSelect(0).classList).not.toContain('p-disabled');
     expect(qs('.access__spinner')).toBeNull();
@@ -505,13 +458,13 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
     createPage();
 
-    openSelect(rowSelect(1)); // студент 01 в ИК-221
-    pickOption('ИК-223');
+    openSelect(fixture, rowSelect(1)); // студент 01 в ИК-221
+    pickOption(fixture, 'ИК-223');
 
     expect(setGroupSpy).toHaveBeenCalledWith(studentId(1), GROUP_223);
     expect(qs('.p-confirmdialog')).toBeNull();
 
-    settle(1100);
+    env.settle(fixture, 2);
     expect(selectLabel(rowSelect(1))).toBe('ИК-223');
     // после перезагрузки значение селектора — новый groupId из DTO
     expect(selectInstance(1).modelValue()).toBe(GROUP_223);
@@ -521,8 +474,8 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
     createPage();
 
-    openSelect(rowSelect(1)); // студент 01 в ИК-221
-    pickOption('Без группы');
+    openSelect(fixture, rowSelect(1)); // студент 01 в ИК-221
+    pickOption(fixture, 'Без группы');
 
     expect(qs('.p-confirmdialog')!.textContent).toContain(
       'Исключить студента Иванов Иван Иванович 01 из группы?',
@@ -530,7 +483,8 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     expect(setGroupSpy).not.toHaveBeenCalled();
 
     clickConfirm('No');
-    flushNgModel(); // откат селектора проходит через [ngModel] → микрозадача
+    env.waitConfirmClosed(fixture);
+    env.flushNgModel(fixture); // откат селектора проходит через [ngModel] → микрозадача
     drainNotificationTimer();
 
     expect(qs('.p-confirmdialog')).toBeNull();
@@ -543,53 +497,49 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
     createPage();
 
-    openSelect(rowSelect(1));
-    pickOption('Без группы');
+    openSelect(fixture, rowSelect(1));
+    pickOption(fixture, 'Без группы');
     clickConfirm('Yes');
 
     expect(setGroupSpy).toHaveBeenCalledWith(studentId(1), null);
 
-    settle(1100);
+    env.settle(fixture, 2);
     expect(selectLabel(rowSelect(1))).toBe('Без группы');
     expect(storedGroupId(studentId(1))).toBeNull();
   }));
 
-  it('ошибка setGroup: notifyError с текстом мока и перезагрузка страницы списка', fakeAsync(() => {
-    const failure: ApiError = { status: 404, body: { message: 'Группа не найдена' } };
-    spyOn(studentsService, 'setGroup').and.rejectWith(failure);
+  it('ошибка setGroup: notifyError с текстом бэкенда и перезагрузка страницы списка', fakeAsync(() => {
+    env.backend.failNextSetGroup({ status: 404, message: 'Группа не найдена' });
     const getListSpy = spyOn(studentsService, 'getList').and.callThrough();
     createPage();
     expect(getListSpy.calls.count()).toBe(1);
 
-    openSelect(rowSelect(1));
-    pickOption('ИК-222');
+    openSelect(fixture, rowSelect(1));
+    pickOption(fixture, 'ИК-222');
 
-    tick(600); // отказ setGroup обрабатывается страницей
-    fixture.detectChanges();
+    env.settle(fixture, 1); // отказ setGroup обрабатывается страницей
 
     expect(notifications.desktopMessage()?.severity).toBe('error');
     expect(notifications.desktopMessage()?.text).toBe('Группа не найдена');
 
-    settle(600); // перезагрузка страницы списка
+    env.settle(fixture, 1); // перезагрузка страницы списка
 
     expect(getListSpy.calls.count()).toBe(2);
-    // строка восстановлена из мока: фактически студент 01 в ИК-221
+    // строка восстановлена из состояния бэкенда: студент 01 в ИК-221
     expect(selectLabel(rowSelect(1))).toBe('ИК-221');
     expect(storedGroupId(studentId(1))).toBe(GROUP_221);
     drainNotificationTimer();
   }));
 
   it('мобильная ошибка setGroup уходит с якорем header (IF-109: баннер под шапкой)', fakeAsync(() => {
-    breakpoints.simulate(true); // <768px
-    const failure: ApiError = { status: 404, body: { message: 'Группа не найдена' } };
-    spyOn(studentsService, 'setGroup').and.rejectWith(failure);
+    env.breakpoints.simulate(true); // <768px
+    env.backend.failNextSetGroup({ status: 404, message: 'Группа не найдена' });
     createPage();
 
-    openSelect(rowSelect(1));
-    pickOption('ИК-222');
+    openSelect(fixture, rowSelect(1));
+    pickOption(fixture, 'ИК-222');
 
-    tick(600);
-    fixture.detectChanges();
+    env.settle(fixture, 1);
 
     expect(notifications.isMobile()).toBeTrue();
     expect(notifications.mobileMessage()?.severity).toBe('error');
@@ -603,7 +553,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     spyOn(groupsService, 'getList').and.rejectWith(failure);
     createPage();
 
-    // баннер с текстом мока, якорь 'header' (десктоп — Toast-сигнал)
+    // баннер с текстом бэкенда, якорь 'header' (десктоп — Toast-сигнал)
     expect(notifications.desktopMessage()?.severity).toBe('error');
     expect(notifications.desktopMessage()?.text).toBe('Неизвестная ошибка');
 
@@ -620,25 +570,31 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
   it('опустевшая страница после включения: откат на предыдущую (CR-001)', fakeAsync(() => {
     // 11 студентов без группы: страницы 10 + 1; включение последнего
     // студента страницы 2 опустошает её (total 11 → 10)
-    seedDb(11);
+    env.backend.mutate((state) => {
+      // переводим студентов 4..14 в «без группы» (всего 11 без группы)
+      for (const user of state.users) {
+        if (user.login.startsWith('student') && Number(user.login.slice('student'.length)) >= 4) {
+          user.groupId = null;
+        }
+      }
+    });
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
     createPage();
 
     clickNoGroupFilter();
-    settle(600);
+    env.settle(fixture, 1);
     expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 10 из 11');
 
     clickPageButton('2');
-    settle(600);
+    env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 14']);
 
-    openSelect(rowSelect(0));
-    pickOption('ИК-222');
+    openSelect(fixture, rowSelect(0));
+    pickOption(fixture, 'ИК-222');
     expect(setGroupSpy).toHaveBeenCalledWith(studentId(14), GROUP_222);
 
-    // setGroup (500) + перезагрузка пустой страницы 2 (500) + откат-загрузка
-    // страницы 1 (500)
-    settle(1700);
+    // setGroup + перезагрузка пустой страницы 2 + откат-загрузка страницы 1
+    env.settle(fixture, 3);
 
     // страница 2 опустела: откат на страницу 1, а не «Записей нет»
     expect(qs('tbody')!.textContent).not.toContain('Записей нет');
@@ -653,8 +609,8 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
     createPage();
 
-    openSelect(rowSelect(1));
-    pickOption('ИК-222');
+    openSelect(fixture, rowSelect(1));
+    pickOption(fixture, 'ИК-222');
     expect(setGroupSpy.calls.count()).toBe(1);
 
     // Селектор строки заблокирован на время запроса (макет SCR-013):
@@ -662,7 +618,7 @@ describe('AccessPage (C-115, SCR-013, FR-4.6)', () => {
     expect(rowSelect(1).classList).toContain('p-disabled');
     expect(qs('.access__spinner')).not.toBeNull();
 
-    settle(1100);
+    env.settle(fixture, 2);
     expect(setGroupSpy.calls.count()).toBe(1);
   }));
 });

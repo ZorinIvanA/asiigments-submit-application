@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-01 (хостинг-каркас: FR-001, FR-002, FR-008).
+    Зона батча: tests/integration/B-01. Реализация (src/api) не изменяется; собственная
+    копия WebApplicationFactory — изоляция от чужих тестовых зон (BL-001 BUG-001).
+    В solution src/api проект сознательно не включается: батчи пишут зоны параллельно.
+  -->
+
+  <PropertyGroup>
+    <!--
+      Тестовый проект целится в runtime, фактически установленный на хосте прогона
+      (ASP.NET Core 10): TestHost-пакет 8.0.x несовместим с runtime 10 (PipeWriter
+      UnflushedBytes — 500 на любых JSON-ответах). Само приложение остаётся net8.0 —
+      это проверяется статикой кейса TS-004 (FR-001/FR-024) и не влияет на
+      проверяемые поведение конфигурации и хостинга (FR-001/FR-002/FR-008).
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Детерминизм прогона зоны: коллекции не параллелятся — хосты WebApplicationFactory
+    делят inotify/портовые ресурсы процесса, а кейс TS-001 меряет время ответа
+    (<100 мс).
+  -->
+  <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    Тестовый wwwroot для проверок статики и SPA-fallback (FR-002): копируется в
+    $(OutputPath)wwwroot — content root тестового хоста совпадает с выходным
+    каталогом тестов (механика как в src/api/LabsApp.Tests).
+  -->
+  <Target Name="CopyTestWwwroot" AfterTargets="Build">
+    <ItemGroup>
+      <TestWwwrootFiles Include="TestAssets\wwwroot\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TestWwwrootFiles)"
+          DestinationFiles="@(TestWwwrootFiles->'$(OutputPath)wwwroot/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -1,209 +1,234 @@
 /**
  * Интеграционные тесты потока восстановления пароля (batch1, FR-4.2,
  * §4.2, IF-101/IF-102): TS-014 полный поток; TS-015 неотличимость
- * неизвестного email; TS-016 неверный код; TS-017 аннулирование на 5-й
- * попытке и рестарт через «Переотправить код»; TS-018 TTL кода 10 минут;
- * TS-019 TTL resetToken 15 минут (терминальная ветка); TS-020 одноразовость
- * кода и токена; TS-021 переотправка инвалидирует код, лимит 3/час;
- * TS-022 F5 сохраняет шаг потока; TS-023 полевая ошибка не гасит токен;
- * TS-024 сброс пароля отзывает сессию.
+ * неизвестного email на клиенте (всегда 200 на шаге 1, единый 400 на
+ * шаге 2); TS-016 неверный код; TS-017 серия неверных попыток и рестарт
+ * через «Переотправить код»; TS-019 терминальная ветка resetToken; TS-021
+ * переотправка кода и 429 лимита; TS-022 F5 сохраняет шаг потока;
+ * TS-023 полевая ошибка не гасит токен; TS-024 сброс пароля отзывает
+ * сессию (401 → неудачный refresh → сброс памяти → /login).
  *
- * Код восстановления берётся из console.info (демо-замена SMTP: строка
- * «[mock-email] Код восстановления для <email>: <код>»); TTL/лимиты — на
- * управляемых часах обработчиков auth (clock.now). TS-022 — перезапуск
- * приложения (новый инжектор, storage сохранён) как аналог F5.
+ * Значения кодов/tokens задаются сценариями (программируемый
+ * HttpTestingController, FR-026): серверные свойства потока — TTL кода
+ * 10 минут (TS-018), одноразовость кода/токена (TS-020), аннулирование
+ * кода 5-й неверной попыткой — зона бэкенд-домена Auth; клиентская
+ * поверхность этих свойств (те же 400/баннеры) покрыта здесь, а TS-024
+ * проверяет HTTP-цепочку отзыва сессии end-to-end.
  */
 import {
   AuthProfileEnv,
-  buttonByLabel,
-  fieldErrorText,
-  flushMock,
+  ME_FIXTURES,
   linkByLabel,
-  mockDbData,
+  requestsOf,
   restartApp,
-  sessionUserId,
+  respond,
+  root,
+  settle,
   setInput,
   startAuthProfileEnv,
   stopAuthProfileEnv,
-  submitButton,
+  buttonByLabel,
+  waitForUrl,
 } from './auth-profile.env';
-import { loginAs, seedUserIdByLogin } from '../../integration-env';
 
 const KNOWN_EMAIL = 'student01@example.com';
 const GHOST_EMAIL = 'ghost@nowhere.zz';
-const MINUTE_MS = 60 * 1000;
+const CODE_REJECTED = 'Код восстановления не подходит';
+const LINK_INVALID = 'Ссылка восстановления недействительна или истекла';
+const TOO_MANY = 'Слишком много попыток. Повторите позже';
 
-describe('Интеграция: восстановление пароля (FR-4.2, batch1 TS-014..TS-024)', () => {
+describe('Интеграция: восстановление пароля (FR-4.2, batch1 TS-014..TS-017, TS-019, TS-021..TS-024)', () => {
   let env: AuthProfileEnv;
-  let infoSpy: jasmine.Spy;
+  /** Счётчик «выданных» кодов: каждый запрос кода получает новый. */
+  let issuedCodes: number;
 
   beforeEach(async () => {
     spyOn(console, 'error');
+    issuedCodes = 0;
     env = await startAuthProfileEnv({ initialUrl: '/recovery' });
-    infoSpy = spyOn(console, 'info');
   });
 
   afterEach(() => {
     stopAuthProfileEnv(env);
   });
 
-  /** Последний код из «письма» console.info для email. */
-  function codeFor(email: string): string {
-    const prefix = `[mock-email] Код восстановления для ${email}: `;
-    const line = infoSpy.calls
-      .all()
-      .map((c) => String(c.args[0]))
-      .reverse()
-      .find((l) => l.startsWith(prefix));
-    expect(line).withContext(`строка «[mock-email] …» для ${email}`).toBeDefined();
-    return line!.slice(prefix.length);
+  /** Очередной 6-значный код, который «бэкенд» выдаёт на запрос. */
+  function nextCode(): string {
+    issuedCodes += 1;
+    return String(100000 + issuedCodes);
   }
 
-  /** Шаг 1: запрос кода через форму /recovery (успех → /recovery/code). */
+  /** Шаг 1: запрос кода через форму /recovery (всегда 200 → /recovery/code). */
   async function requestCode(email: string): Promise<string> {
-    await env.harness.navigateByUrl('/recovery');
-    env.harness.fixture.detectChanges();
+    if (env.router.url !== '/recovery') {
+      await env.harness.navigateByUrl('/recovery');
+      await settle(env);
+    }
     setInput(env, '#email-input', email);
     buttonByLabel(env, 'Отправить код').click();
-    await flushMock(env, 1);
-    expect(env.router.url).withContext('шаг 2 открыт').toBe('/recovery/code');
-    return codeFor(email);
+    respond(env, 'POST', '/auth/recovery/request', { body: null });
+    await waitForUrl(env, '/recovery/code');
+    expect(requestsOf(env, 'POST', '/auth/recovery/request')).toBeGreaterThan(0);
+    return nextCode();
   }
 
-  /** Шаг 2: ввод кода (успех → /reset-password). */
-  async function enterCode(code: string): Promise<void> {
+  /** Шаг 2: ввод кода с программируемым ответом confirm. */
+  async function enterCode(
+    code: string,
+    status: number,
+    body: unknown,
+    expectedUrl?: string,
+  ): Promise<void> {
     setInput(env, '#code-input', code);
     buttonByLabel(env, 'Ввести код').click();
-    await flushMock(env, 1);
+    respond(env, 'POST', '/auth/recovery/confirm', { status, body });
+    if (expectedUrl === undefined) {
+      await settle(env);
+    } else {
+      await waitForUrl(env, expectedUrl);
+    }
   }
 
-  /** Шаг 3: смена пароля на /reset-password. */
-  async function submitNewPassword(password: string): Promise<void> {
+  /** Шаг 3: смена пароля на /reset-password с программируемым ответом. */
+  async function submitNewPassword(
+    password: string,
+    status: number,
+    body: unknown = null,
+    expectedUrl?: string,
+  ): Promise<void> {
     setInput(env, '#password-input', password);
     setInput(env, '#repeat-password-input', password);
     buttonByLabel(env, 'Сменить пароль').click();
-    await flushMock(env, 1);
+    respond(env, 'POST', '/auth/reset-password', { status, body });
+    if (expectedUrl === undefined) {
+      await settle(env);
+    } else {
+      await waitForUrl(env, expectedUrl);
+    }
   }
 
-  it('TS-014: полный поток — email → код → новый пароль', async () => {
+  /** Переотправка кода кнопкой экрана шага 2. */
+  async function resend(
+    status: number,
+    body: unknown = null,
+  ): Promise<string> {
+    buttonByLabel(env, 'Переотправить код').click();
+    respond(env, 'POST', '/auth/recovery/request', { status, body });
+    await settle(env);
+    return nextCode();
+  }
+
+  it('TS-014: полный поток — email → код → новый пароль → вход новым паролем', async () => {
     const code = await requestCode(KNOWN_EMAIL);
-    await enterCode(code);
-    expect(env.router.url).withContext('шаг 3 открыт').toBe('/reset-password');
+    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
     expect(env.flow.resetToken())
       .withContext('confirm возвращает resetToken (в store)')
-      .not.toBeNull();
+      .toBe('reset-token-1');
 
-    await submitNewPassword('NewPass1!');
+    await submitNewPassword('NewPass1!', 204, null, '/login');
     expect(env.router.url).withContext('сброс успешен — редирект на /login').toBe('/login');
+    // DTO сброса на границе HTTP.
+    expect(env.requests.find((r) => r.path === '/auth/reset-password')?.body).toEqual({
+      resetToken: 'reset-token-1',
+      password: 'NewPass1!',
+      confirmPassword: 'NewPass1!',
+    });
 
-    // Вход со старым паролем больше не работает.
+    // Вход со старым паролем больше не работает (ответ бэкенда 401).
     setInput(env, '#login-input', 'student01');
     setInput(env, '#password-input', 'student123!');
-    submitButton(env).click();
-    await flushMock(env, 1);
+    buttonByLabel(env, 'Войти').click();
+    respond(env, 'POST', '/auth/login', {
+      status: 401,
+      body: { message: 'Неверный логин или пароль' },
+    });
+    await settle(env);
     expect(env.notifications.desktopMessage()?.text).toBe('Неверный логин или пароль');
     env.notifications.dismissMobile();
 
     // Вход с новым паролем успешен.
     setInput(env, '#password-input', 'NewPass1!');
-    submitButton(env).click();
-    await flushMock(env, 1);
-    expect(env.router.url).toBe('/my-submissions');
-    expect(sessionUserId()).not.toBeNull();
+    buttonByLabel(env, 'Войти').click();
+    respond(env, 'POST', '/auth/login', { body: ME_FIXTURES.student01 });
+    await waitForUrl(env, '/my-submissions');
+    expect(env.auth.isAuthenticated()).toBeTrue();
   }, 20000);
 
-  it('TS-015: неизвестный email неотличим на шаге 1 и всегда 400 на шаге 2', async () => {
-    await requestCode(KNOWN_EMAIL); // ответ и лог для существующего
-    const ghostCode = await requestCode(GHOST_EMAIL); // поведение идентично
+  it('TS-015: неизвестный email неотличим на клиенте: всегда 200 на шаге 1, единый 400 на шаге 2', async () => {
+    await requestCode(KNOWN_EMAIL); // ответ и переход для существующего
+    await requestCode(GHOST_EMAIL); // поведение идентично
 
-    const pattern = /^\[mock-email\] Код восстановления для .+: \d{6}$/;
-    const knownLine = `[mock-email] Код восстановления для ${KNOWN_EMAIL}: ${codeFor(KNOWN_EMAIL)}`;
-    const ghostLine = `[mock-email] Код восстановления для ${GHOST_EMAIL}: ${ghostCode}`;
-    expect(knownLine).withContext('формат лога существующего').toMatch(pattern);
-    expect(ghostLine).withContext('код пишется в console.info одинаково').toMatch(pattern);
-
-    // Confirm с кодом для неизвестного email — всегда 400.
+    // Confirm с кодом для неизвестного email — единый 400.
+    const ghostCode = nextCode();
     setInput(env, '#code-input', ghostCode);
     buttonByLabel(env, 'Ввести код').click();
-    await flushMock(env, 1);
+    respond(env, 'POST', '/auth/recovery/confirm', {
+      status: 400,
+      body: { message: CODE_REJECTED },
+    });
+    await settle(env);
+
     expect(env.notifications.desktopMessage()?.text)
       .withContext('единый текст отказа')
-      .toBe('Код восстановления не подходит');
+      .toBe(CODE_REJECTED);
     env.notifications.dismissMobile();
 
-    let caught: { status: number; body: { message: string; errors?: unknown } } | undefined;
-    try {
-      await env.client.call('auth.recovery.confirm', {
-        email: GHOST_EMAIL,
-        code: ghostCode,
-      });
-    } catch (error) {
-      caught = error as typeof caught;
-    }
-    expect(caught?.status).withContext('статус 400').toBe(400);
-    expect(caught?.body.message).toBe('Код восстановления не подходит');
-    expect(caught?.body.errors).withContext('существование email нигде не раскрывается').toBeUndefined();
-
-    // Код для неизвестного email не сохранялся — только код student01.
-    expect(mockDbData().recoveryCodes.length).toBe(1);
-    expect(mockDbData().recoveryCodes[0].code).toBe(codeFor(KNOWN_EMAIL));
+    // Тела запросов шага 1 идентичны по форме (различие только в значении
+    // email; существует ли он — клиенту не раскрывается).
+    const requests = env.requests.filter((r) => r.path === '/auth/recovery/request');
+    expect(requests.map((r) => (r.body as { email: string }).email)).toEqual([
+      KNOWN_EMAIL,
+      GHOST_EMAIL,
+    ]);
+    // Полевых ошибок нет (400 без errors).
+    expect(env.harness.fixture.nativeElement.querySelector('.field__error')).toBeNull();
   }, 20000);
 
-  it('TS-016: неверный код восстановления', async () => {
-    const callSpy = spyOn(env.client, 'call').and.callThrough();
-    await requestCode(KNOWN_EMAIL);
+  it('TS-016: неверный код восстановления — формат ловится клиентом, 400 оставляет экран', async () => {
+    const code = await requestCode(KNOWN_EMAIL);
 
-    // Не-6-цифровая строка блокируется клиентским валидатором — форматного
-    // 400 у confirm нет (запрос не уходит).
+    // Не-6-цифровая строка блокируется клиентским валидатором — запроса нет.
     setInput(env, '#code-input', '12a456');
     buttonByLabel(env, 'Ввести код').click();
-    env.harness.fixture.detectChanges();
-    expect(fieldErrorText(env, '#code-input')).toBe('Код должен состоять из 6 цифр');
-    expect(callSpy.calls.all().filter((c) => c.args[0] === 'auth.recovery.confirm').length)
+    await settle(env);
+    expect(
+      root(env)
+        .querySelector('#code-input')
+        ?.closest('.field')
+        ?.querySelector<HTMLElement>('.field__error')?.textContent?.trim(),
+    ).toBe('Код должен состоять из 6 цифр');
+    expect(requestsOf(env, 'POST', '/auth/recovery/confirm'))
       .withContext('форматного 400 у confirm нет — запрос не отправлен')
       .toBe(0);
 
-    // Неверный 6-значный код — 400 дословно, экран остаётся, попытка засчитана.
-    setInput(env, '#code-input', '000000');
-    buttonByLabel(env, 'Ввести код').click();
-    await flushMock(env, 1);
-    expect(env.notifications.desktopMessage()?.text).toBe('Код восстановления не подходит');
-    expect(env.router.url).withContext('экран /recovery/code остаётся открытым').toBe('/recovery/code');
-    expect(mockDbData().recoveryCodes[0].attempts)
-      .withContext('попытка засчитана')
-      .toBe(1);
+    // Неверный 6-значный код — 400 дословно, экран остаётся.
+    await enterCode('000000', 400, { message: CODE_REJECTED });
+    expect(env.notifications.desktopMessage()?.text).toBe(CODE_REJECTED);
+    expect(env.router.url)
+      .withContext('экран /recovery/code остаётся открытым')
+      .toBe('/recovery/code');
+    expect(env.flow.email()).withContext('email сохранён').toBe(KNOWN_EMAIL);
+    expect(env.flow.resetToken()).toBeNull();
     env.notifications.dismissMobile();
-
-    // Прямой confirm неформатной строки — тот же единый 400 (без errors).
-    await expectAsync(
-      env.client.call('auth.recovery.confirm', { email: KNOWN_EMAIL, code: '12a456' }),
-    ).toBeRejectedWith(
-      jasmine.objectContaining({
-        status: 400,
-        body: jasmine.objectContaining({ message: 'Код восстановления не подходит' }),
-      }),
-    );
   }, 20000);
 
-  it('TS-017: 5 неверных попыток аннулируют код; store сохраняет email; resend восстанавливает поток', async () => {
+  it('TS-017: серия неверных попыток (аннулирование — зона бэкенда) не сбрасывает email; resend восстанавливает поток', async () => {
     const code = await requestCode(KNOWN_EMAIL);
 
     for (let i = 1; i <= 5; i++) {
-      setInput(env, '#code-input', '111111');
-      buttonByLabel(env, 'Ввести код').click();
-      await flushMock(env, 1);
+      await enterCode('111111', 400, { message: CODE_REJECTED });
       expect(env.notifications.desktopMessage()?.text)
         .withContext(`попытка ${i} — 400`)
-        .toBe('Код восстановления не подходит');
+        .toBe(CODE_REJECTED);
       expect(env.router.url).withContext('экран остаётся').toBe('/recovery/code');
       env.notifications.dismissMobile();
     }
 
-    // Верный код тоже 400 — код аннулирован (usedAt на 5-й неверной).
-    await enterCode(code);
+    // Верный код тоже 400 — код аннулирован 5-й неверной попыткой (бэкенд).
+    await enterCode(code, 400, { message: CODE_REJECTED });
     expect(env.notifications.desktopMessage()?.text)
       .withContext('верный код после аннулирования — тот же 400')
-      .toBe('Код восстановления не подходит');
+      .toBe(CODE_REJECTED);
     env.notifications.dismissMobile();
 
     // RecoveryFlowStore НЕ очищен — email сохранён, resetToken нет.
@@ -212,48 +237,28 @@ describe('Интеграция: восстановление пароля (FR-4.
     expect(sessionStorage.getItem('recovery.flow.v1')).toContain(KNOWN_EMAIL);
 
     // «Переотправить код» выдаёт новый код, которым поток завершается успешно.
-    buttonByLabel(env, 'Переотправить код').click();
-    await flushMock(env, 1);
-    const freshCode = codeFor(KNOWN_EMAIL);
+    const freshCode = await resend(200);
     expect(freshCode).withContext('новый код выдан').not.toBe(code);
 
-    await enterCode(freshCode);
-    expect(env.router.url).withContext('новым кодом поток продолжился').toBe('/reset-password');
-    await submitNewPassword('Restart1!pass');
+    await enterCode(freshCode, 200, { resetToken: 'reset-token-2' }, '/reset-password');
+    await submitNewPassword('Restart1!pass', 204, null, '/login');
     expect(env.router.url).withContext('поток завершён успешно').toBe('/login');
   }, 30000);
 
-  it('TS-018: TTL кода 10 минут (9:59 принимается, 10:01 — отказ)', async () => {
+  it('TS-019: терминальная ветка resetToken (400 «Ссылка…») — экран остаётся, токен погашен, email сохранён', async () => {
     const code = await requestCode(KNOWN_EMAIL);
-    env.clock.now += 9 * MINUTE_MS + 59 * 1000;
-    await enterCode(code);
-    expect(env.router.url).withContext('до TTL код принимается').toBe('/reset-password');
+    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
 
-    // Новый код, вводимый через 10 минут 1 секунду после выдачи.
-    const freshCode = await requestCode(KNOWN_EMAIL);
-    env.clock.now += 10 * MINUTE_MS + 1 * 1000;
-    await enterCode(freshCode);
-    expect(env.notifications.desktopMessage()?.text)
-      .withContext('просроченный неотличим от неверного')
-      .toBe('Код восстановления не подходит');
-    expect(env.router.url).withContext('экран остаётся').toBe('/recovery/code');
-  }, 30000);
-
-  it('TS-019: TTL resetToken 15 минут — терминальная ветка с рестартом', async () => {
-    const code = await requestCode(KNOWN_EMAIL);
-    await enterCode(code);
-    expect(env.router.url).toBe('/reset-password');
-
-    env.clock.now += 15 * MINUTE_MS + 1000;
-    await submitNewPassword('TooLate1!pass');
+    await submitNewPassword('TooLate1!pass', 400, { message: LINK_INVALID });
 
     expect(env.notifications.desktopMessage()?.text)
       .withContext('400 дословно')
-      .toBe('Ссылка восстановления недействительна или истекла');
+      .toBe(LINK_INVALID);
     expect(env.router.url)
       .withContext('экран /reset-password остаётся открытым (автоперехода нет)')
       .toBe('/reset-password');
-    expect(linkByLabel(env, 'Запросить код заново').getAttribute('href'))
+    const link = linkByLabel(env, 'Запросить код заново');
+    expect(link.getAttribute('href'))
       .withContext('ссылка рестарта потока')
       .toContain('/recovery');
     expect(env.flow.resetToken()).withContext('resetToken удалён из store').toBeNull();
@@ -261,92 +266,50 @@ describe('Интеграция: восстановление пароля (FR-4.
     env.notifications.dismissMobile();
 
     // Повторная отправка формы — та же терминальная ошибка.
-    await submitNewPassword('TooLate1!pass');
-    expect(env.notifications.desktopMessage()?.text).toBe('Ссылка восстановления недействительна или истекла');
+    await submitNewPassword('TooLate1!pass', 400, { message: LINK_INVALID });
+    expect(env.notifications.desktopMessage()?.text).toBe(LINK_INVALID);
     expect(env.router.url).toBe('/reset-password');
+    env.notifications.dismissMobile();
   }, 20000);
 
-  it('TS-020: одноразовость кода и resetToken', async () => {
-    // Код подтверждается ровно один раз.
-    const code = await requestCode(KNOWN_EMAIL);
-    await enterCode(code);
-    expect(env.router.url).toBe('/reset-password');
-
-    await env.harness.navigateByUrl('/recovery/code');
-    env.harness.fixture.detectChanges();
-    await enterCode(code);
-    expect(env.notifications.desktopMessage()?.text)
-      .withContext('второй confirm с тем же кодом — 400')
-      .toBe('Код восстановления не подходит');
-    env.notifications.dismissMobile();
-
-    // Второй поток: один resetToken используется дважды.
-    const freshCode = await requestCode(KNOWN_EMAIL);
-    await enterCode(freshCode);
-    const token = env.flow.resetToken();
-    expect(token).withContext('resetToken получен').not.toBeNull();
-
-    await submitNewPassword('Once1!aaa');
-    expect(env.router.url).withContext('первый reset успешен').toBe('/login');
-
-    let caught: { status: number; body: { message: string } } | undefined;
-    try {
-      await env.client.call('auth.reset-password', {
-        resetToken: token,
-        password: 'Twice2!bb',
-        confirmPassword: 'Twice2!bb',
-      });
-    } catch (error) {
-      caught = error as typeof caught;
-    }
-    expect(caught?.body.message).toBe('Ссылка восстановления недействительна или истекла');
-
-    // Эффект применён ровно один раз.
-    await expectAsync(
-      env.client.call('auth.login', { login: 'student01', password: 'Twice2!bb' }),
-    ).withContext('пароль второй попытки не применился')
-      .toBeRejectedWith(jasmine.objectContaining({ status: 401 }));
-    const me = await env.client.call<{ login: string }>('auth.login', {
-      login: 'student01',
-      password: 'Once1!aaa',
-    });
-    expect(me.login).withContext('пароль сменился ровно один раз').toBe('student01');
-  }, 30000);
-
-  it('TS-021: переотправка инвалидирует старый код; 4-й запрос в час — 429', async () => {
+  it('TS-021: переотправка выдаёт новый код; 429 лимита — дословный баннер, экран /recovery остаётся', async () => {
     const oldCode = await requestCode(KNOWN_EMAIL); // запрос 1
 
-    buttonByLabel(env, 'Переотправить код').click();
-    await flushMock(env, 1);
-    const newCode = codeFor(KNOWN_EMAIL); // запрос 2
+    const newCode = await resend(200); // запрос 2
     expect(newCode).not.toBe(oldCode);
 
-    await enterCode(oldCode);
+    await enterCode(oldCode, 400, { message: CODE_REJECTED });
     expect(env.notifications.desktopMessage()?.text)
       .withContext('старый код — 400')
-      .toBe('Код восстановления не подходит');
+      .toBe(CODE_REJECTED);
     env.notifications.dismissMobile();
 
-    await enterCode(newCode);
-    expect(env.router.url).withContext('новый код — успех').toBe('/reset-password');
+    await enterCode(newCode, 200, { resetToken: 'reset-token-1' }, '/reset-password');
 
-    // 3-й запрос кода в окне часа — разрешён.
+    // 3-й запрос кода в окне часа — разрешён (ответ бэкенда 200).
+    await env.harness.navigateByUrl('/recovery');
+    await settle(env);
     await requestCode(KNOWN_EMAIL);
     expect(env.router.url).toBe('/recovery/code');
 
-    // 4-й запрос — 429 дословно, экран /recovery остаётся.
+    // 4-й запрос — 429 дословно, шаг 2 не открывается.
     await env.harness.navigateByUrl('/recovery');
-    env.harness.fixture.detectChanges();
+    await settle(env);
     setInput(env, '#email-input', KNOWN_EMAIL);
     buttonByLabel(env, 'Отправить код').click();
-    await flushMock(env, 1);
+    respond(env, 'POST', '/auth/recovery/request', {
+      status: 429,
+      body: { message: TOO_MANY },
+    });
+    await settle(env);
     expect(env.notifications.desktopMessage()?.text)
       .withContext('429 дословно')
-      .toBe('Слишком много попыток. Повторите позже');
+      .toBe(TOO_MANY);
     expect(env.router.url).withContext('шаг 2 не открыт').toBe('/recovery');
+    env.notifications.dismissMobile();
   }, 30000);
 
-  it('TS-022: F5 в пределах вкладки сохраняет шаг потока восстановления', async () => {
+  it('TS-022: F5 в пределах вкладки сохраняет шаг потока восстановления (recovery.flow.v1)', async () => {
     const code = await requestCode(KNOWN_EMAIL);
     expect(env.router.url).toBe('/recovery/code');
 
@@ -358,8 +321,7 @@ describe('Интеграция: восстановление пароля (FR-4.
       .toBe('/recovery/code');
     expect(env.flow.email()).withContext('email из recovery.flow.v1').toBe(KNOWN_EMAIL);
 
-    await enterCode(code);
-    expect(env.router.url).toBe('/reset-password');
+    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
 
     // F5 на шаге смены пароля.
     env = await restartApp(env, { keepStorage: true });
@@ -369,76 +331,69 @@ describe('Интеграция: восстановление пароля (FR-4.
       .toBe('/reset-password');
     expect(env.flow.resetToken())
       .withContext('resetToken из recovery.flow.v1')
-      .not.toBeNull();
+      .toBe('reset-token-1');
 
-    await submitNewPassword('AfterF51!pass');
+    await submitNewPassword('AfterF51!pass', 204, null, '/login');
     expect(env.router.url).withContext('поток продолжается до успеха').toBe('/login');
   }, 30000);
 
   it('TS-023: полевая ошибка на /reset-password не гасит resetToken', async () => {
     const code = await requestCode(KNOWN_EMAIL);
-    await enterCode(code);
+    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
     const tokenBefore = env.flow.resetToken();
     expect(tokenBefore).not.toBeNull();
 
-    const callSpy = spyOn(env.client, 'call').and.callThrough();
     setInput(env, '#password-input', 'abc');
     setInput(env, '#repeat-password-input', 'abc');
     buttonByLabel(env, 'Сменить пароль').click();
-    env.harness.fixture.detectChanges();
+    await settle(env);
 
     expect(env.notifications.desktopMessage()?.text)
       .withContext('баннер клиентской валидации')
       .toBe('Данные заполнены неверно');
-    expect(fieldErrorText(env, '#password-input')).toBe(
-      'Пароль должен содержать не менее 8 символов',
-    );
-    expect(callSpy.calls.all().filter((c) => c.args[0] === 'auth.reset-password').length)
+    expect(
+      root(env)
+        .querySelector('#password-input')
+        ?.closest('.field')
+        ?.querySelector<HTMLElement>('.field__error')?.textContent?.trim(),
+    ).toBe('Пароль должен содержать не менее 8 символов');
+    expect(requestsOf(env, 'POST', '/auth/reset-password'))
       .withContext('запрос не списал токен')
       .toBe(0);
     expect(env.flow.resetToken()).toBe(tokenBefore);
     env.notifications.dismissMobile();
 
     // Повторный сабмит с валидным паролем — успех тем же resetToken.
-    await submitNewPassword('Valid1!pass');
+    await submitNewPassword('Valid1!pass', 204, null, '/login');
     expect(env.router.url).withContext('сброс успешен').toBe('/login');
+    expect(env.requests.find((r) => r.path === '/auth/reset-password')?.body).toEqual(
+      jasmine.objectContaining({ resetToken: tokenBefore }),
+    );
   }, 20000);
 
-  it('TS-024: сброс пароля отзывает сессию пользователя', async () => {
+  it('TS-024: сброс пароля отзывает сессию — 401 → неудачный refresh → сброс памяти → /login', async () => {
     // Сессия установлена (аналог второй вкладки того же пользователя).
-    loginAs(seedUserIdByLogin('student01'));
-    expect(sessionUserId()).not.toBeNull();
+    env = await restartApp(env, { session: 'student01' });
+    expect(env.auth.isAuthenticated()).toBeTrue();
 
-    // Гостевые страницы восстановления авторизованному недоступны (guestGuard),
-    // поэтому полный поток до успеха выполняется через границу мок-API —
-    // UI-механика потока покрыта TS-014..TS-023.
-    await env.client.call('auth.recovery.request', { email: KNOWN_EMAIL });
-    const prefix = `[mock-email] Код восстановления для ${KNOWN_EMAIL}: `;
-    const line = infoSpy.calls
-      .all()
-      .map((c) => String(c.args[0]))
-      .reverse()
-      .find((l) => l.startsWith(prefix));
-    expect(line).withContext('код в console.info').toBeDefined();
-    const code = line!.slice(prefix.length);
-    const { resetToken } = await env.client
-      .call<{ resetToken: string }>('auth.recovery.confirm', {
-        email: KNOWN_EMAIL,
-        code,
-      });
-    await env.client.call('auth.reset-password', {
-      resetToken,
-      password: 'Revoked1!pass',
-      confirmPassword: 'Revoked1!pass',
-    });
-
-    // §4.2 «отзывает все refresh-токены пользователя»: сессия отозвана —
-    // продолжить работу без повторного входа невозможно (решение TS-024).
-    expect(env.auth.isAuthenticated())
-      .withContext('после сброса isAuthenticated()=false')
-      .toBeFalse();
+    // §4.2 «отзывает все refresh-токены пользователя»: следующий защищённый
+    // вызов получает 401, тихий refresh тоже 401 — сессия отозвана,
+    // продолжить работу без повторного входа невозможно.
     await env.harness.navigateByUrl('/profile');
+    respond(env, 'GET', '/me/profile', {
+      status: 401,
+      body: { message: 'Не авторизован' },
+    });
+    respond(env, 'POST', '/auth/refresh', {
+      status: 401,
+      body: { message: 'Не авторизован' },
+    });
+    await settle(env);
+
+    expect(env.auth.isAuthenticated())
+      .withContext('после отзыва isAuthenticated()=false')
+      .toBeFalse();
     expect(env.router.url).withContext('редирект на /login').toBe('/login');
-    expect(sessionUserId()).withContext('ключ сессии очищен').toBeNull();
+    env.notifications.dismissMobile();
   }, 20000);
 });

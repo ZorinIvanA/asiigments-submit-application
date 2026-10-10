@@ -1,57 +1,84 @@
 /**
- * StudentsService — фасад домена Students поверх мок-слоя (C-104, IF-105,
- * FR-4.6/US-17): список студентов раздела «Доступ» и назначение группы.
- *
- * Единственный слой, который страницы вызывают для работы со студентами:
- * наружу мок-слой импортируют только сервисы core (ADR-003). Все коды
- * ошибок контракта приходят от мока как ApiError {status, body} и
- * пробрасываются вызывающей странице как есть: 400 «Данные заполнены
- * неверно» + errors {search}, 401 «Не авторизован», 403 «Доступ запрещён»,
- * 404 «Студент не найден» / «Группа не найдена».
+ * StudentsService — клиент REST-домена студентов (C-014, FR-091, FR-4.6/US-17):
+ * список студентов раздела «Доступ» и назначение группы. Единственная точка
+ * доступа страниц к эндпойнтам students (снаружи сервисы core). Базовый
+ * префикс — токен API_BASE_URL (ADR-009); запросы идут с withCredentials:
+ * true через authInterceptor (C-013), HTTP-отказы нормализуются им в ApiError
+ * {status, body: {message, errors?}} (http-errors.ts) — прежняя форма отказов
+ * страниц не меняется. Коды ошибок — дословно контрактам REST домена students:
+ *  - 401 «Не авторизован» — нет/битая сессия;
+ *  - 403 «Доступ запрещён» — роль не teacher;
+ *  - 400 «Данные заполнены неверно» + errors {search} — search длиннее
+ *    200 символов;
+ *  - 404 «Студент не найден» / «Группа не найдена» — setGroup.
  */
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
-import { MockApiClient } from '../../mock/mock-api-client';
+import { API_BASE_URL } from '../api-base-url';
 import {
+  PagedResult,
   STUDENTS_PAGE_SIZE,
+  StudentDto,
   StudentsGetListParams as StudentListQuery,
-  StudentsSetGroupParams,
-} from '../../mock/students/handlers';
-import { PagedResult, StudentDto } from '../../shared/models';
+} from '../../shared/models';
 
 /**
  * Размер страницы списка студентов (IF-105, ADR-109). Реэкспорт константы
- * мок-обработчиков — единый источник значения для мока, сервиса и страниц.
+ * из shared/models — единый источник значения для сервиса и страниц
+ * (FR-090).
  */
 export { STUDENTS_PAGE_SIZE };
 
 /**
- * Типы контракта IF-105 — реэкспорт единого источника (мок-обработчики
- * домена) вместо дублирующих определений; имя StudentListQuery сохранено
- * для страниц фич (T-114/T-115).
+ * Типы контракта списка студентов — реэкспорт единого источника
+ * (shared/models) вместо дублирующих определений; имя StudentListQuery
+ * сохранено для страниц фич (доступ/карточка группы).
  */
 export type { StudentListQuery };
 
 @Injectable({ providedIn: 'root' })
 export class StudentsService {
-  private readonly client = inject(MockApiClient);
+  private readonly http = inject(HttpClient);
+  private readonly apiBase = inject(API_BASE_URL);
 
   /**
-   * Постраничный список студентов (IF-105): поиск/фильтр/порядок ФИО↑ login↑
-   * мок применяет к полной выборке до нарезки страницы; порядок от поиска
-   * и фильтра не меняется.
+   * Постраничный список студентов (GET /students): поиск/фильтр/сортировка
+   * и нарезка страницы — на бэкенде. Query собирается в порядке search,
+   * groupId, page; отсутствующие значения в query не попадают: search
+   * без строки (null/undefined) или без непробельных символов — «без
+   * поиска» (трим и токенизация — правила бэкенда, значение уходит как
+   * есть, включая пробелы многословного запроса); groupId null/undefined —
+   * «без фильтра», 'none' — только студенты без группы, uuid — только эта
+   * группа (несуществующий uuid — пустая выборка, не 404).
    */
   getList(query: StudentListQuery): Promise<PagedResult<StudentDto>> {
-    return this.client.call<PagedResult<StudentDto>>('students.getList', query);
+    let params = new HttpParams();
+    if (
+      query.search !== undefined &&
+      query.search !== null &&
+      query.search.trim() !== ''
+    ) {
+      params = params.set('search', query.search);
+    }
+    if (query.groupId !== undefined && query.groupId !== null) {
+      params = params.set('groupId', query.groupId);
+    }
+    params = params.set('page', query.page);
+    return firstValueFrom(
+      this.http.get<PagedResult<StudentDto>>(`${this.apiBase}/students`, { params }),
+    );
   }
 
   /**
-   * Назначение группы студенту (IF-105): uuid — включение/перевод,
-   * null — исключение из группы; единственная точка изменения users.group_id,
-   * включение в группу немедленно даёт доступ к данным ведомости (§4.6).
+   * Назначение группы студенту (PUT /students/{id}/group, тело {groupId}):
+   * uuid — включение/перевод, null — исключение из группы; успех → 204.
+   * Идентификатор студента уходит в путь запроса, не в тело.
    */
   setGroup(studentId: string, groupId: string | null): Promise<void> {
-    const params: StudentsSetGroupParams = { studentId, groupId };
-    return this.client.call<void>('students.setGroup', params);
+    return firstValueFrom(
+      this.http.put<void>(`${this.apiBase}/students/${studentId}/group`, { groupId }),
+    );
   }
 }

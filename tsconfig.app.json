@@ -10,6 +10,10 @@
     "src/client/**/*.ts"
   ],
   "exclude": [
-    "src/client/**/*.spec.ts"
+    "src/client/**/*.spec.ts",
+    // Тест-инфраструктура (integration-env, стабы, харнессы) не входит в
+    // программу сборки приложения — по той же причине, что и *.spec.ts:
+    // её потребители только спеки (T-022, FR-026(1)).
+    "src/client/app/testing/**"
   ]
 }

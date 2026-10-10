@@ -1,36 +1,32 @@
 /**
- * Юнит-тесты композиции маршрутов приложения (C-117, T-119, аменда 4 к
- * ADR-110, контракт IF-108): таблица §7 (13 строк — 14 путей с компонентами
+ * Юнит-тесты композиции маршрутов приложения (C-117, T-119, аменда 4
+ * к ADR-110, контракт IF-108): таблица §7 (13 строк — 14 путей с компонентами
  * и title фич), сквозные guards на componentless-обёртках (homeGuard на ''
  * и '**', guestGuard на гостевом семействе, authGuard на оболочке),
  * гостевая оболочка GuestShell с вкладками §4.8 внутри guest-обёртки
  * (VS-006, фикс VBUG-004), точечные guards немутирующим хелпером (копии
  * маршрутов, исходные массивы фич не мутируются), /403 и /profile без
  * roleGuard; smoke Router-навигации через RouterTestingHarness: гость на
- * /works и на deep-link teacher-страницы → /login без ошибок консоли,
+ * /works (включая неудачное восстановление сессии — 401 /auth/me и refresh)
+ * и на deep-link teacher-страницы → /login без ошибок консоли,
  * студент на /works → /403, корни '' и '**' → homeGuard, шаги
  * восстановления без store → /recovery.
  *
- * Guards работают против реального AuthService (мок-слой auth на
- * фиксированных часах, задержка 500 мс реальными таймерами); страницы,
- * активируемые при редиректах, получают заглушки сервисов доменов.
+ * Навигационные сценарии идут против реального AuthService на реальном
+ * HTTP-ядре приложения (HttpClient + authInterceptor поверх программируемого
+ * HttpTestingController-бэкенда, конвенция URL — ADR-014): сессия поднимается
+ * настоящим GET /auth/me, как в guards.spec (FR-026: мок-слой удалён);
+ * страницы, активируемые при редиректах, получают заглушки сервисов доменов.
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Route, Router, Routes, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
-import { registerAuthHandlers } from '../../mock/auth/handlers';
-import { SessionStore } from '../../mock/auth/session-store';
-import { MockApiClient } from '../../mock/mock-api-client';
-import {
-  MockDbData,
-  configureMockDbSeed,
-  emptyMockDbData,
-  resetMockDbSeed,
-} from '../../mock/mock-db';
 import { MockBreakpointObserver } from '../../../testing/mock-breakpoint-observer';
 import { ACCESS_ROUTES, AccessPage } from '../../features/access/access.routes';
 import { AUTH_ROUTES } from '../../features/auth/auth.routes';
@@ -50,16 +46,30 @@ import { WorksPage } from '../../features/works/pages/works-page/works-page';
 import { AppShell } from '../../layout/app-shell/app-shell';
 import { GuestShell } from '../../layout/guest-shell/guest-shell';
 import { Page403 } from '../../layout/page-403/page-403';
+import { MeDto } from '../../shared/models';
 import { LABS_PAGE_SIZE, LabsService } from '../services/labs.service';
 import { ProfileService } from '../services/profile.service';
 import { SubmissionsService } from '../services/submissions.service';
+import { authInterceptor } from '../auth-interceptor';
+import { API_BASE_URL } from '../api-base-url';
+import { AuthService } from '../services/auth.service';
 import { authGuard, guestGuard, homeGuard } from '../navigation/guards';
 import { routes } from './app.routes';
 
-const T0 = 1_758_240_000_000;
+/** MeDto сессионного пользователя — фиксированные личности вместо сида. */
+const TEACHER_ME: MeDto = {
+  login: 'teacher',
+  fullName: 'Сидоров Семён Семёнович',
+  role: 'teacher',
+  groupName: null,
+};
 
-const TEACHER_ID = 'aaaaaaaa-1111-4111-8111-111111111111';
-const STUDENT_ID = 'bbbbbbbb-2222-4222-8222-222222222222';
+const STUDENT_ME: MeDto = {
+  login: 'student01',
+  fullName: 'Иванов Иван Иванович 01',
+  role: 'student',
+  groupName: 'ИК-221',
+};
 
 interface RouteNode {
   /** Накопленный путь с ведущим '/' (корень '' — без слэша). */
@@ -84,32 +94,6 @@ function leaf(path: string): Route {
   );
   expect(nodes.length).withContext(`ровно один лист ${path}`).toBe(1);
   return nodes[0].route;
-}
-
-function makeSeed(): MockDbData {
-  return {
-    ...emptyMockDbData(),
-    users: [
-      {
-        id: TEACHER_ID,
-        login: 'teacher',
-        email: 'teacher@example.com',
-        fullName: 'Сидоров Семён Семёнович',
-        role: 'teacher',
-        groupId: null,
-        password: 'teacher123!',
-      },
-      {
-        id: STUDENT_ID,
-        login: 'student01',
-        email: 'student01@example.com',
-        fullName: 'Иванов Иван Иванович 01',
-        role: 'student',
-        groupId: null,
-        password: 'student123!',
-      },
-    ],
-  };
 }
 
 class LabsServiceStub {
@@ -286,6 +270,8 @@ describe('app.routes — таблица §7 и композиция guards (T-11
 
 describe('app.routes — навигация по скомпонованному дереву (IF-108)', () => {
   let harness: RouterTestingHarness;
+  let httpMock: HttpTestingController;
+  let apiBase: string;
   let labs: LabsServiceStub;
   let submissions: SubmissionsServiceStub;
   let profile: ProfileServiceStub;
@@ -294,10 +280,6 @@ describe('app.routes — навигация по скомпонованному 
     localStorage.clear();
     sessionStorage.clear();
     spyOn(console, 'error');
-    configureMockDbSeed(() => makeSeed());
-
-    const client = new MockApiClient();
-    registerAuthHandlers(client, () => T0);
 
     labs = new LabsServiceStub();
     labs.getList.and.resolveTo({ items: [], total: 0, page: 1, pageSize: LABS_PAGE_SIZE });
@@ -317,24 +299,44 @@ describe('app.routes — навигация по скомпонованному 
       providers: [
         provideRouter(routes),
         provideNoopAnimations(),
-        { provide: MockApiClient, useValue: client },
+        // Реальное HTTP-ядро приложения (HttpClient + authInterceptor) поверх
+        // программируемого бэкенда (FR-026, конвенция URL — ADR-014):
+        // сессия поднимается настоящим GET /auth/me, как в guards.spec.
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
         { provide: BreakpointObserver, useValue: new MockBreakpointObserver() },
+        // Двойники доменных сервисов: активированные страницы не выполняют
+        // HTTP доменов — навигационные сценарии проверяют только guards.
         { provide: LabsService, useValue: labs },
         { provide: SubmissionsService, useValue: submissions },
         { provide: ProfileService, useValue: profile },
       ],
     });
+    httpMock = TestBed.inject(HttpTestingController);
+    apiBase = TestBed.inject(API_BASE_URL);
     harness = await RouterTestingHarness.create();
   });
 
   afterEach(() => {
+    // Ни одного незакрытого/лишнего запроса: домены заглушены, сессия —
+    // единственный программируемый запрос (GET /auth/me).
+    httpMock.verify();
     localStorage.clear();
     sessionStorage.clear();
-    resetMockDbSeed();
   });
 
-  function setSession(userId: string): void {
-    TestBed.inject(SessionStore).setUserId(userId);
+  /**
+   * Холодный старт «как F5» с действующими cookie: initSession →
+   * GET /auth/me → 200 — кэш currentUser заполнен до первого решения
+   * guard'а (то же делает provideAppInitializer в живом приложении, FR-092).
+   */
+  async function sessionAs(me: MeDto): Promise<void> {
+    const pending = TestBed.inject(AuthService).initSession();
+    httpMock.expectOne(`${apiBase}/auth/me`).flush(me);
+    await expectAsync(pending).toBeResolved();
+    expect(TestBed.inject(AuthService).isAuthenticated())
+      .withContext('кэш заполнен до guard')
+      .toBeTrue();
   }
 
   function currentUrl(): string {
@@ -354,6 +356,30 @@ describe('app.routes — навигация по скомпонованному 
     expect(
       harness.fixture.nativeElement.querySelector('app-login-page'),
     ).withContext('страница входа активирована внутри гостевой оболочки').not.toBeNull();
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  it('гость: неудачное восстановление сессии (401 /auth/me + refresh 401) — /works → /login', async () => {
+    // Холодный старт без cookie, как в проде (FR-026, образец — guards.spec):
+    // initSession → GET /auth/me → 401; интерцептор на /auth/me (вне
+    // auth-семейства) запускает единственный тихий refresh → 401 — старт
+    // анонимом без навигации из фазы инициализации (ADR-016), редирект
+    // решают guard'ы по пустому кэшу (FR-092).
+    const pending = TestBed.inject(AuthService).initSession();
+    httpMock
+      .expectOne(`${apiBase}/auth/me`)
+      .flush({ message: 'Не авторизован' }, { status: 401, statusText: 'Unauthorized' });
+    httpMock
+      .expectOne(`${apiBase}/auth/refresh`)
+      .flush({ message: 'Не авторизован' }, { status: 401, statusText: 'Unauthorized' });
+    await expectAsync(pending).toBeResolved();
+    expect(TestBed.inject(AuthService).isAuthenticated())
+      .withContext('аноним после неудачного восстановления сессии')
+      .toBeFalse();
+
+    const shell = await harness.navigateByUrl('/works');
+    expect(currentUrl()).toBe('/login');
+    expect(shell).toBeInstanceOf(GuestShell);
     expect(console.error).not.toHaveBeenCalled();
   });
 
@@ -428,7 +454,7 @@ describe('app.routes — навигация по скомпонованному 
   });
 
   it('teacher с сессией: корень сайта → /works (homeGuard → ROLE_HOME), works-страница активирована', async () => {
-    setSession(TEACHER_ID);
+    await sessionAs(TEACHER_ME);
     await harness.navigateByUrl('/');
     expect(currentUrl()).toBe('/works');
     await settle();
@@ -440,14 +466,14 @@ describe('app.routes — навигация по скомпонованному 
   });
 
   it('AC guest-blocked: teacher с сессией на /login → /works (ROLE_HOME.teacher)', async () => {
-    setSession(TEACHER_ID);
+    await sessionAs(TEACHER_ME);
     await harness.navigateByUrl('/login');
     expect(currentUrl()).toBe('/works');
     expect(console.error).not.toHaveBeenCalled();
   });
 
   it('AC guest-blocked: student с сессией на /login → /my-submissions (ROLE_HOME.student)', async () => {
-    setSession(STUDENT_ID);
+    await sessionAs(STUDENT_ME);
     await harness.navigateByUrl('/login');
     expect(currentUrl()).toBe('/my-submissions');
     // Страница — внутри outlet оболочки: проверяется селектором хоста.
@@ -458,7 +484,7 @@ describe('app.routes — навигация по скомпонованному 
   });
 
   it('student: /works → /403 (roleGuard teacher), страница 403 доступна без roleGuard', async () => {
-    setSession(STUDENT_ID);
+    await sessionAs(STUDENT_ME);
     await harness.navigateByUrl('/works');
     expect(currentUrl()).toBe('/403');
     expect(harness.fixture.nativeElement.querySelector('app-page-403'))
@@ -469,7 +495,7 @@ describe('app.routes — навигация по скомпонованному 
   });
 
   it('student: /profile доступен — любая роль (без roleGuard)', async () => {
-    setSession(STUDENT_ID);
+    await sessionAs(STUDENT_ME);
     await harness.navigateByUrl('/profile');
     expect(currentUrl()).toBe('/profile');
     expect(harness.fixture.nativeElement.querySelector('app-profile-page'))
@@ -481,7 +507,7 @@ describe('app.routes — навигация по скомпонованному 
   it('teacher с сессией: /recovery/code → /works (guestGuard срабатывает раньше recoveryStepGuard)', async () => {
     // Сессия преподавателя на гостевом маршруте: guestGuard → /works,
     // recoveryStepGuard не вызывается (обёртка сработала раньше).
-    setSession(TEACHER_ID);
+    await sessionAs(TEACHER_ME);
     await harness.navigateByUrl('/recovery/code');
     expect(currentUrl()).toBe('/works');
     expect(console.error).not.toHaveBeenCalled();

@@ -1,5 +1,5 @@
 /**
- * Интеграционные сценарии списка /works (FR-4.3, C-111/IF-103):
+ * Интеграционные сценарии списка /works (FR-4.3, C-111, IF-103):
  *  - TS-201: сид-список — колонки, дефолтный порядок, первая страница, подпись;
  *  - TS-202: пагинация — страница 2 из 3 (полная страница в середине);
  *  - TS-203: фильтр семестра — опции из getSemesters, сброс страницы, «Все семестры»;
@@ -7,16 +7,16 @@
  *  - TS-205: колонка «Задание» — ссылка у кратных 5, прочерк у остальных;
  *  - TS-206: «Нужна защита» — read-only чекбоксы;
  *  - TS-207/TS-208: диалог удаления, блокировка списка, «No»; удаление,
- *    «Удалено» и каскадное удаление сдач в мок-БД;
+ *    «Удалено» и каскадное удаление сдач на сервере;
  *  - TS-209: опустошение семестра и списка (аменда 7), подпись «с 1 по 0 из 0»;
  *  - TS-210: remove-404 — баннер 'header' + перезагрузка страницы без редиректа;
  *  - TS-211: двойной клик «Yes» — ровно одно удаление;
  *  - TS-212: гонка быстрых смен фильтра — последний запрос выигрывает;
  *  - TS-234: пагинация — последняя неполная страница.
  *
- * Уровень — интеграционный: WorksPage → LabsService → мок (IF-103) →
- * localStorage; режим уведомлений — MockBreakpointObserver; тайминги мока —
- * fakeAsync/tick(500).
+ * Уровень — интеграционный: WorksPage → LabsService → HttpTestingController →
+ * состояние WorksBackendStub (без мок-слоя, FR-026); режим уведомлений —
+ * BreakpointObserverStub; тайминги — волны ответов бэкенда в fakeAsync.
  */
 import { fakeAsync } from '@angular/core/testing';
 
@@ -294,13 +294,13 @@ describe('Интеграция: список лабораторных /works (FR
       expect(checkbox!.getAttribute('data-p-disabled')).toBe('true');
     });
 
-    const calls = spyOn(harness.client, 'call').and.callThrough();
     (rows[0]!.querySelector('p-checkbox') as HTMLElement).click(); // №1, пустой
     harness.uiSettle();
     expect(harness.rowByNumber(1).querySelector('p-checkbox')!.getAttribute('data-p-checked')).toBe(
       'false',
     );
-    expect(calls).not.toHaveBeenCalled(); // ни одного нового мок-вызова
+    // Ни одного нового HTTP-запроса (read-only чекбокс, FR-011).
+    expect(harness.pendingHttpRequests()).toBe(0);
   }));
 
   it('TS-207: диалог удаления — дословный текст с №N и №M, «Yes»/«No», блокировка списка, «No» без удаления', fakeAsync(() => {
@@ -329,7 +329,7 @@ describe('Интеграция: список лабораторных /works (FR
     expect(harness.rowByNumber(2)).toBeDefined();
   }));
 
-  it('TS-208: удаление — «Удалено», перезагрузка списка, каскадное удаление сдач в мок-БД', fakeAsync(() => {
+  it('TS-208: удаление — «Удалено», перезагрузка списка, каскадное удаление сдач на сервере', fakeAsync(() => {
     openWorks();
     const lab1 = harness.labId(1, 1);
     const lab2 = harness.labId(1, 2);
@@ -344,7 +344,7 @@ describe('Интеграция: список лабораторных /works (FR
     expect(harness.rows().some((row) => harness.rowCells(row)[0] === '1')).toBeFalse();
     expect(harness.reportText()).toBe('Показать записи с 1 по 10 из 22');
 
-    // В мок-БД отсутствуют только submissions удалённой лабы.
+    // В состоянии сервера отсутствуют только submissions удалённой лабы.
     const db = harness.readDb();
     expect(db.labs.some((lab) => lab.id === lab1)).toBeFalse();
     expect(db.submissions.some((submission) => submission.labId === lab1)).toBeFalse();
@@ -419,8 +419,8 @@ describe('Интеграция: список лабораторных /works (FR
     const getList = spyOn(harness.labs, 'getList').and.callThrough();
     const lab1 = harness.labId(1, 1);
 
-    // Работа №1 удалена «из другой вкладки» — прямым вызовом мока.
-    void harness.client.call('labs.remove', { id: lab1 });
+    // Работа №1 удалена «из другой вкладки» — прямой мутацией сервера.
+    harness.removeLabDirect(lab1);
     harness.flush();
 
     // Строка №1 ещё на экране (данные страницы устарели) — удаление по ней.

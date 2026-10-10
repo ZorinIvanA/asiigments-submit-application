@@ -1,22 +1,28 @@
 /**
  * Интеграционные тесты входа и выхода (batch1, FR-4.1/IF-108, §4.1):
- * TS-008 вход обеими демо-ролями (ответ {role, fullName}, ci-логин,
- * редирект по роли); TS-009 единое сообщение при любых неверных данных;
- * TS-010 rate limit входа 5 неуспешных/мин (успехи лимит не расходуют);
- * TS-011 выход очищает сессию и возвращает на /login.
+ * TS-008 вход обеими демо-ролями (ответ {role, fullName}, значение логина
+ * уходит как набрано — ci-нормализация на бэкенде, редирект по роли);
+ * TS-009 единое сообщение при любых неверных данных (401); TS-010
+ * 429 «Слишком много попыток» — клиентская поверхность лимита входа
+ * (окно/счётчик — зона бэкенд-домена); TS-011 выход очищает сессию
+ * (память AuthService) и возвращает на /login.
  *
- * Реальная страница /login, реальный мок-слой и guards; тексты — дословно
- * из контракта IF-101 (QG-005).
+ * Реальная страница /login, реальный HTTP-стек и guards на программируемом
+ * HttpTestingController (FR-026); тексты — дословно из контракта IF-101
+ * (QG-005). Признак сессии — память AuthService (FR-092): сохранение/очистка
+ * проверяются по auth.currentUser()/isAuthenticated().
  */
 import {
   AuthProfileEnv,
-  flushMock,
+  ME_FIXTURES,
+  respond,
   required,
-  sessionUserId,
+  settle,
   setInput,
   startAuthProfileEnv,
   stopAuthProfileEnv,
   submitButton,
+  waitForUrl,
 } from './auth-profile.env';
 
 const TEACHER = { login: 'teacher', password: 'teacher123!' };
@@ -39,15 +45,35 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
     setInput(env, '#password-input', password);
   }
 
-  async function submitLogin(calls = 1): Promise<void> {
+  /**
+   * Сабмит входа с программируемым ответом POST /auth/login; для успешных
+   * исходов дожидается фактического редиректа (ленивый чанк домашней
+   * страницы асинхронен).
+   */
+  async function submitLogin(
+    status: number,
+    body: unknown,
+    expectedUrl?: string,
+  ): Promise<void> {
     submitButton(env).click();
-    await flushMock(env, calls);
+    respond(env, 'POST', '/auth/login', { status, body });
+    if (expectedUrl === undefined) {
+      await settle(env);
+    } else {
+      await waitForUrl(env, expectedUrl);
+    }
   }
 
-  it('TS-008: вход обеими демо-ролями — ответ, ci-логин, редирект на домашнюю', async () => {
+  /** Тело последнего login-запроса (граница HTTP). */
+  function lastLoginBody(): unknown {
+    const logins = env.requests.filter((r) => r.path === '/auth/login');
+    return logins[logins.length - 1].body;
+  }
+
+  it('TS-008: вход обеими демо-ролями — ответ, редирект на домашнюю, значение логина без искажений', async () => {
     // Преподаватель.
     fillCredentials(TEACHER.login, TEACHER.password);
-    await submitLogin();
+    await submitLogin(200, ME_FIXTURES.teacher, '/works');
     expect(env.auth.currentUser()).withContext('ответ содержит {role, fullName}').toEqual(
       jasmine.objectContaining({
         role: 'teacher',
@@ -55,17 +81,22 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
       }),
     );
     expect(env.router.url).withContext('teacher → редирект /works').toBe('/works');
-    expect(sessionUserId()).withContext('сессия установлена').not.toBeNull();
+    expect(env.auth.isAuthenticated()).withContext('сессия установлена (память)').toBeTrue();
 
     // Выход через шапку.
     required<HTMLButtonElement>(env, '.app-topbar__logout').click();
-    await flushMock(env, 1);
-    expect(env.router.url).toBe('/login');
-    expect(sessionUserId()).withContext('сессия очищена').toBeNull();
+    respond(env, 'POST', '/auth/logout', { status: 204 });
+    await waitForUrl(env, '/login');
+    expect(env.auth.isAuthenticated()).withContext('сессия очищена').toBeFalse();
 
-    // Студент — логин в другом регистре (ci).
+    // Студент — логин в другом регистре: клиент отправляет значение как
+    // набрано; нормализация регистра — ci-проверка бэкенда.
     fillCredentials('Student01', STUDENT.password);
-    await submitLogin();
+    await submitLogin(200, ME_FIXTURES.student01, '/my-submissions');
+    expect(lastLoginBody()).withContext('логин уходит без изменения регистра').toEqual({
+      login: 'Student01',
+      password: STUDENT.password,
+    });
     expect(env.auth.currentUser()).toEqual(
       jasmine.objectContaining({
         role: 'student',
@@ -73,10 +104,10 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
       }),
     );
     expect(env.router.url).withContext('student → редирект /my-submissions').toBe('/my-submissions');
-    expect(sessionUserId()).withContext('сессия установлена').not.toBeNull();
+    expect(env.auth.isAuthenticated()).toBeTrue();
   }, 20000);
 
-  it('TS-009: единое сообщение при любых неверных данных входа', async () => {
+  it('TS-009: единое сообщение при любых неверных данных входа (401)', async () => {
     const attempts: Array<[string, string]> = [
       ['ghost', 'no-such-user'], // несуществующий логин
       [STUDENT.login, 'wrong-password'], // существующий логин + неверный пароль
@@ -86,9 +117,11 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
 
     for (const [login, password] of attempts) {
       fillCredentials(login, password);
-      await submitLogin();
+      await submitLogin(401, { message: 'Неверный логин или пароль' });
       texts.push(env.notifications.desktopMessage()?.text);
-      expect(sessionUserId()).withContext(`сессия не установлена (${login})`).toBeNull();
+      expect(env.auth.isAuthenticated())
+        .withContext(`сессия не установлена (${login})`)
+        .toBeFalse();
       env.notifications.dismissMobile();
     }
 
@@ -97,73 +130,51 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
       'Неверный логин или пароль',
       'Неверный логин или пароль',
     ]);
+    expect(env.router.url).withContext('экран входа остаётся открытым').toBe('/login');
   }, 20000);
 
-  it('TS-010: rate limit входа — 5 неуспешных в минуту, 6-я 429; успехи лимит не расходуют', async () => {
+  it('TS-010: 429 входа — дословный баннер, форма не блокируется (окно лимита — зона бэкенда)', async () => {
     const expectButtonEnabled = (): void =>
       expect(submitButton(env).disabled)
         .withContext('кнопка «Войти» не блокируется')
         .toBeFalse();
 
-    // 2 неуспешные попытки под student01.
+    // Две неуспешные попытки подряд.
     for (let i = 0; i < 2; i++) {
       fillCredentials(STUDENT.login, `nope-${i}`);
-      await submitLogin();
+      await submitLogin(401, { message: 'Неверный логин или пароль' });
       expect(env.notifications.desktopMessage()?.text).toBe('Неверный логин или пароль');
       expectButtonEnabled();
       env.notifications.dismissMobile();
     }
 
-    // Успешная попытка тем же логином: лимит не расходует.
+    // Лимит бэкенда исчерпан: 429 дословно, экран входа остаётся.
     fillCredentials(STUDENT.login, STUDENT.password);
-    await submitLogin();
-    expect(env.router.url).withContext('вход успешен').toBe('/my-submissions');
-    required<HTMLButtonElement>(env, '.app-topbar__logout').click();
-    await flushMock(env, 1);
-    expect(env.router.url).toBe('/login');
-
-    // Ещё 3 неуспешные: всего 5 неуспешных в окне минуты.
-    for (let i = 0; i < 3; i++) {
-      fillCredentials(STUDENT.login, `nope-more-${i}`);
-      await submitLogin();
-      expect(env.notifications.desktopMessage()?.text).toBe('Неверный логин или пароль');
-      expectButtonEnabled();
-      env.notifications.dismissMobile();
-    }
-
-    // 6-я неуспешная попытка в окне — 429 дословно.
-    fillCredentials(STUDENT.login, 'nope-6th');
-    await submitLogin();
+    await submitLogin(429, { message: 'Слишком много попыток. Повторите позже' });
     expect(env.notifications.desktopMessage()?.text)
       .withContext('429 дословно')
       .toBe('Слишком много попыток. Повторите позже');
+    expect(env.auth.isAuthenticated()).toBeFalse();
     expectButtonEnabled();
+    expect(submitButton(env).className).not.toContain('p-button-loading');
     env.notifications.dismissMobile();
+  }, 20000);
 
-    // После окна минуты счётчик сброшен — вход с верным паролем успешен.
-    env.clock.now += 61 * 1000;
+  it('TS-011: выход очищает сессию (память) и возвращает на /login', async () => {
     fillCredentials(STUDENT.login, STUDENT.password);
-    await submitLogin();
-    expect(env.router.url).withContext('вход успешен после окна').toBe('/my-submissions');
-    expect(sessionUserId()).not.toBeNull();
-  }, 30000);
-
-  it('TS-011: выход очищает сессию и возвращает на /login', async () => {
-    fillCredentials(STUDENT.login, STUDENT.password);
-    await submitLogin();
+    await submitLogin(200, ME_FIXTURES.student01, '/my-submissions');
     expect(env.router.url).toBe('/my-submissions');
-    expect(sessionUserId()).not.toBeNull();
+    expect(env.auth.isAuthenticated()).toBeTrue();
 
     required<HTMLButtonElement>(env, '.app-topbar__logout').click();
-    await flushMock(env, 1);
+    respond(env, 'POST', '/auth/logout', { status: 204 });
+    await waitForUrl(env, '/login');
 
-    expect(sessionUserId())
-      .withContext('mock.session.userId удалён')
-      .toBeNull();
     expect(env.auth.currentUser()).withContext('currentUser=null').toBeNull();
+    expect(env.auth.isAuthenticated()).withContext('сессия очищена').toBeFalse();
     expect(env.router.url).withContext('возврат на /login').toBe('/login');
 
-    // /profile закрыт authGuard'ом.
+    // /profile закрыт authGuard'ом (проверка по памяти, без HTTP).
     await env.harness.navigateByUrl('/profile');
     expect(env.router.url).withContext('/profile → редирект /login').toBe('/login');
 

@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-13 (submissions: GET /submissions — FR-060,
+    GET /me/submissions — FR-062; recovery/reset: POST /auth/recovery/request —
+    FR-012, POST /auth/recovery/confirm — FR-013, POST /auth/reset-password —
+    FR-014, кейсы TS-064..TS-078). Зона батча: tests/integration/B-13.
+    Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона
+    ссылается на него ProjectReference и не включается в solution src/api —
+    батчи пишут зоны параллельно (образец — зоны B-01..B-11; урок BL-001
+    BUG-001: собственный проект зоны вместо правки общего тестового проекта).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-11):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Microsoft.Extensions.TimeProvider.Testing 8.* — FakeTimeProvider (ADR-002,
+    FR-003: инжектируемые часы TTL кода 10 минут и reset-токена 15 минут,
+    TS-068/TS-069/TS-075).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+</Project>

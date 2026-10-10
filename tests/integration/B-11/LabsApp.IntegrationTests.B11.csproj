@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-11 (актуальный реестр: POST /auth/login — FR-007,
+    кейсы TS-041..TS-050; POST /auth/refresh — FR-009, кейсы TS-056..TS-060).
+    Зона батча: tests/integration/B-11. Реализация (src/api) не
+    изменяется: LabsApp остаётся net8.0 (FR-001); зона ссылается на него
+    ProjectReference и не включается в solution src/api — батчи пишут зоны
+    параллельно (урок BL-001 BUG-001: собственный проект зоны вместо правки
+    общего тестового проекта).
+
+    Плитки прежних волн планирования (TS-037..TS-046, TS-052..TS-056 — те же AC
+    входа/refresh под устаревшей нумерацией; дубликаты по описи coverage_check,
+    арбитраж a-085/CR-001) выведены из зоны: сценарии перенумерованы реестром в
+    TS-039..TS-047/TS-053..TS-058, их файлы заменены каноническими реализациями
+    кейсов актуального реестра; TS-058 (logout) — по кейсу в составе диапазона
+    AC FR-010.
+
+    Раунд 2026-10-10 (CR-001): в зоне сосуществовали старый реестр
+    (Ts039..Ts047, Ts053..Ts061) и канонические кейсы батча TS-041..TS-050 /
+    TS-056..TS-060 с коллидирующими номерами. Дубли старого реестра,
+    семантически покрытые каноническими кейсами (Ts039..Ts046, Ts053..Ts056),
+    удалены; непокрытые кейсы сохранены под однозначными ID LegacyNN
+    (Legacy47 — усечённое тело, Legacy57 — параллельный refresh,
+    Legacy58..Legacy61 — logout): подстрока «LegacyNN» не совпадает ни с одним
+    каноническим Ts-номером, фильтры FullyQualifiedName по Ts-номерам дают
+    ровно один класс на ID.
+
+    Сценарии прошлой волны планирования (TS-123..TS-135, домен groups) и их
+    DI-сид-хелпер удалены: план тестов пересобран (ревизия test_author+skeptic),
+    эти кейсы отошли другим батчам, а их хелперы связаны со старыми сигнатурами
+    IF-015 (Add/GetByName/GetByLogin), которые реворк v5.0 (ADR-018) меняет, —
+    они сломали бы сборку зоны после приземления реворка.
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-10):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Microsoft.Extensions.TimeProvider.Testing 8.* — FakeTimeProvider (ADR-002,
+    FR-003: инжектируемые часы окна лимитера 60 с и TTL refresh 7 суток).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.*" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+</Project>

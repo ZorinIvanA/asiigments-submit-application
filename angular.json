@@ -64,6 +64,9 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "proxyConfig": "src/client/proxy.conf.json"
+          },
           "configurations": {
             "production": {
               "buildTarget": "asiigments-submit-application:build:production"
@@ -95,6 +98,62 @@
             "styles": [
               "node_modules/primeicons/primeicons.css",
               "src/client/styles.scss"
+            ]
+          }
+        }
+      }
+    },
+    "integration-b06": {
+      "projectType": "application",
+      "root": "tests/integration/B-06",
+      "sourceRoot": "tests/integration/B-06",
+      "prefix": "app",
+      "architect": {
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "tsConfig": "tests/integration/B-06/tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "integration-b17": {
+      "projectType": "application",
+      "root": "tests/integration/B-17",
+      "sourceRoot": "tests/integration/B-17",
+      "prefix": "app",
+      "architect": {
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "tsConfig": "tests/integration/B-17/tsconfig.spec.json",
+            "karmaConfig": "tests/integration/B-17/karma.conf.cjs",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ]
+          }
+        }
+      }
+    },
+    "integration-b18": {
+      "projectType": "application",
+      "root": "tests/integration/B-18",
+      "sourceRoot": "tests/integration/B-18",
+      "prefix": "app",
+      "architect": {
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "tsConfig": "tests/integration/B-18/tsconfig.spec.json",
+            "karmaConfig": "tests/integration/B-18/karma.conf.cjs",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
             ]
           }
         }

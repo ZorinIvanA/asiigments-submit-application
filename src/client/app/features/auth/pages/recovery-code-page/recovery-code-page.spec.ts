@@ -4,39 +4,48 @@
  *    «Код восстановления», подсказки, «Отмена»/«Ввести код»,
  *    «Переотправить код»;
  *  - валидатор кода code6 (пусто / «12a456» / «1234567» — тексты словаря,
- *    запроса к моку нет);
+ *    запроса к бэкенду нет);
  *  - AC step2-wrong-code: 400 «Код восстановления не подходит» — баннер
  *    дословно, экран /recovery/code остаётся активным (ISS-110/AR-011);
  *  - успех: resetToken в store (IF-102, сервис), переход /reset-password;
  *  - AC step2-resend-after-annul: «Переотправить код» повторно вызывает
  *    request по сохранённому email, экран не покидается, email сохранён
- *    (в т.ч. после аннулирования кода — 400 у подтверждения);
+ *    (в т.ч. после отказа подтверждения — 400);
  *  - 429 переотправки — баннер, экран остаётся;
  *  - «Отмена» — полный сброс store и /login; busy-блокировка.
  *
- * Транспортная граница — MockApiClient.call (spy): AuthService и
- * RecoveryFlowStore реальные — гарантии IF-101/IF-102 (resetToken после
- * подтверждения) проверяются вместе со страницей.
+ * Транспортная граница — программируемый HttpTestingController (FR-026):
+ * страница, AuthService и RecoveryFlowStore реальные вместе с production
+ * цепочкой HttpClient + authInterceptor — гарантии IF-101/IF-102
+ * (resetToken после подтверждения) проверяются вместе со страницей.
+ * Ожидаемые URL строятся из TestBed.inject(API_BASE_URL) (ADR-014).
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
+import { authInterceptor } from '../../../../core/auth-interceptor';
+import { API_BASE_URL } from '../../../../core/api-base-url';
 import { RecoveryFlowStore } from '../../../../core/services/recovery-flow-store';
-import { MockApiClient } from '../../../../mock/mock-api-client';
 import { NotificationService } from '../../../../shared/notifications/notification-service';
 import { MockBreakpointObserver } from '../../../../../testing/mock-breakpoint-observer';
 import { RecoveryCodePage } from './recovery-code-page';
 
 describe('RecoveryCodePage — шаг 2 восстановления пароля (SCR-004, T-111)', () => {
   const EMAIL = 'student01@example.com';
+  const CODE = '123456';
   const CODE_REJECTED = 'Код восстановления не подходит';
   const TOO_MANY = 'Слишком много попыток. Повторите позже';
-  const INVALID_DATA = 'Данные заполнены неверно';
 
   let breakpoints: MockBreakpointObserver;
   let fixture: ComponentFixture<RecoveryCodePage>;
-  let client: jasmine.SpyObj<MockApiClient>;
+  let httpMock: HttpTestingController;
+  let apiBase: string;
   let flow: RecoveryFlowStore;
   let notifications: NotificationService;
   let router: Router;
@@ -45,19 +54,18 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
     sessionStorage.clear();
     localStorage.clear();
     breakpoints = new MockBreakpointObserver();
-    // Транспорт (MockApiClient.call) — spy-объект в DI: страница,
-    // AuthService и RecoveryFlowStore реальные, поэтому эффекты
-    // IF-101/IF-102 в store проверяются вместе со страницей.
-    client = jasmine.createSpyObj<MockApiClient>('MockApiClient', ['call']);
     await TestBed.configureTestingModule({
       imports: [RecoveryCodePage],
       providers: [
         { provide: BreakpointObserver, useValue: breakpoints },
-        { provide: MockApiClient, useValue: client },
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
         provideRouter([]),
       ],
     }).compileComponents();
 
+    httpMock = TestBed.inject(HttpTestingController);
+    apiBase = TestBed.inject(API_BASE_URL);
     flow = TestBed.inject(RecoveryFlowStore);
     notifications = TestBed.inject(NotificationService);
     router = TestBed.inject(Router);
@@ -68,7 +76,11 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
   });
 
   afterEach(() => {
+    // Ни одного незакрытого/лишнего запроса (валидационные ветки — ни одного).
+    httpMock.verify();
     notifications.dismissMobile();
+    sessionStorage.clear();
+    localStorage.clear();
   });
 
   function root(): HTMLElement {
@@ -106,6 +118,39 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
     fixture.detectChanges();
   }
 
+  /** Дренаж микрозадач (промисы flush → сервис → страница) + CD. */
+  async function settle(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+  }
+
+  /** Сабмит заполненного кода с программируемым ответом POST /auth/recovery/confirm. */
+  async function submitAndFlushConfirm(status: number, body: unknown): Promise<void> {
+    fill(CODE);
+    submit();
+    const request = httpMock.expectOne(`${apiBase}/auth/recovery/confirm`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: EMAIL, code: codeInput().value.trim() });
+    request.flush(body as object | null, {
+      status,
+      statusText: status === 200 ? 'OK' : 'Error',
+    });
+    await settle();
+  }
+
+  /** Переотправка с программируемым ответом POST /auth/recovery/request. */
+  async function resendAndFlush(status: number, body: unknown = null): Promise<void> {
+    resendButton().click();
+    const request = httpMock.expectOne(`${apiBase}/auth/recovery/request`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ email: EMAIL });
+    request.flush(body as object | null, {
+      status,
+      statusText: status === 200 ? 'OK' : 'Error',
+    });
+    await settle();
+  }
+
   it('тексты макета дословно: заголовок, «Шаг 2 из 3», «Код восстановления», подсказки, кнопки, «Переотправить код»', () => {
     expect(root().querySelector('h1')!.textContent!.trim()).toBe('Восстановление пароля');
     expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe('Шаг 2 из 3');
@@ -118,37 +163,31 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
     expect(resendButton().textContent!.trim()).toBe('Переотправить код');
   });
 
-  it('валидация кода: пусто — «Заполните поле», «12a456» и «1234567» — «Код должен состоять из 6 цифр», запроса нет', fakeAsync(() => {
+  it('валидация кода: пусто — «Заполните поле», «12a456» и «1234567» — «Код должен состоять из 6 цифр», запроса нет', async () => {
     submit();
-    tick();
+    await settle();
     expect(fieldError()).toBe('Заполните поле');
 
     fill('12a456');
     submit();
-    tick();
+    await settle();
     expect(fieldError()).toBe('Код должен состоять из 6 цифр');
 
     fill('1234567');
     submit();
-    tick();
+    await settle();
     expect(fieldError()).toBe('Код должен состоять из 6 цифр');
 
-    expect(notifications.desktopMessage()!.text).toBe(INVALID_DATA);
-    expect(client.call).not.toHaveBeenCalled();
-  }));
+    expect(notifications.desktopMessage()!.text).toBe('Данные заполнены неверно');
+    expect(httpMock.match(`${apiBase}/auth/recovery/confirm`).length)
+      .withContext('confirm не отправлен')
+      .toBe(0);
+  });
 
-  it('AC step2-wrong-code: 400 «Код восстановления не подходит» — баннер дословно, экран остаётся активным', fakeAsync(() => {
+  it('AC step2-wrong-code: 400 «Код восстановления не подходит» — баннер дословно, экран остаётся активным', async () => {
     flow.setEmail(EMAIL);
-    client.call.and.rejectWith({ status: 400, body: { message: CODE_REJECTED } });
-    fill('000000');
-    submit();
-    tick();
-    fixture.detectChanges();
+    await submitAndFlushConfirm(400, { message: CODE_REJECTED });
 
-    expect(client.call).toHaveBeenCalledWith('auth.recovery.confirm', {
-      email: EMAIL,
-      code: '000000',
-    });
     expect(notifications.desktopMessage()!.text).toBe(CODE_REJECTED);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
     // Экран остаётся: форма и «Переотправить код» доступны, email в store.
@@ -156,87 +195,73 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
     expect(resendButton().disabled).toBeFalse();
     expect(flow.email()).toBe(EMAIL);
     expect(flow.hasResetToken()).toBeFalse();
-  }));
+  });
 
-  it('успех: resetToken в store (IF-102), переход /reset-password', fakeAsync(() => {
+  it('успех: resetToken в store (IF-102), переход /reset-password', async () => {
     flow.setEmail(EMAIL);
-    client.call.and.resolveTo({ resetToken: 'reset-token-1' });
-    fill('123456');
-    submit();
-    tick();
+    await submitAndFlushConfirm(200, { resetToken: 'reset-token-1' });
 
-    expect(client.call).toHaveBeenCalledWith('auth.recovery.confirm', {
-      email: EMAIL,
-      code: '123456',
-    });
     expect(flow.resetToken()).toBe('reset-token-1');
     expect(flow.email()).toBe(EMAIL);
     expect(router.navigateByUrl).toHaveBeenCalledWith('/reset-password');
-  }));
+  });
 
-  it('AC step2-resend-after-annul: «Переотправить код» запрашивает новый код, email сохранён, экран не покидается', fakeAsync(() => {
+  it('AC step2-resend-after-annul: «Переотправить код» запрашивает новый код, email сохранён, экран не покидается', async () => {
     flow.setEmail(EMAIL);
     // Предварительно: подтверждение отклонено (код неверный или аннулирован
-    // 5-й попыткой — единый 400, IF-101).
-    client.call.and.rejectWith({ status: 400, body: { message: CODE_REJECTED } });
-    fill('000000');
-    submit();
-    tick();
-    fixture.detectChanges();
+    // 5-й попыткой на бэкенде — единый 400, IF-101).
+    await submitAndFlushConfirm(400, { message: CODE_REJECTED });
     expect(router.navigateByUrl).not.toHaveBeenCalled();
 
     // Переотправка: новый запрос кода по сохранённому email, экран остаётся.
-    client.call.calls.reset();
-    client.call.and.resolveTo(null);
-    resendButton().click();
-    tick();
+    await resendAndFlush(200);
 
-    expect(client.call).toHaveBeenCalledWith('auth.recovery.request', { email: EMAIL });
     expect(flow.email()).toBe(EMAIL);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
     expect(root().querySelector('h1')!.textContent).toContain('Восстановление пароля');
-  }));
+  });
 
-  it('429 переотправки: баннер «Слишком много попыток. Повторите позже», экран остаётся', fakeAsync(() => {
+  it('429 переотправки: баннер «Слишком много попыток. Повторите позже», экран остаётся', async () => {
     flow.setEmail(EMAIL);
-    client.call.and.rejectWith({ status: 429, body: { message: TOO_MANY } });
-    resendButton().click();
-    tick();
+    await resendAndFlush(429, { message: TOO_MANY });
 
-    expect(client.call).toHaveBeenCalledWith('auth.recovery.request', { email: EMAIL });
     expect(notifications.desktopMessage()!.text).toBe(TOO_MANY);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
     expect(flow.email()).toBe(EMAIL);
-  }));
+  });
 
-  it('«Отмена» очищает поток восстановления (IF-102) и возвращает на /login', fakeAsync(() => {
+  it('«Отмена» очищает поток восстановления (IF-102) и возвращает на /login', async () => {
     flow.setEmail(EMAIL);
     flow.setResetToken('reset-token-1');
     cancelButton().click();
-    tick();
+    await settle();
 
     expect(flow.email()).toBeNull();
     expect(flow.resetToken()).toBeNull();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
-  }));
+  });
 
-  it('на время запроса кнопки заблокированы, «Переотправить код» не выполняется параллельно сабмиту (FR-025)', fakeAsync(() => {
+  it('на время запроса кнопки заблокированы, «Переотправить код» не выполняется параллельно сабмиту (FR-025)', async () => {
     flow.setEmail(EMAIL);
-    let resolveConfirm!: (result: { resetToken: string }) => void;
-    client.call.and.returnValue(
-      new Promise<{ resetToken: string }>((resolve) => (resolveConfirm = resolve)),
-    );
-    fill('123456');
+    fill(CODE);
     submit();
+    fixture.detectChanges();
 
+    // Ответ не программируется: запрос подтверждения «висит» — busy.
     expect(submitButton().disabled).toBeTrue();
     expect(resendButton().disabled).withContext('переотправка заблокирована').toBeTrue();
 
     resendButton().click(); // клик по disabled-кнопке — ничего не делает
-    expect(client.call).toHaveBeenCalledTimes(1);
+    expect(httpMock.match(`${apiBase}/auth/recovery/request`).length)
+      .withContext('параллельного request нет')
+      .toBe(0);
+    // match() ПОТРЕБЛЯЕТ найденные запросы (удаляет из открытых), поэтому
+    // «ровно одно подтверждение» проверяется здесь и ответ уходит через него.
+    const pending = httpMock.match(`${apiBase}/auth/recovery/confirm`);
+    expect(pending.length).withContext('подтверждение в полёте — ровно одно').toBe(1);
 
-    resolveConfirm({ resetToken: 'reset-token-1' });
-    tick();
+    pending[0].flush({ resetToken: 'reset-token-1' }, { status: 200, statusText: 'OK' });
+    await settle();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/reset-password');
-  }));
+  });
 });

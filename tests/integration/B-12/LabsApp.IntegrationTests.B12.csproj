@@ -1,0 +1,121 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-12 (students: GET /students — FR-050,
+    PUT /students/{id}/group — FR-051). Зона батча: tests/integration/B-12.
+    Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона
+    ссылается на него ProjectReference и не включается в solution src/api —
+    батчи пишут зоны параллельно (образец — зоны B-01..B-10; урок BL-001
+    BUG-001: собственный проект зоны вместо правки общего тестового проекта).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-10):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <!--
+      Microsoft.Extensions.TimeProvider.Testing — FakeTimeProvider кейсов TS-060/TS-061/
+      TS-066: детерминированный перевод бизнес-времени за exp access-JWT (глоссарий
+      TimeProvider / ADR-002 tech solution 5.0; образец — зона B-06, TS-031).
+    -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Вывод из компиляции НЕканонического дубликата recovery/reset-диапазона
+    TS-064..TS-078 (батч B-12, given кейсов TS-064..TS-078, арбитраж a-117 по
+    CR-001 поверх закрепления a-085): ЕДИНСТВЕННОЙ зоной исполнения диапазона
+    закреплена tests/integration/B-11 — канонические файлы
+    B-11/Scenarios/Ts064_RecoveryRequestExistingEmailTests.cs ..
+    Ts078_ResetPasswordTokenSingleUseTests.cs (15 файлов) с инфраструктурой
+    B11RecoveryApi/B11RecoverySeed/B11RecoveryHosts/B11EmailSpies/B11RecoveryLogs/
+    B11Kdf/B11LogSink сверены с деревом. Построчный порт диапазона в эту зону
+    (Scenarios/Ts064_Recovery*..Ts078_Reset* и обслуживающая только его
+    инфраструктура Infrastructure/B12Recovery*) дублирует канонические проверки
+    против той же реализации: в двух контурах финального гейта диапазон из
+    зоны B-12 исполняться не должен, а коллизия префиксов Ts064..Ts067
+    (Recovery*-копии против плиток прежней волны Ts064_Me*..Ts067_Me*) устраняется
+    выводом дубликата. По образцу механизма зоны B-15: файлы сохранены на диске
+    и ИСКЛЮЧЕНЫ из компиляции зоны, суть кейсов не переписывается, исполнение
+    диапазона остаётся за зоной B-11; расхождение распределения батчей с
+    арбитражем возвращено конвейеру через scenario_change_requests.
+    Исключается порт диапазона ЦЕЛИКОМ: 15 сценариев + инфраструктурные файлы,
+    на которые ссылается ТОЛЬКО он (B12RecoveryHttp, B12RecoveryKdf,
+    B12RecoveryLogs, B12RecoveryStore, B12RecoveryScenarioHosts,
+    B12RecoveryEmailSpies). Файлы B12RecoveryWebAppFactory.cs,
+    B12RecoveryHarness.cs, B12RecoveryLogSink.cs и B12RecoveryCodeSeam.cs
+    ОСТАЮТСЯ в сборке: они обслуживают плитки TS-162/TS-163 другого диапазона
+    (см. заголовки файлов), входят в зону по собственным кейсам и от
+    исключённых файлов не зависят.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts064_RecoveryRequestExistingEmailTests.cs" />
+    <Compile Remove="Scenarios\Ts065_RecoveryRequestUnknownEmailTests.cs" />
+    <Compile Remove="Scenarios\Ts066_RecoveryCodeLogIsolationTests.cs" />
+    <Compile Remove="Scenarios\Ts067_RecoveryResendSuppressesOldCodeTests.cs" />
+    <Compile Remove="Scenarios\Ts068_RecoveryExpiredCodeTests.cs" />
+    <Compile Remove="Scenarios\Ts069_RecoveryConfirmSuccessTests.cs" />
+    <Compile Remove="Scenarios\Ts070_RecoveryConfirmWrongCodeAttemptsTests.cs" />
+    <Compile Remove="Scenarios\Ts071_RecoveryConfirmFifthAttemptAnnulsTests.cs" />
+    <Compile Remove="Scenarios\Ts072_RecoveryConfirmUnifiedRejectionTests.cs" />
+    <Compile Remove="Scenarios\Ts073_ResetPasswordSuccessTests.cs" />
+    <Compile Remove="Scenarios\Ts074_ResetPasswordUnknownTokenTests.cs" />
+    <Compile Remove="Scenarios\Ts075_ResetPasswordExpiredTokenConsumedTests.cs" />
+    <Compile Remove="Scenarios\Ts076_ResetPasswordFieldErrorKeepsTokenTests.cs" />
+    <Compile Remove="Scenarios\Ts077_ResetPasswordTooLongPasswordNoKdfTests.cs" />
+    <Compile Remove="Scenarios\Ts078_ResetPasswordTokenSingleUseTests.cs" />
+    <Compile Remove="Infrastructure\B12RecoveryHttp.cs" />
+    <Compile Remove="Infrastructure\B12RecoveryKdf.cs" />
+    <Compile Remove="Infrastructure\B12RecoveryLogs.cs" />
+    <Compile Remove="Infrastructure\B12RecoveryStore.cs" />
+    <Compile Remove="Infrastructure\B12RecoveryScenarioHosts.cs" />
+    <Compile Remove="Infrastructure\B12RecoveryEmailSpies.cs" />
+  </ItemGroup>
+
+  <!--
+    Вывод из компиляции НЕканонических староволновых дубликатов матричной плитки
+    TS-126..TS-128 (given кейсов TS-126/TS-127/TS-128, опись coverage_check):
+    каноническими файлами кейсов этой волны закреплены tests/integration/B-12/
+    Scenarios/Ts126_RoleMatrixAccessClassTests.cs, Ts127_PutLabForbiddenBeforeValidationTests.cs
+    и Ts128_ErrorBodyUniformTests.cs (номера кейсов действующей нумерации
+    FR-022-кластера); файлы Ts156_RoleMatrixTests.cs, Ts157_ForbiddenBeforeNotFoundAndValidationTests.cs
+    и Ts159_AuthErrorEnvelopeUniformTests.cs — плитки прежней волны (старая
+    нумерация TS-156/TS-157/TS-159), прямо названные дубликатами в given
+    кейсов TS-126/TS-127/TS-128 и покрываемые каноническими файлами один-в-один
+    (матрица ролей, 403-до-404/400, единый конверт 401/403). По образцу механизма
+    зоны B-15 и блока выше: файлы сохранены на диске и ИСКЛЮЧЕНЫ из компиляции
+    зоны, суть проверок не переписывается, двойное исполнение одного стимула
+    в зоне устраняется.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts156_RoleMatrixTests.cs" />
+    <Compile Remove="Scenarios\Ts157_ForbiddenBeforeNotFoundAndValidationTests.cs" />
+    <Compile Remove="Scenarios\Ts159_AuthErrorEnvelopeUniformTests.cs" />
+  </ItemGroup>
+
+</Project>

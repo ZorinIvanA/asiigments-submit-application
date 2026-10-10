@@ -5,7 +5,7 @@
  *    «Сменить пароль»; ссылки «Запросить код заново» изначально нет;
  *  - клиентская валидация: passwordRules (все правила словаря) +
  *    passwordMatch («Пароли не совпадают») + requiredTrim — без запроса
- *    к моку;
+ *    к бэкенду;
  *  - AC step3-success: пароль изменён, store полностью очищен (IF-102,
  *    сервис), редирект /login без автологина;
  *  - AC step3-terminal: 400 «Ссылка восстановления недействительна или
@@ -17,16 +17,24 @@
  *    ссылки, токен в store сохраняется;
  *  - «Отмена» — полный сброс store и /login; mobile-якорь 'reset-password-form'.
  *
- * Транспортная граница — MockApiClient.call (spy): AuthService и
- * RecoveryFlowStore реальные, поэтому терминальная ветка проверяется
- * сквозь реальное поведение сервиса (гашение токена, IF-101).
+ * Транспортная граница — программируемый HttpTestingController (FR-026):
+ * страница, AuthService и RecoveryFlowStore реальные вместе с production
+ * цепочкой HttpClient + authInterceptor — терминальная ветка проверяется
+ * сквозь реальное поведение сервиса (гашение токена, IF-101). Ожидаемые
+ * URL строятся из TestBed.inject(API_BASE_URL) (ADR-014).
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
+import { authInterceptor } from '../../../../core/auth-interceptor';
+import { API_BASE_URL } from '../../../../core/api-base-url';
 import { RecoveryFlowStore } from '../../../../core/services/recovery-flow-store';
-import { MockApiClient } from '../../../../mock/mock-api-client';
 import { NotificationService } from '../../../../shared/notifications/notification-service';
 import { MockBreakpointObserver } from '../../../../../testing/mock-breakpoint-observer';
 import { ResetPasswordPage } from './reset-password-page';
@@ -40,7 +48,8 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
 
   let breakpoints: MockBreakpointObserver;
   let fixture: ComponentFixture<ResetPasswordPage>;
-  let client: jasmine.SpyObj<MockApiClient>;
+  let httpMock: HttpTestingController;
+  let apiBase: string;
   let flow: RecoveryFlowStore;
   let notifications: NotificationService;
   let router: Router;
@@ -49,19 +58,18 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
     sessionStorage.clear();
     localStorage.clear();
     breakpoints = new MockBreakpointObserver();
-    // Транспорт (MockApiClient.call) — spy-объект в DI: страница,
-    // AuthService и RecoveryFlowStore реальные, поэтому терминальная ветка
-    // токена проверяется сквозь реальное поведение сервиса (IF-101/IF-102).
-    client = jasmine.createSpyObj<MockApiClient>('MockApiClient', ['call']);
     await TestBed.configureTestingModule({
       imports: [ResetPasswordPage],
       providers: [
         { provide: BreakpointObserver, useValue: breakpoints },
-        { provide: MockApiClient, useValue: client },
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
         provideRouter([]),
       ],
     }).compileComponents();
 
+    httpMock = TestBed.inject(HttpTestingController);
+    apiBase = TestBed.inject(API_BASE_URL);
     flow = TestBed.inject(RecoveryFlowStore);
     notifications = TestBed.inject(NotificationService);
     router = TestBed.inject(Router);
@@ -72,7 +80,11 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
   });
 
   afterEach(() => {
+    // Ни одного незакрытого/лишнего запроса (валидационные ветки — ни одного).
+    httpMock.verify();
     notifications.dismissMobile();
+    sessionStorage.clear();
+    localStorage.clear();
   });
 
   /** Предусловие шага 3: в store есть email шага 2 и resetToken шага 3. */
@@ -125,6 +137,25 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
     fixture.detectChanges();
   }
 
+  /** Дренаж микрозадач (промисы flush → сервис → страница) + CD. */
+  async function settle(): Promise<void> {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+  }
+
+  /** Сабмит заполненной формы с программируемым ответом POST /auth/reset-password. */
+  async function submitAndFlush(status: number, body: unknown = null): Promise<void> {
+    fill(PASSWORD, PASSWORD);
+    submit();
+    const request = httpMock.expectOne(`${apiBase}/auth/reset-password`);
+    expect(request.request.method).toBe('POST');
+    request.flush(body as object | null, {
+      status,
+      statusText: status < 300 ? 'No Content' : 'Error',
+    });
+    await settle();
+  }
+
   it('тексты макета дословно: заголовок, «Шаг 3 из 3», требования, поля, кнопки; ссылки «Запросить код заново» нет', () => {
     expect(root().querySelector('h1')!.textContent!.trim()).toBe('Новый пароль');
     expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe('Шаг 3 из 3');
@@ -140,71 +171,66 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
     expect(restartLink()).withContext('до ошибки токена ссылки нет').toBeNull();
   });
 
-  it('валидация пароля: короче 8 — «не менее 8 символов», без спецзнака — «хотя бы один специальный знак»; запроса нет', fakeAsync(() => {
+  it('валидация пароля: короче 8 — «не менее 8 символов», без спецзнака — «хотя бы один специальный знак»; запроса нет', async () => {
     seedFlow();
 
     fill('Ab1!', 'Ab1!');
     submit();
-    tick();
+    await settle();
     expect(errors()).toContain('Пароль должен содержать не менее 8 символов');
 
     fill('abcdefgh1', 'abcdefgh1');
     submit();
-    tick();
+    await settle();
     expect(errors()).toContain('Пароль должен содержать хотя бы один специальный знак');
 
-    expect(client.call).not.toHaveBeenCalled();
+    expect(httpMock.match(`${apiBase}/auth/reset-password`).length)
+      .withContext('запрос не отправлен')
+      .toBe(0);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
-  }));
+  });
 
-  it('валидация пары: несовпадение — «Пароли не совпадают» у повтора, пустой повтор — «Заполните поле»; запроса нет', fakeAsync(() => {
+  it('валидация пары: несовпадение — «Пароли не совпадают» у повтора, пустой повтор — «Заполните поле»; запроса нет', async () => {
     seedFlow();
 
     fill(PASSWORD, 'Newpass#2');
     submit();
-    tick();
+    await settle();
     expect(errors()).toContain('Пароли не совпадают');
 
     fill(PASSWORD, '');
     submit();
-    tick();
+    await settle();
     expect(errors()).toContain('Заполните поле');
 
-    expect(client.call).not.toHaveBeenCalled();
-  }));
+    expect(httpMock.match(`${apiBase}/auth/reset-password`).length).toBe(0);
+  });
 
-  it('AC step3-success: пароль изменён, store полностью очищен, редирект /login (без автологина)', fakeAsync(() => {
+  it('AC step3-success: пароль изменён, store полностью очищен, редирект /login (без автологина)', async () => {
     seedFlow();
-    client.call.and.resolveTo(null);
     fill(PASSWORD, PASSWORD);
     submit();
-    tick();
-
-    expect(client.call).toHaveBeenCalledWith('auth.reset-password', {
+    const request = httpMock.expectOne(`${apiBase}/auth/reset-password`);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({
       resetToken: RESET_TOKEN,
       password: PASSWORD,
       confirmPassword: PASSWORD,
     });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await settle();
+
     // Поток очищен целиком (IF-102): и токен, и email шага 2.
     expect(flow.resetToken()).toBeNull();
     expect(flow.email()).toBeNull();
     expect(flow.hasEmail()).toBeFalse();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
-  }));
+  });
 
-  it('AC step3-terminal: баннер «Ссылка…», экран остаётся, «Запросить код заново» → /recovery, токен удалён, email сохранён', fakeAsync(() => {
+  it('AC step3-terminal: баннер «Ссылка…», экран остаётся, «Запросить код заново» → /recovery, токен удалён, email сохранён', async () => {
     seedFlow();
-    client.call.and.rejectWith({ status: 400, body: { message: LINK_INVALID } });
-    fill(PASSWORD, PASSWORD);
-    submit();
-    tick();
-    fixture.detectChanges();
+    await submitAndFlush(400, { message: LINK_INVALID });
 
-    expect(client.call).toHaveBeenCalledWith('auth.reset-password', {
-      resetToken: RESET_TOKEN,
-      password: PASSWORD,
-      confirmPassword: PASSWORD,
-    });
     expect(notifications.desktopMessage()!.text).toBe(LINK_INVALID);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
 
@@ -216,62 +242,49 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
     const link = restartLink();
     expect(link).not.toBeNull();
     expect(link!.getAttribute('href')).toBe('/recovery');
-  }));
+  });
 
-  it('повторная отправка погашенного токена: тот же 400 и тот же баннер, экран остаётся', fakeAsync(() => {
+  it('повторная отправка погашенного токена: тот же 400 и тот же баннер, экран остаётся', async () => {
     seedFlow();
-    client.call.and.rejectWith({ status: 400, body: { message: LINK_INVALID } });
-    fill(PASSWORD, PASSWORD);
-    submit();
-    tick();
-    fixture.detectChanges();
+    await submitAndFlush(400, { message: LINK_INVALID });
     expect(flow.resetToken()).toBeNull();
 
     // Пользователь снова жмёт «Сменить пароль»: токен уже удалён из store
     // терминальной веткой (IF-102), страница отправляет пустое значение —
-    // мок отвечает тем же 400 «Ссылка…» (повторная отправка погашенного
+    // бэкенд отвечает тем же 400 «Ссылка…» (повторная отправка погашенного
     // токена), экран остаётся, ссылка на месте.
-    client.call.calls.reset();
-    client.call.and.rejectWith({ status: 400, body: { message: LINK_INVALID } });
     submit();
-    tick();
-    fixture.detectChanges();
-
-    expect(client.call).toHaveBeenCalledWith('auth.reset-password', {
+    const request = httpMock.expectOne(`${apiBase}/auth/reset-password`);
+    expect(request.request.body).toEqual({
       resetToken: '',
       password: PASSWORD,
       confirmPassword: PASSWORD,
     });
+    request.flush({ message: LINK_INVALID }, { status: 400, statusText: 'Error' });
+    await settle();
+
     expect(notifications.desktopMessage()!.text).toBe(LINK_INVALID);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
     expect(restartLink()).not.toBeNull();
-  }));
+  });
 
-  it('полевой 400 «Данные заполнены неверно»: баннер, ссылки нет, токен остаётся в store', fakeAsync(() => {
+  it('полевой 400 «Данные заполнены неверно»: баннер, ссылки нет, токен остаётся в store', async () => {
     seedFlow();
-    client.call.and.rejectWith({
-      status: 400,
-      body: { message: INVALID_DATA, errors: { password: ['Пароль должен содержать не менее 8 символов'] } },
+    await submitAndFlush(400, {
+      message: INVALID_DATA,
+      errors: { password: ['Пароль должен содержать не менее 8 символов'] },
     });
-    fill(PASSWORD, PASSWORD);
-    submit();
-    tick();
-    fixture.detectChanges();
 
     expect(notifications.desktopMessage()!.text).toBe(INVALID_DATA);
     expect(restartLink()).withContext('терминальная ссылка не показывается').toBeNull();
     expect(flow.resetToken()).withContext('токен не гасится (IF-101)').toBe(RESET_TOKEN);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
-  }));
+  });
 
-  it('терминальный баннер на мобильной ширине: inline-баннер под формой с якорем reset-password-form (IF-109)', fakeAsync(() => {
+  it('терминальный баннер на мобильной ширине: inline-баннер под формой с якорем reset-password-form (IF-109)', async () => {
     breakpoints.simulate(true);
     seedFlow();
-    client.call.and.rejectWith({ status: 400, body: { message: LINK_INVALID } });
-    fill(PASSWORD, PASSWORD);
-    submit();
-    tick();
-    fixture.detectChanges();
+    await submitAndFlush(400, { message: LINK_INVALID });
 
     const message = notifications.mobileMessage();
     expect(message).not.toBeNull();
@@ -284,16 +297,16 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
     const banner = anchor.querySelector('app-notification-banner');
     expect(banner).not.toBeNull();
     expect(banner!.textContent).toContain(LINK_INVALID);
-  }));
+  });
 
-  it('«Отмена» очищает поток восстановления (IF-102) и возвращает на /login', fakeAsync(() => {
+  it('«Отмена» очищает поток восстановления (IF-102) и возвращает на /login', async () => {
     seedFlow();
     fill(PASSWORD, PASSWORD);
     cancelButton().click();
-    tick();
+    await settle();
 
     expect(flow.email()).toBeNull();
     expect(flow.resetToken()).toBeNull();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
-  }));
+  });
 });

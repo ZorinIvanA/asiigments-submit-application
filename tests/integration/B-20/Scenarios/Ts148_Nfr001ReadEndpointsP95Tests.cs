@@ -1,0 +1,162 @@
+using System.Diagnostics;
+using System.Globalization;
+using LabsApp.IntegrationTests.B20.Infrastructure;
+using LabsApp.Storage;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace LabsApp.IntegrationTests.B20.Scenarios;
+
+/// <summary>
+/// TS-148 (NFR-001, P1): p95 ≤ 500 мс на читающих эндпойнтах.
+///
+/// given: интеграционный стенд (WebApplicationFactory + Stopwatch); в хранилище
+///        200 работ, 300 пользователей, группа 25 студентов × семестр 20 работ
+///        (DI-сид B20DomainSeed — прямое наполнение in-memory репозиториев,
+///        в обход регистрационного лимитера FR-004); сессия teacher (минт
+///        access-JWT, ADR-015/ADR-022); KDF-зависимые эндпойнты не задействованы.
+/// when:  100 последовательных GET каждого: /api/v1/labs, /api/v1/students,
+///        /api/v1/submissions?groupId=&lt;группа&gt;&amp;semester=1.
+/// then:  p95 времени ответа каждого эндпойнта ≤ 500 мс (NFR-001, методика
+///        verification: интеграционный бенчмарк-тест в dotnet test — ADR-016).
+///
+/// p95 — отсечка ceil(0.95·n) отсортированного массива Stopwatch-замеров
+/// (n = 100 на эндпойнт). Замеряются ТОЛЬКО успешные (2xx) ответы: ответ ошибки
+/// не является предметом NFR-001, поэтому не-2xx фиксируется отдельным падением
+/// (с диагностикой), а не в статистику латентности.
+///
+/// Тест включён в последовательную коллекцию зоны «b20-backend-dotnet-cli»:
+/// дочерние dotnet/ng-прогоны ворот TS-149 и метатестов TS-181/TS-182 конкурируют
+/// за CPU и obj/bin src/api — параллельность с ними порождает шум латентности.
+/// </summary>
+[Collection("b20-backend-dotnet-cli")]
+public sealed class Ts148_Nfr001ReadEndpointsP95Tests : IClassFixture<Ts148_Nfr001ReadEndpointsP95Tests.PerfFixture>
+{
+    private const int RequestsPerEndpoint = 100;
+    private const double LatencyBudgetMs = 500.0;
+
+    private readonly PerfFixture _fixture;
+
+    public Ts148_Nfr001ReadEndpointsP95Tests(PerfFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
+    /// <summary>Фикстура: хост + датасет 200 работ / 300 пользователей / группа 25 × семестр 20.</summary>
+    public sealed class PerfFixture : IDisposable
+    {
+        public B20ApiFactory Factory { get; } = new();
+
+        /// <summary>Данные given: целевая группа (25 студентов), целевой семестр (20 работ).</summary>
+        public B20DomainSeed.ReadPerformanceDataset Dataset { get; }
+
+        public PerfFixture()
+        {
+            Dataset = B20DomainSeed.SeedReadPerformanceDataset(Factory);
+
+            Assert.Equal(200, Factory.Services.GetRequiredService<ILabRepository>().GetAll().Count);
+            Assert.Equal(300, Factory.Services.GetRequiredService<IUserRepository>().ListStudents().Count);
+            Assert.Equal(
+                25,
+                Factory.Services.GetRequiredService<IUserRepository>()
+                    .ListStudents().Count(student => student.GroupId == Dataset.TargetGroupId));
+        }
+
+        public void Dispose() => Factory.Dispose();
+    }
+
+    [Fact]
+    public async Task HundredSequentialGets_OnEachReadEndpoint_P95_IsAtMost500Ms()
+    {
+        // given: авторизованные запросы — сессия teacher (минт access-cookie).
+        var teacherSession = B20AuthSessions.CreateTeacherSession(_fixture.Factory);
+        using var client = teacherSession.Client;
+        var dataset = _fixture.Dataset;
+        var endpoints = new[]
+        {
+            ("GET /api/v1/labs", "/api/v1/labs"),
+            ("GET /api/v1/students", "/api/v1/students"),
+            (
+                "GET /api/v1/submissions?groupId&semester=1",
+                $"/api/v1/submissions?groupId={dataset.TargetGroupId}&semester={dataset.TargetSemester}"),
+        };
+
+        var latencies = new List<double>[endpoints.Length];
+        var nonSuccess = new List<string>[endpoints.Length];
+        for (var i = 0; i < endpoints.Length; i++)
+        {
+            latencies[i] = new List<double>(RequestsPerEndpoint);
+            nonSuccess[i] = new List<string>();
+        }
+
+        // when: 100 ПОСЛЕДОВАТЕЛЬНЫХ запросов каждого эндпойнта (Stopwatch на каждый).
+        for (var endpointIndex = 0; endpointIndex < endpoints.Length; endpointIndex++)
+        {
+            var path = endpoints[endpointIndex].Item2;
+            for (var i = 0; i < RequestsPerEndpoint; i++)
+            {
+                var stopwatch = Stopwatch.StartNew();
+                using var response = await client.GetAsync(path);
+                stopwatch.Stop();
+
+                if ((int)response.StatusCode is >= 200 and < 300)
+                {
+                    latencies[endpointIndex].Add(stopwatch.Elapsed.TotalMilliseconds);
+                }
+                else
+                {
+                    nonSuccess[endpointIndex].Add(
+                        $"#{i + 1}: {(int)response.StatusCode} {response.StatusCode}");
+                }
+            }
+        }
+
+        // Предусловие then: все 300 запросов авторизованы и успешны — иначе замеры
+        // латентности не являются предметом NFR-001.
+        var statusFailures = endpoints
+            .Select((endpoint, index) => (endpoint.Item1, nonSuccess[index]))
+            .Where(item => item.Item2.Count > 0)
+            .Select(item => $"{item.Item1}: {item.Item2.Count} не-2xx из {RequestsPerEndpoint} "
+                + $"[{string.Join("; ", item.Item2.Take(5))}…]")
+            .ToList();
+        Assert.True(
+            statusFailures.Count == 0,
+            "Предусловие NFR-001 нарушено — GET-эндпойнты не отдавали успешные ответы "
+            + "(латентность таких ответов не предмет NFR-001): " + string.Join(" | ", statusFailures));
+
+        // then: p95 каждого эндпойнта ≤ 500 мс.
+        var budgetViolations = new List<string>();
+        for (var i = 0; i < endpoints.Length; i++)
+        {
+            var p95 = Percentile95(latencies[i]);
+            if (p95 > LatencyBudgetMs)
+            {
+                budgetViolations.Add(
+                    $"{endpoints[i].Item1}: p95 = {FormatMs(p95)} мс (бюджет — 500 мс), "
+                    + $"медиана = {FormatMs(Percentile50(latencies[i]))} мс, замеров = {latencies[i].Count}");
+            }
+        }
+
+        Assert.True(
+            budgetViolations.Count == 0,
+            "NFR-001 нарушен (p95 ≤ 500 мс на каждом из читающих эндпойнтов): "
+            + string.Join(" | ", budgetViolations));
+    }
+
+    /// <summary>p95: отсечка ceil(0.95·n) отсортированных замеров (n ≥ 1).</summary>
+    private static double Percentile95(IReadOnlyList<double> samples)
+    {
+        Assert.True(samples.Count > 0, "Нет ни одного успешного замера латентности.");
+        var sorted = samples.OrderBy(value => value).ToArray();
+        var index = Math.Max(0, (int)Math.Ceiling(0.95 * sorted.Length) - 1);
+        return sorted[index];
+    }
+
+    private static double Percentile50(IReadOnlyList<double> samples)
+    {
+        var sorted = samples.OrderBy(value => value).ToArray();
+        return sorted[sorted.Length / 2];
+    }
+
+    private static string FormatMs(double value) =>
+        value.ToString("F1", CultureInfo.InvariantCulture);
+}

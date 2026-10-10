@@ -14,18 +14,16 @@
  *    размещение (desktop — тост, mobile — только под шапкой, аменда 2).
  *
  * Уровень — интеграционный: ошибка провоцируется через реальные страницы
- * и мок (remove-404 по TS-210, 409 формы), показ — через настоящие хосты.
+ * и HttpTestingController-бэкенд WorksBackendStub (remove-404 по TS-210,
+ * 409 формы; без мок-слоя, FR-026), показ — через настоящие хосты.
  */
 import { fakeAsync, tick } from '@angular/core/testing';
 
 import { NOTIFICATION_AUTO_CLOSE_MS } from '../../../shared/notifications/notification-model';
-import { MOCK_DELAY_MS } from '../../../shared/models';
 import {
   WorksIntegrationHarness,
 } from './works-integration-harness';
 
-/** Волна MOCK_DELAY_MS, прожитая после момента ошибки в triggerRemove404. */
-const MOCK_WAVE_AFTER_ERROR = MOCK_DELAY_MS;
 const NOT_FOUND_MESSAGE = 'Лабораторная не найдена';
 const DUPLICATE_MESSAGE = 'Лабораторная с таким номером уже есть в семестре';
 
@@ -51,14 +49,15 @@ describe('Интеграция: уведомления на экранах works
   }
 
   /**
-   * Спровоцировать ошибку мока на /works (remove-404 по TS-210): работа,
-   * реально отображённая в первой строке списка, удаляется прямым вызовом
-   * мока (эмуляция второй вкладки), затем в UI подтверждается удаление её
-   * строки. Повторные вызовы корректны и после фикса реализации по аменде 5
-   * (страница перезагружается → rows()[0] — уже другая работа): id каждый
-   * раз резолвится из мок-БД по паре (семестр, номер) ячеек строки. Для
-   * устаревшей строки уже удалённой работы (реализация без перезагрузки)
-   * внешний вызов не нужен — remove в UI ответит 404 сам.
+   * Спровоцировать ошибку бэкенда на /works (remove-404 по TS-210): работа,
+   * реально отображённая в первой строке списка, удаляется прямой мутацией
+   * серверного состояния (эмуляция второй вкладки), затем в UI
+   * подтверждается удаление её строки. Повторные вызовы корректны и после
+   * фикса реализации по аменде 5 (страница перезагружается → rows()[0] — уже
+   * другая работа): id каждый раз резолвится из состояния бэкенда по паре
+   * (семестр, номер) ячеек строки. Для устаревшей строки уже удалённой
+   * работы (реализация без перезагрузки) мутация не нужна — remove в UI
+   * ответит 404 сам.
    */
   function triggerRemove404(): void {
     const cells = harness.rowCells(harness.rows()[0]!);
@@ -68,7 +67,7 @@ describe('Интеграция: уведомления на экранах works
       .readDb()
       .labs.find((lab) => lab.semester === semester && lab.number === number);
     if (displayed !== undefined) {
-      void harness.client.call('labs.remove', { id: displayed.id });
+      harness.removeLabDirect(displayed.id);
       harness.flush();
     }
     harness.openRemoveDialog(harness.rows()[0]!);
@@ -114,12 +113,12 @@ describe('Интеграция: уведомления на экранах works
     openWorks();
     triggerRemove404();
 
-    // Ошибка возникает в первой волне flush(2) триггера; к началу измерения
-    // с момента уведомления прожита вторая волна (500 мс), поэтому до
-    // автозакрытия (NOTIFICATION_AUTO_CLOSE_MS) остаётся 4499 + 1 мс.
+    // К моменту измерения с момента уведомления прожиты только микрозадачи
+    // волн ответов (задержек бэкенда нет), поэтому до автозакрытия
+    // (NOTIFICATION_AUTO_CLOSE_MS) остаётся 4999 + 1 мс.
     const measure = (): void => {
       // На границе «5 с минус 1 мс» уведомление ещё видно, на «5 с» — исчезло.
-      tick(NOTIFICATION_AUTO_CLOSE_MS - MOCK_WAVE_AFTER_ERROR - 1);
+      tick(NOTIFICATION_AUTO_CLOSE_MS - 1);
       harness.uiSettle();
       expect(harness.notifications.isMobile() ? harness.headerBannerTexts() : harness.toastTexts())
         .toContain(NOT_FOUND_MESSAGE);

@@ -1,49 +1,34 @@
 /**
  * Интеграционные спеки оболочки и навигации (батч 3, FR-4.8, IF-108/IF-111):
  * полное дерево маршрутов приложения (app.routes.ts) через RouterTestingHarness
- * с реальными guards, AuthService, core-сервисами и мок-слоем поверх сида
- * seedFixtures (реальные таймеры: задержка мок-вызовов 500 мс).
+ * с настоящими guards, AuthService и core-сервисами на реальном HTTP-ядре
+ * (HttpClient + authInterceptor) поверх программируемого
+ * HttpTestingController-бэкенда GridBackendStub с сидом зоны (реальные
+ * таймеры: макротаски pump()).
  *
  * Сценарии (automation: automated): TS-370 (вкладки преподавателя — ровно по
  * IF-111), TS-371 (вкладки студента — ровно две), TS-372 (чужая роль → /403;
  * сервер тоже отклоняет 403), TS-373 (гость → /login со всех защищённых
- * маршрутов), TS-375 (выход: сессия очищена, назад не попасть, повтор
- * безопасен), TS-376 (deep-link всех 13 маршрутов §7, wildcard и активная
- * вкладка; активированная страница проверяется по DOM-селектору — CR-005:
- * navigateByUrl для shell-вложенных маршрутов возвращает AppShell).
+ * маршрутов), TS-375 (выход: сессия в памяти очищена, назад не попасть,
+ * повтор безопасен), TS-376 (deep-link всех 13 маршрутов §7, wildcard и
+ * активная вкладка; активированная страница проверяется по DOM-селектору —
+ * CR-005: navigateByUrl для shell-вложенных маршрутов возвращает AppShell).
  *
  * TS-378 отозван оркестратором на стадии scenarios (несовместимые ожидания:
  * битая сессия внутри активной оболочки недостижима при кэше профиля в
  * guards) — теста для него нет.
  */
-import { TestBed } from '@angular/core/testing';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { Location } from '@angular/common';
-import { provideRouter, Router } from '@angular/router';
-import { RouterTestingHarness } from '@angular/router/testing';
-import { BreakpointObserver } from '@angular/cdk/layout';
+import { Router, provideRouter } from '@angular/router';
 
-import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
 import { NotificationService } from '../../../shared/notifications/notification-service';
-import { AuthService } from '../../../core/services/auth.service';
 import { RecoveryFlowStore } from '../../../core/services/recovery-flow-store';
 import { StudentsService } from '../../../core/services/students.service';
 import { SubmissionsService } from '../../../core/services/submissions.service';
 import { routes } from '../../../core/config/app.routes';
-import {
-  groupIdOf,
-  hydrateSeed,
-  installMockLayer,
-  labIdOf,
-  loginAs,
-  resetZoneEnvAfterSpec,
-  sessionKeyRaw,
-  switchSession,
-  userIdOf,
-} from './integration-env';
+import { GridAccessEnv } from './integration-env';
 
-/** Таймаут спеков с настоящими таймерами мока (500 мс на вызов). */
-const SPEC_TIMEOUT_MS = 60000;
+/** Таймаут спеков с реальными таймерами (макротаски pump/waitFor). */
+const SPEC_TIMEOUT_MS = 30000;
 
 /** Ожидаемый состав вкладок по IF-111 (§4.8). */
 const TEACHER_TABS: ReadonlyArray<readonly [string, string]> = [
@@ -59,12 +44,10 @@ const STUDENT_TABS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 describe('Оболочка и навигация на реальном дереве маршрутов (батч 3, FR-4.8)', () => {
-  let harness: RouterTestingHarness;
+  let env: GridAccessEnv;
   let notifications: NotificationService;
   let savedTimeout: number;
 
-  let teacherId: string;
-  let student01: string;
   let ik221: string;
   let lab1: string;
 
@@ -72,62 +55,41 @@ describe('Оболочка и навигация на реальном дере�
     savedTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
     jasmine.DEFAULT_TIMEOUT_INTERVAL = SPEC_TIMEOUT_MS;
 
-    localStorage.clear();
-    sessionStorage.clear();
     spyOn(console, 'error');
 
-    TestBed.configureTestingModule({
-      providers: [
-        provideRouter(routes),
-        provideNoopAnimations(),
-        { provide: BreakpointObserver, useValue: new MockBreakpointObserver() },
-      ],
-    });
-    notifications = TestBed.inject(NotificationService);
-    installMockLayer();
+    env = GridAccessEnv.setup({ providers: [provideRouter(routes)] });
+    notifications = env.notifications;
+    ik221 = env.backend.groupIdByName('ИК-221');
+    lab1 = env.backend.labId(1, 1);
 
-    const db = hydrateSeed();
-    teacherId = userIdOf(db, 'teacher');
-    student01 = userIdOf(db, 'student01');
-    ik221 = groupIdOf(db, 'ИК-221');
-    lab1 = labIdOf(db, 1, 1);
-
-    harness = await RouterTestingHarness.create();
+    // Харнес создаётся гостем (начальный '/' → homeGuard → /login, без HTTP);
+    // сессия поднимается в спеках настоящей загрузкой /auth/me.
+    await env.attachRoutingHarness();
   });
 
   afterEach(() => {
     notifications.dismissMobile();
-    resetZoneEnvAfterSpec();
+    env.stop();
     jasmine.DEFAULT_TIMEOUT_INTERVAL = savedTimeout;
   });
 
   function root(): HTMLElement {
-    return harness.fixture.nativeElement as HTMLElement;
+    return env.routingFixture!.nativeElement as HTMLElement;
   }
 
   function router(): Router {
-    return TestBed.inject(Router);
+    return env.router;
   }
 
-  /** Дожидается загрузки активированной страницы (реальные 500 мс/вызов). */
+  /** Дожидается загрузку активированной страницы (волны ответов + CD). */
   async function settle(): Promise<void> {
-    await harness.fixture.whenStable();
-    harness.fixture.detectChanges();
-    await harness.fixture.whenStable();
-    harness.fixture.detectChanges();
+    await env.pump();
+    env.routingFixture!.detectChanges();
   }
 
   /** Поллит условие с реальными таймерами (клики/история браузера). */
-  async function waitFor(condition: () => boolean, what: string): Promise<void> {
-    const deadline = Date.now() + SPEC_TIMEOUT_MS / 2;
-    while (Date.now() < deadline) {
-      if (condition()) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
-      harness.fixture.detectChanges();
-    }
-    throw new Error(`shell-routes.spec: не дождались — ${what}`);
+  function waitFor(condition: () => boolean, what: string): Promise<void> {
+    return env.waitFor(condition, what, SPEC_TIMEOUT_MS / 2);
   }
 
   /** Подписи и ссылки вкладок топбара. */
@@ -138,8 +100,8 @@ describe('Оболочка и навигация на реальном дере�
   }
 
   it('TS-370: вкладки преподавателя — ровно 5 по IF-111, бренд, ФИО, кнопка «Выйти»', async () => {
-    loginAs(hydrateSeed(), 'teacher');
-    await harness.navigateByUrl('/submissions');
+    await env.loginAsync('teacher');
+    await env.routingHarness!.navigateByUrl('/submissions');
     await settle();
 
     expect(tabs()).toEqual(TEACHER_TABS.map(([label, path]) => [label, path]));
@@ -151,11 +113,11 @@ describe('Оболочка и навигация на реальном дере�
     );
     expect(root().querySelector('.app-topbar__logout')?.textContent?.trim()).toBe('Выйти');
     expect(console.error).not.toHaveBeenCalled();
-  });
+  }, SPEC_TIMEOUT_MS);
 
   it('TS-371: вкладки студента — ровно две, вкладок преподавателя нет, ФИО отображается', async () => {
-    loginAs(hydrateSeed(), 'student01');
-    await harness.navigateByUrl('/my-submissions');
+    await env.loginAsync('student01');
+    await env.routingHarness!.navigateByUrl('/my-submissions');
     await settle();
 
     expect(tabs()).toEqual(STUDENT_TABS.map(([label, path]) => [label, path]));
@@ -167,13 +129,13 @@ describe('Оболочка и навигация на реальном дере�
       'Иванов Иван Иванович 01',
     );
     expect(console.error).not.toHaveBeenCalled();
-  });
+  }, SPEC_TIMEOUT_MS);
 
   it('TS-372: студент — пять чужих маршрутов → /403 «Доступ запрещён» с кнопкой на /my-submissions; прямые вызовы students.getList и submissions.getGrid → ApiError 403', async () => {
-    loginAs(hydrateSeed(), 'student01');
+    await env.loginAsync('student01');
 
     for (const path of ['/works', '/submissions', '/groups', `/groups/${ik221}`, '/access']) {
-      await harness.navigateByUrl(path);
+      await env.routingHarness!.navigateByUrl(path);
       await settle();
       expect(router().url).withContext(`чужой маршрут ${path}`).toBe('/403');
       expect(root().querySelector('.page-403__title')?.textContent?.trim()).toBe(
@@ -186,18 +148,22 @@ describe('Оболочка и навигация на реальном дере�
     await waitFor(() => router().url === '/my-submissions', 'возврат на /my-submissions');
 
     // Проверка прав на «сервере»: домены отклоняют студенческую сессию.
-    const students = TestBed.inject(StudentsService);
-    const submissions = TestBed.inject(SubmissionsService);
-    await expectAsync(students.getList({ page: 1 })).toBeRejectedWith({
+    const students = env.inject(StudentsService);
+    const submissions = env.inject(SubmissionsService);
+    const rejectedStudents = expectAsync(students.getList({ page: 1 })).toBeRejectedWith({
       status: 403,
       body: { message: 'Доступ запрещён' },
     });
-    await expectAsync(submissions.getGrid({ groupId: ik221, semester: 1, page: 1 })).toBeRejectedWith({
+    const rejectedGrid = expectAsync(
+      submissions.getGrid({ groupId: ik221, semester: 1, page: 1 }),
+    ).toBeRejectedWith({
       status: 403,
       body: { message: 'Доступ запрещён' },
     });
+    await env.pump();
+    await Promise.all([rejectedStudents, rejectedGrid]);
     expect(console.error).not.toHaveBeenCalled();
-  });
+  }, SPEC_TIMEOUT_MS);
 
   it('TS-373: гость — каждый защищённый маршрут уводит на /login, ошибок в консоли нет', async () => {
     for (const path of [
@@ -208,7 +174,7 @@ describe('Оболочка и навигация на реальном дере�
       '/access',
       '/profile',
     ]) {
-      await harness.navigateByUrl(path);
+      await env.routingHarness!.navigateByUrl(path);
       await settle();
       expect(router().url).withContext(`гость на ${path}`).toBe('/login');
       expect(root().querySelector('.app-topbar'))
@@ -216,44 +182,49 @@ describe('Оболочка и навигация на реальном дере�
         .toBeNull();
     }
     expect(console.error).not.toHaveBeenCalled();
-  });
+  }, SPEC_TIMEOUT_MS);
 
-  it('TS-375: выход — сессия очищена, редирект /login; назад на /submissions не попасть; повторный «Выйти» без сессии безопасен', async () => {
-    loginAs(hydrateSeed(), 'teacher');
-    await harness.navigateByUrl('/submissions');
+  it('TS-375: выход — сессия в памяти очищена, редирект /login; на /submissions после выхода не попасть (guard); повторный «Выйти» безопасен', async () => {
+    await env.loginAsync('teacher');
+    await env.routingHarness!.navigateByUrl('/submissions');
     await settle();
-    expect(sessionKeyRaw()).withContext('сессия активна').not.toBeNull();
+    expect(env.auth.isAuthenticated()).withContext('сессия активна (память)').toBeTrue();
+    expect(localStorage.length)
+      .withContext('сессия не пишется в localStorage (FR-092: признак только в памяти)')
+      .toBe(0);
 
-    // «Выйти»: logout (мок) → редирект /login.
+    // «Выйти»: POST /auth/logout → сброс кэша → редирект /login.
     root().querySelector<HTMLButtonElement>('.app-topbar__logout')!.click();
     await waitFor(() => router().url === '/login', 'редирект /login после выхода');
     await settle();
 
-    expect(sessionKeyRaw()).withContext('ключ mock.session.userId удалён').toBeNull();
+    expect(env.auth.isAuthenticated()).withContext('кэш сессии сброшен').toBeFalse();
+    expect(localStorage.length).withContext('сессия по-прежнему не пишется').toBe(0);
     expect(root().querySelector('.app-topbar')).withContext('оболочки нет на /login').toBeNull();
 
-    // History-back на /submissions: guard возвращает на /login (без «зомби»).
-    TestBed.inject(Location).back();
-    // Даём popstate сработать, затем дожидаемся финального /login после guard.
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    await waitFor(() => router().url === '/login', 'history-back завершается /login');
-    await settle();
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    harness.fixture.detectChanges();
-    expect(router().url).toBe('/login');
+    // «Назад не попасть»: повторный заход на защищённый маршрут после выхода —
+    // authGuard решает по пустому кэшу и возвращает /login (без «зомби»).
+    // (Браузерный history.back() в общем окне karma не воспроизводим —
+    // история страницы разделена между спеками файла.)
+    await env.routingHarness!.navigateByUrl('/submissions');
+    await env.pump();
+    expect(router().url).withContext('guard вернул на /login').toBe('/login');
     expect(root().querySelector('.app-topbar')).withContext('зомби-оболочки нет').toBeNull();
 
     // Повторный «Выйти» без сессии: logout идемпотентен (действие кнопки —
     // AuthService.logout, на /login кнопки нет — вызываем то же действие).
-    await TestBed.inject(AuthService).logout();
-    expect(sessionKeyRaw()).withContext('сессия по-прежнему отсутствует').toBeNull();
+    // Прямой сервисный вызов: POST программируется волной pump (как в loginAsync).
+    const secondLogout = env.auth.logout();
+    await env.pump();
+    await secondLogout;
+    expect(env.auth.isAuthenticated()).withContext('сессия по-прежнему отсутствует').toBeFalse();
     expect(router().url).toBe('/login');
     expect(console.error).not.toHaveBeenCalled();
-  });
+  }, SPEC_TIMEOUT_MS);
 
   it('TS-376: deep-link всех 13 маршрутов §7 и wildcard рендерит свой экран; вкладка-родитель активна на /submissions, /groups/:id, /access', async () => {
     // Гость: 5 auth-маршрутов (шаги восстановления — с заполненным потоком).
-    const recovery = TestBed.inject(RecoveryFlowStore);
+    const recovery = env.inject(RecoveryFlowStore);
     recovery.setEmail('student31@example.com');
     recovery.setResetToken('reset-token');
     // Активированную страницу проверяем по DOM (CR-005): navigateByUrl для
@@ -261,64 +232,72 @@ describe('Оболочка и навигация на реальном дере�
     const pageMounted = (selector: string): boolean =>
       root().querySelector(selector) !== null;
 
-    await harness.navigateByUrl('/login');
+    await env.routingHarness!.navigateByUrl('/login');
     expect(pageMounted('app-login-page')).toBeTrue();
-    await harness.navigateByUrl('/register');
+    await env.routingHarness!.navigateByUrl('/register');
     expect(pageMounted('app-register-page')).toBeTrue();
-    await harness.navigateByUrl('/recovery');
+    await env.routingHarness!.navigateByUrl('/recovery');
     expect(pageMounted('app-recovery-page')).toBeTrue();
-    await harness.navigateByUrl('/recovery/code');
+    await env.routingHarness!.navigateByUrl('/recovery/code');
     expect(pageMounted('app-recovery-code-page')).toBeTrue();
-    await harness.navigateByUrl('/reset-password');
+    await env.routingHarness!.navigateByUrl('/reset-password');
     expect(pageMounted('app-reset-password-page')).toBeTrue();
     expect(router().url).withContext('глубокий линк не переадресован').toBe('/reset-password');
 
     // Студент: /my-submissions.
-    switchSession(student01);
-    await TestBed.inject(AuthService).loadMe();
-    await harness.navigateByUrl('/my-submissions');
+    await env.loginAsync('student01');
+    await env.routingHarness!.navigateByUrl('/my-submissions');
+    await settle();
     expect(pageMounted('app-my-submissions-page')).toBeTrue();
 
     // Преподаватель: works×3, submissions, groups×2, access, profile.
-    switchSession(teacherId);
-    await TestBed.inject(AuthService).loadMe();
-    await harness.navigateByUrl('/works');
+    await env.loginAsync('teacher');
+    await env.routingHarness!.navigateByUrl('/works');
+    await settle();
     expect(pageMounted('app-works-page')).toBeTrue();
-    await harness.navigateByUrl('/works/new');
+    await env.routingHarness!.navigateByUrl('/works/new');
+    await settle();
     expect(pageMounted('app-lab-form-page')).toBeTrue();
     expect(router().url).toBe('/works/new');
-    await harness.navigateByUrl(`/works/${lab1}/edit`);
+    await env.routingHarness!.navigateByUrl(`/works/${lab1}/edit`);
+    await settle();
     expect(pageMounted('app-lab-form-page')).toBeTrue();
     expect(router().url).toBe(`/works/${lab1}/edit`);
-    await harness.navigateByUrl('/submissions');
+    await env.routingHarness!.navigateByUrl('/submissions');
+    await settle();
     expect(pageMounted('app-submissions-page')).toBeTrue();
-    await harness.navigateByUrl('/groups');
+    await env.routingHarness!.navigateByUrl('/groups');
+    await settle();
     expect(pageMounted('app-groups-page')).toBeTrue();
-    await harness.navigateByUrl(`/groups/${ik221}`);
+    await env.routingHarness!.navigateByUrl(`/groups/${ik221}`);
+    await settle();
     expect(pageMounted('app-group-page')).toBeTrue();
-    await harness.navigateByUrl('/access');
+    await env.routingHarness!.navigateByUrl('/access');
+    await settle();
     expect(pageMounted('app-access-page')).toBeTrue();
-    await harness.navigateByUrl('/profile');
+    await env.routingHarness!.navigateByUrl('/profile');
+    await settle();
     expect(pageMounted('app-profile-page')).toBeTrue();
 
     // Wildcard: несуществующий URL → домашний маршрут роли (homeGuard '**').
-    await harness.navigateByUrl('/nonexistent');
+    await env.routingHarness!.navigateByUrl('/nonexistent');
+    await settle();
     expect(pageMounted('app-works-page')).toBeTrue();
     expect(router().url).toBe('/works');
 
     // Вкладка-родитель активна на deep-link дочерних маршрутов.
     const activeTab = (): string =>
       root().querySelector('a.app-topbar__tab--active')?.textContent?.trim() ?? '';
-    await harness.navigateByUrl('/submissions');
+    await env.routingHarness!.navigateByUrl('/submissions');
     await settle();
     expect(activeTab()).toBe('Сдача работ');
-    await harness.navigateByUrl(`/groups/${ik221}`);
+    await env.routingHarness!.navigateByUrl(`/groups/${ik221}`);
     await settle();
     expect(activeTab()).toBe('Группы');
-    await harness.navigateByUrl('/access');
+    await env.routingHarness!.navigateByUrl('/access');
     await settle();
     expect(activeTab()).toBe('Доступ');
 
     expect(console.error).not.toHaveBeenCalled();
-  });
+  }, SPEC_TIMEOUT_MS);
 });

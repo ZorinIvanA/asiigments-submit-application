@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-19 (финализация FR-026: клиент без мок-слоя,
+    реальные HTTP-запросы, прокси dev-сервера). Зона батча: tests/integration/B-19.
+    Код реализации (src/client, src/api) не изменяется; собственная инфраструктура
+    (RepoPaths/ProcessRunner/NgCli/GitCli/DevStackFixture) — изоляция от чужих
+    тестовых зон (урок BL-001 BUG-001: параллельные батчи пишут соседние зоны).
+    Проект сознательно не включается в src/api/LabsApp.sln и не ссылается на
+    проекты реализации. Сценарии батча:
+      TS-175 — мок-слой исключён из кода и сборки (grep + app.config.ts);
+      TS-176 — ng build проходит (exit 0);
+      TS-177 — ng test проходит без мок-слоя (exit 0; spec-ы без app/mock);
+      TS-178 — публичный контракт сервисов core не изменился (сигнатуры против
+               эталона ветки HEAD; API_BASE_URL; интерцептор; ApiError);
+      TS-179 — mock-только экспорты models удалены, нужные сохранены;
+      TS-180 — прокси ведёт /api и /health на Kestrel (живой стек);
+      TS-196 — клиентский словарь error-texts.ts не изменён (git diff);
+      TS-030 — KDF-счётчик логируется раз в 60 с (NFR-004, FakeTimeProvider);
+      TS-148 — NFR-001: p95 ≤ 500 мс на читающих GET-эндпойнтах (бенчмарк);
+      TS-149 — NFR-002: dotnet build без предупреждений (TreatWarningsAsErrors),
+               dotnet test / ng build / ng test — exit 0.
+
+    Кейсы батча B-19 (раунд run-lab3, вход c-882) отображаются на сценарии
+    контура взаимно однозначно (см. докомментарии классов):
+      TS-140→TS-175, TS-141→TS-176, TS-142→TS-177, TS-143→TS-178,
+      TS-144→TS-180, TS-145→TS-179.
+    Кейсы раунда (вход c-1226): TS-169→TS-175, TS-170→TS-176, TS-171→TS-177,
+      TS-172→TS-178, TS-173→TS-179, TS-174→TS-180.
+
+    Сценарии TS-030/TS-148 используют WebApplicationFactory над бэкендом:
+    ProjectReference на src/api/LabsApp (копия механики зон B-10/B-21; сам проект
+    по-прежнему не включается в src/api/LabsApp.sln). Microsoft.AspNetCore.Mvc.Testing
+    10.0.12 — под net10.0 хоста прогона (TestServer реализует PipeWriter.UnflushedBytes);
+    Microsoft.Extensions.TimeProvider.Testing 8.10.0 — FakeTimeProvider инжектируемых
+    часов (ADR-002: 60-секундный лог KDF-счётчика построен на TimeProvider.CreateTimer).
+  -->
+
+  <PropertyGroup>
+    <!--
+      Целевой фреймворк тестового проекта — runtime, фактически установленный на хосте
+      прогона (SDK 10.x, как в B-01/B-18); проверяемый клиент — Angular/node, версия
+      .NET на проверяемое поведение не влияет.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+</Project>

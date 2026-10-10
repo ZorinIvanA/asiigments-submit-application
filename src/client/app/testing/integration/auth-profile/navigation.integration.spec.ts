@@ -2,26 +2,37 @@
  * Интеграционные тесты навигации auth-семейства (batch1, IF-108/FR-4.1,
  * §4.8): TS-034 guestGuard уводит авторизованных со всех auth-маршрутов;
  * TS-035 homeGuard на '' и '**'; TS-036 recoveryStepGuard на deep-link без
- * данных потока; TS-037 битая сессия трактуется как гость; TS-039 сессия
- * переживает F5 (перезагрузка страницы).
+ * данных потока; TS-037 холодный старт без сессии (401 от me + неудачный
+ * refresh — HTTP-аналог «битой сессии» прошлого контракта) трактуется как
+ * гость; TS-039 сессия переживает F5 — рестарт приложения повторно
+ * валидирует /auth/me (cookie-семантика на границе HTTP).
  *
  * Полное скомпонованное дерево маршрутов (app.routes) с реальными guards;
- * сессия — реальный ключ mock.session.userId; «F5» — перезапуск приложения
- * (новый инжектор с fresh root-синглтонами) при сохранённом storage.
+ * сессия — память AuthService (FR-092), заполняется инициализацией
+ * /auth/me; «F5» — перезапуск приложения (новый инжектор с fresh
+ * root-синглтонами) при сохранённом storage.
  */
 import {
   AuthProfileEnv,
-  flushMock,
+  requestsOf,
   required,
   restartApp,
-  root,
-  sessionUserId,
+  respond,
+  settle,
   startAuthProfileEnv,
   stopAuthProfileEnv,
 } from './auth-profile.env';
-import { loginAs, seedUserIdByLogin } from '../../integration-env';
 
 const AUTH_ROUTES = ['/login', '/register', '/recovery', '/recovery/code', '/reset-password'];
+
+/** Ответ GET /me/profile для сценариев с заходом на /profile. */
+const STUDENT_PROFILE = {
+  login: 'student01',
+  email: 'student01@example.com',
+  fullName: 'Иванов Иван Иванович 01',
+  role: 'student',
+  groupName: 'ИК-221',
+};
 
 describe('Интеграция: навигация auth-семейства (IF-108, batch1 TS-034..TS-037, TS-039)', () => {
   let env: AuthProfileEnv;
@@ -36,14 +47,15 @@ describe('Интеграция: навигация auth-семейства (IF-1
   });
 
   it('TS-034: guestGuard уводит авторизованных со всех auth-маршрутов на домашний маршрут роли', async () => {
-    const cases: Array<{ login: string; home: string }> = [
-      { login: 'student01', home: '/my-submissions' },
-      { login: 'teacher', home: '/works' },
+    const cases = [
+      { login: 'student01' as const, home: '/my-submissions' },
+      { login: 'teacher' as const, home: '/works' },
     ];
 
     for (const { login, home } of cases) {
-      env = await restartApp(env, { keepStorage: false });
-      loginAs(seedUserIdByLogin(login));
+      // F5-рестарт с валидной cookie-сессией: /auth/me → 200.
+      env = await restartApp(env, { keepStorage: false, session: login });
+      expect(env.auth.isAuthenticated()).toBeTrue();
       for (const route of AUTH_ROUTES) {
         await env.harness.navigateByUrl(route);
         expect(env.router.url)
@@ -62,16 +74,14 @@ describe('Интеграция: навигация auth-семейства (IF-1
     expect(env.router.url).withContext('гость на несуществующем маршруте').toBe('/login');
 
     // Студент → /my-submissions.
-    env = await restartApp(env, { keepStorage: false });
-    loginAs(seedUserIdByLogin('student01'));
+    env = await restartApp(env, { keepStorage: false, session: 'student01' });
     await env.harness.navigateByUrl('/');
     expect(env.router.url).withContext('student на корне').toBe('/my-submissions');
     await env.harness.navigateByUrl('/some/unknown/page');
     expect(env.router.url).withContext('student на **').toBe('/my-submissions');
 
     // Преподаватель → /works.
-    env = await restartApp(env, { keepStorage: false });
-    loginAs(seedUserIdByLogin('teacher'));
+    env = await restartApp(env, { keepStorage: false, session: 'teacher' });
     await env.harness.navigateByUrl('/');
     expect(env.router.url).withContext('teacher на корне').toBe('/works');
     await env.harness.navigateByUrl('/some/unknown/page');
@@ -80,8 +90,6 @@ describe('Интеграция: навигация auth-семейства (IF-1
   }, 30000);
 
   it('TS-036: recoveryStepGuard на deep-link без данных потока — безопасный рестарт', async () => {
-    const callSpy = spyOn(env.client, 'call').and.callThrough();
-
     // Пустой store: оба шага → /recovery.
     await env.harness.navigateByUrl('/recovery/code');
     expect(env.router.url).withContext('/recovery/code без email → /recovery').toBe('/recovery');
@@ -95,82 +103,66 @@ describe('Интеграция: навигация auth-семейства (IF-1
     await env.harness.navigateByUrl('/reset-password');
     expect(env.router.url).withContext('с email без resetToken → /recovery').toBe('/recovery');
 
-    // Страницы не шлют запросов с пустыми значениями; ошибок консоли нет.
-    expect(
-      callSpy.calls.all().filter((c) => String(c.args[0]).startsWith('auth.recovery')).length,
-    ).withContext('recovery-запросов нет').toBe(0);
+    // Страницы не шлют recovery-запросов с пустыми значениями (журнал HTTP).
+    expect(requestsOf(env, 'POST', '/auth/recovery/request'))
+      .withContext('запросов кода нет')
+      .toBe(0);
+    expect(requestsOf(env, 'POST', '/auth/recovery/confirm'))
+      .withContext('подтверждений нет')
+      .toBe(0);
     expect(console.error).not.toHaveBeenCalled();
   }, 20000);
 
-  it('TS-037: битая сессия (несуществующий/пустой userId) трактуется как гость', async () => {
-    // userId, которого нет в mock.db.v1.
-    loginAs('ffffffff-ffff-4fff-8fff-ffffffffffff');
+  it('TS-037: холодный старт без сессии (401 me + неудачный refresh) трактуется как гость', async () => {
+    // Гостевой старт уже выполнен в beforeEach: /auth/me → 401, refresh → 401.
+    expect(env.auth.currentUser()).withContext('аноним').toBeNull();
+    expect(env.auth.isAuthenticated()).toBeFalse();
+    expect(requestsOf(env, 'POST', '/auth/refresh'))
+      .withContext('тихий refresh выполнен ровно один раз')
+      .toBe(1);
+
+    // /profile закрыт; guard решает по пустому кэшу, без HTTP.
     await env.harness.navigateByUrl('/profile');
-    expect(env.router.url)
-      .withContext('после 401 me — редирект /login')
-      .toBe('/login');
-    expect(sessionUserId()).withContext('битая сессия очищена').toBeNull();
-    expect(env.auth.currentUser()).toBeNull();
+    expect(env.router.url).withContext('аноним на /profile → редирект /login').toBe('/login');
+    expect(requestsOf(env, 'POST', '/auth/refresh'))
+      .withContext('новых refresh нет (фиксатор неудачного refresh)')
+      .toBe(1);
 
     // Дальнейшая навигация ведёт себя как гостевая.
     await env.harness.navigateByUrl('/register');
     expect(env.router.url).withContext('auth-страницы доступны гостю').toBe('/register');
     await env.harness.navigateByUrl('/profile');
     expect(env.router.url).withContext('защищённые — редирект').toBe('/login');
-
-    // Отдельный случай: пустая строка как userId сессии.
-    env = await restartApp(env, { keepStorage: false });
-    loginAs('');
-    await env.harness.navigateByUrl('/profile');
-    expect(env.router.url).withContext('пустой userId — тоже битая сессия').toBe('/login');
-    expect(sessionUserId()).toBeNull();
     expect(console.error).not.toHaveBeenCalled();
   }, 20000);
 
-  it('TS-039: сессия переживает перезагрузку страницы (F5)', async () => {
-    loginAs(seedUserIdByLogin('student01'));
-    const callSpy = spyOn(env.client, 'call').and.callThrough();
-    const meCalls = (): number =>
-      callSpy.calls.all().filter((c) => c.args[0] === 'auth.me').length;
+  it('TS-039: сессия переживает перезагрузку страницы (F5) — повторная валидация /auth/me', async () => {
+    // F5-рестарт с валидной cookie: cold-start me → 200, начальная навигация /profile.
+    env = await restartApp(env, { keepStorage: true, session: 'student01' });
+    expect(requestsOf(env, 'GET', '/auth/me'))
+      .withContext('новое приложение валидирует me одним вызовом')
+      .toBe(1);
 
-    // Первый переход после F5 догружает me — один мок-вызов. Гарантия
-    // длительности мока [500; 800] мс (NFR-§10.1) проверяется юнит-тестами
-    // MockApiClient; здесь — верхняя граница с запасом на навигацию и CD
-    // (ревью CR-012: 800 мс без запаса флакало).
-    const startedAt = Date.now();
+    // Первый переход догружает профиль страницы.
     await env.harness.navigateByUrl('/profile');
-    const elapsedMs = Date.now() - startedAt;
+    respond(env, 'GET', '/me/profile', { body: STUDENT_PROFILE });
+    await settle(env);
     expect(env.router.url).withContext('без редиректа на /login').toBe('/profile');
-    expect(meCalls()).withContext('ровно один вызов me').toBe(1);
-    expect(elapsedMs)
-      .withContext('первый переход — мок-вызов [500; 800] мс + запас на навигацию')
-      .toBeLessThan(2000);
-
-    await flushMock(env, 1);
     expect(required(env, '[data-test="login-value"]').textContent!.trim())
       .withContext('профиль отображает корректные данные')
       .toBe('student01');
 
-    // Повторные переходы мгновенны — без вызовов me.
-    const meAfterFirst = meCalls();
+    // Повторные переходы мгновенны — без повторных вызовов me (кэш в памяти).
+    // Возврат на /profile — новая активация страницы: она снова запрашивает
+    // GET /me/profile, сценарий программирует ответ (иначе запрос останется
+    // открытым и будет пойман verify() в afterEach).
     await env.harness.navigateByUrl('/my-submissions');
     await env.harness.navigateByUrl('/profile');
-    expect(meCalls()).withContext('повторные переходы без вызовов me').toBe(meAfterFirst);
-
-    // Перезагрузка страницы (новый инжектор, storage сохранён).
-    env = await restartApp(env, { keepStorage: true });
-    expect(sessionUserId()).withContext('сессия восстановлена из localStorage').not.toBeNull();
-
-    const freshSpy = spyOn(env.client, 'call').and.callThrough();
-    await env.harness.navigateByUrl('/profile');
-    expect(env.router.url).withContext('после F5 — по-прежнему /profile').toBe('/profile');
-    await flushMock(env, 1); // profile.get после догрузки me (ревью CR-009)
-    expect(
-      freshSpy.calls.all().filter((c) => c.args[0] === 'auth.me').length,
-    ).withContext('новое приложение догружает me одним вызовом').toBe(1);
-    expect(required(env, '[data-test="login-value"]').textContent!.trim()).toBe(
-      'student01',
-    );
+    respond(env, 'GET', '/me/profile', { body: STUDENT_PROFILE });
+    await settle(env);
+    expect(requestsOf(env, 'GET', '/auth/me'))
+      .withContext('повторные переходы без вызовов me')
+      .toBe(1);
     expect(console.error).not.toHaveBeenCalled();
   }, 30000);
 });

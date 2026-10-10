@@ -1,0 +1,92 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-04 (спека v2.2, пересборка кейсов): лабораторные —
+    список/CRUD/семестр (TS-105..TS-118, FR-017/FR-021/FR-022) и студенты —
+    многословный поиск (TS-129, FR-020). Зона батча: tests/integration/B-04.
+    Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона ссылается
+    на него ProjectReference и не включается в solution src/api — батчи пишут зоны
+    параллельно (урок BL-001 BUG-001: собственный проект зоны вместо правки общего
+    тестового проекта).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона): на хосте
+    только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует. Microsoft.AspNetCore.Mvc.Testing
+    10.0.12 — под net10.0: TestServer реализует PipeWriter.UnflushedBytes, требуемый
+    System.Text.Json фреймворка 9/10.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Опись раунда c-1128 (батч B-04, кейсы TS-095..TS-100, TS-107): староволновые
+    дубликаты выведены из компиляции по описи кейсов — каждый стимул воспроизведён
+    файлом с текущим номером: Ts108/Ts118 → Ts095 (границы assignmentUrl 1000/1001
+    и префикс), Ts114/Ts116 → Ts096 (пакет ошибок LabInput; переиздание a-129:
+    стимул content:'   ' заменён строкой из 501 символа 'x' — текст пустого
+    content для LabInput спека не фиксирует), Ts109/Ts110/Ts111 → Ts097 (контракт
+    PUT: самоконфликт 200, чужая пара 409, невалидное тело 400 раньше 404,
+    несуществующий id 404), Ts112 → Ts099 (каскад удаления и DELETE-404),
+    Ts113 → Ts100 (роли 403/401), Ts129 → Ts107 зоны B-05 (многословный поиск
+    студентов, зона-владелец tests/integration/B-05). Утверждение оракула
+    «content:'   ' → 'Заполните поле'» старого Ts116 противоречит словарю
+    (lab.content — текст нарушения ДЛИНЫ; пустое — required только в клиентском
+    словаре) и выведено вместе с файлом. Файлы остаются
+    в зоне для возможного портирования владельцем раунда (one-file-one-writer).
+
+    Дополнение раунда c-1246 (батч B-04, кейсы TS-102..TS-114, TS-126, TS-127):
+    конвенция описи расширена пятью староволновыми superseded-файлами — каждый
+    стимул воспроизведён файлом с текущим номером: Ts105 → Ts102 (создание с
+    пустой ссылкой — 201, assignmentUrl=null, id≠null), Ts106 → Ts103 (дубликат
+    пары (1,1) — 409), Ts107 → Ts104 (границы семестра 1/10 — 201, 0/11 — 400),
+    Ts115 ⊂ Ts107 (number строкой цифр; Ts107 покрывает также semester строкой
+    и нормализацию content/url), Ts117 ⊂ Ts113 (sortField/sortDir вне словаря →
+    дефолт semester↑,number↑; Ts113 дополнительно фиксирует вторичный ключ asc
+    при number desc). Перед выводом дублей Ts111 (новой волны, кейс TS-111)
+    усилен прямой проверкой хранилища сдач ISubmissionRepository.ListByLabIds
+    до/после DELETE (CR-001) — сильная каскад-проверка более не привязана
+    к староволновым файлам. Критерий закрытия: dotnet build зоны — 0 ошибок,
+    dotnet test зоны зелёный.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts105_LabCreateEmptyUrlTests.cs" />
+    <Compile Remove="Scenarios\Ts106_LabDuplicatePairTests.cs" />
+    <Compile Remove="Scenarios\Ts107_LabSemesterBoundariesTests.cs" />
+    <Compile Remove="Scenarios\Ts108_AssignmentUrlLengthBoundaryTests.cs" />
+    <Compile Remove="Scenarios\Ts109_LabPutNoSelfConflictTests.cs" />
+    <Compile Remove="Scenarios\Ts110_LabPutForeignPairConflictTests.cs" />
+    <Compile Remove="Scenarios\Ts111_LabPutUnknownIdTests.cs" />
+    <Compile Remove="Scenarios\Ts112_LabDeleteCascadeTests.cs" />
+    <Compile Remove="Scenarios\Ts113_LabRolesTests.cs" />
+    <Compile Remove="Scenarios\Ts114_LabNumberValidationTests.cs" />
+    <Compile Remove="Scenarios\Ts115_LabNumberStringTests.cs" />
+    <Compile Remove="Scenarios\Ts116_LabContentBoundaryTests.cs" />
+    <Compile Remove="Scenarios\Ts117_LabSortNormalizationTests.cs" />
+    <Compile Remove="Scenarios\Ts118_LabUrlPrefixTests.cs" />
+    <Compile Remove="Scenarios\Ts129_StudentMultiWordSearchTests.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-17 (восстановление пароля v2.2: POST
+    /auth/recovery/request и POST /auth/recovery/confirm — FR-012, FR-013,
+    FR-004, NFR-006; кейсы TS-068..TS-072, TS-190). Зона батча:
+    tests/integration/B-17. Реализация (src/api) не изменяется: LabsApp остаётся
+    net8.0 (FR-001); зона ссылается на него ProjectReference и не включается в
+    solution src/api — батчи пишут зоны параллельно (образец — зоны B-01..B-21;
+    урок BL-001 BUG-001: собственный проект зоны вместо правки общего
+    LabsApp.Tests). Рядом лежат spec-файлы клиента предыдущей волны (*.spec.ts,
+    karma.conf.cjs) — они чужие для данного проекта и dotnet-сборке не мешают.
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-21):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Проверяемое поведение — HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Последовательное исполнение коллекций зоны: Δkdf-проба (TS-068) слушает
+    метрику auth_kdf_operations_total всего процесса — параллельные тестовые
+    классы с DI-сидом (PBKDF2-хэширование) исказили бы её дельту.
+  -->
+  <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!--
+    Поддерево Groups/ (волна B-17 «группы», FR-019/FR-020, TS-122..TS-128,
+    TS-202, TS-204) собирается обособленным тестовым проектом
+    tests/integration/B-17/Groups/LabsApp.IntegrationTests.B17.Groups.csproj.
+    Без исключения глоббинговый Compile-шаринг дал бы дублирующиеся Assembly-
+    атрибуты (CS0579) и утечку файлов подпроекта в сборку корневого проекта
+    зоны (образец — исключение поддерева Groups/ в корневом проекте зоны B-08).
+  -->
+  <ItemGroup>
+    <Compile Remove="Groups\**\*.cs" />
+    <None Remove="Groups\**" />
+    <Content Remove="Groups\**" />
+  </ItemGroup>
+
+</Project>

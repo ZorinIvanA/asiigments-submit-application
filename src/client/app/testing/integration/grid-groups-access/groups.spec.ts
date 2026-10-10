@@ -1,8 +1,11 @@
 /**
  * Интеграционные спеки раздела «Группы» (батч 3, FR-4.5, SCR-011/012):
- * реальные GroupsPage/GroupPage + core-сервисы + мок-слой (IF-104/IF-105)
- * поверх сида seedFixtures, сессия teacher через SessionStore. Карточка
- * группы монтируется на настоящем ActivatedRoute-параметре (paramMap).
+ * реальные GroupsPage/GroupPage + core-сервисы на реальном HTTP-ядре
+ * (HttpClient + authInterceptor) поверх программируемого
+ * HttpTestingController-бэкенда GridBackendStub с сидом зоны; серверная
+ * сессия teacher — serverSession/loginAs (признак сессии — память AuthService,
+ * FR-092). Карточка группы монтируется на настоящем ActivatedRoute-параметре
+ * (paramMap).
  *
  * Сценарии (automation: automated): TS-331 (создание группы), TS-332
  * (дубликат названия без учёта регистра), TS-333 (границы названия: пустое/
@@ -15,15 +18,11 @@
  *
  * TS-330/338/339 — маршрутизация/переходы: см. groups-routing.spec.ts.
  */
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { tick } from '@angular/core/testing';
-import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ComponentFixture, fakeAsync } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
-import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
 import { AuthService } from '../../../core/services/auth.service';
 import { GroupsService } from '../../../core/services/groups.service';
 import { StudentsService } from '../../../core/services/students.service';
@@ -36,24 +35,12 @@ import {
   MySubmissionsPage,
   TEXT_NO_GROUP,
 } from '../../../features/my-submissions/pages/my-submissions-page';
-import {
-  drainNotifications,
-  flushNgModel,
-  groupIdOf,
-  hydrateSeed,
-  installMockLayer,
-  loginAs,
-  mockDbOf,
-  resetZoneEnvAfterSpec,
-  settle,
-  switchSession,
-  userIdOf,
-} from './integration-env';
+import { GridAccessEnv } from './integration-env';
 
 type AnyPage = GroupsPage | GroupPage | AccessPage | MySubmissionsPage;
 
-describe('GroupsPage/GroupPage — интеграция с реальным мок-слоем (батч 3, FR-4.5)', () => {
-  let breakpoints: MockBreakpointObserver;
+describe('GroupsPage/GroupPage — интеграция с реальным HTTP-ядром (батч 3, FR-4.5)', () => {
+  let env: GridAccessEnv;
   let notifications: NotificationService;
   let groupsService: GroupsService;
   let studentsService: StudentsService;
@@ -61,59 +48,45 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
   let paramMap: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   let fixture: ComponentFixture<AnyPage>;
 
-  let student26: string;
   let ik221: string;
   let ik222: string;
 
   beforeEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    breakpoints = new MockBreakpointObserver();
     paramMap = new BehaviorSubject(convertToParamMap({ id: 'not-mounted' }));
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: BreakpointObserver, useValue: breakpoints },
-        provideNoopAnimations(),
-        provideRouter([]),
-        { provide: ActivatedRoute, useValue: { paramMap } },
-      ],
+    env = GridAccessEnv.setup({
+      providers: [provideRouter([]), { provide: ActivatedRoute, useValue: { paramMap } }],
     });
-    notifications = TestBed.inject(NotificationService);
-    groupsService = TestBed.inject(GroupsService);
-    studentsService = TestBed.inject(StudentsService);
-    submissionsService = TestBed.inject(SubmissionsService);
-    installMockLayer();
 
-    const db = hydrateSeed();
-    student26 = userIdOf(db, 'student26');
-    ik221 = groupIdOf(db, 'ИК-221');
-    ik222 = groupIdOf(db, 'ИК-222');
-    loginAs(db, 'teacher');
+    notifications = env.notifications;
+    groupsService = env.inject(GroupsService);
+    studentsService = env.inject(StudentsService);
+    submissionsService = env.inject(SubmissionsService);
+    ik221 = env.backend.groupIdByName('ИК-221');
+    ik222 = env.backend.groupIdByName('ИК-222');
+    env.serverSession('teacher');
   });
 
   afterEach(() => {
     notifications.dismissMobile();
     fixture?.destroy();
-    resetZoneEnvAfterSpec();
+    env.stop();
   });
 
   function root(): HTMLElement {
     return fixture.nativeElement as HTMLElement;
   }
 
-  /** Список групп: открытие + первичное getList (500 мс). */
+  /** Список групп: открытие + первичное getList (одна волна). */
   function createGroupsPage(): void {
-    fixture = TestBed.createComponent(GroupsPage);
-    fixture.detectChanges();
-    settle(fixture, 600);
+    fixture = env.mount(GroupsPage);
+    env.settle(fixture, 1);
   }
 
   /** Карточка группы: активация параметра маршрута, getList + getStudents. */
   function createGroupPage(groupId: string): void {
     paramMap.next(convertToParamMap({ id: groupId }));
-    fixture = TestBed.createComponent(GroupPage);
-    fixture.detectChanges();
-    settle(fixture, 1200);
+    fixture = env.mount(GroupPage);
+    env.settle(fixture, 2);
   }
 
   function rowButton(rowText: string, ariaLabel: string): HTMLButtonElement {
@@ -157,21 +130,6 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     return root().querySelector('.p-confirmdialog-message')?.textContent?.trim() ?? null;
   }
 
-  /**
-   * Дожидается закрытия confirm-оверлея (CR-009): оверлей анимируется и
-   * исчезает через несколько циклов CD — одного detectChanges недостаточно.
-   */
-  function waitConfirmClosed(): void {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      tick(50);
-      fixture.detectChanges();
-      if (confirmMessage() === null) {
-        return;
-      }
-    }
-    throw new Error('groups.spec: confirm-оверлей не закрылся');
-  }
-
   function confirmButton(kind: 'accept' | 'reject'): HTMLButtonElement {
     const found = root().querySelector<HTMLButtonElement>(`.p-confirmdialog-${kind}-button`);
     if (found === null) {
@@ -194,17 +152,17 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     createGroupsPage();
 
     dialogButton('Создать группу').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe('Создать группу');
 
     typeName('group-create-name', 'ИК-224');
     dialogButton('Создать').click();
-    settle(fixture, 1200); // groups.create (500) + перечитывание списка (500)
+    env.settle(fixture, 2); // groups.create + перечитывание списка
 
     expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
-    drainNotifications();
+    env.drainNotifications();
     expect(root().querySelector('.p-dialog-title')).withContext('диалог закрыт').toBeNull();
-    expect(mockDbOf().read().groups.some((group) => group.name === 'ИК-224')).toBeTrue();
+    expect(env.backend.read().groups.some((group) => group.name === 'ИК-224')).toBeTrue();
 
     const row = rowByText('ИК-224');
     expect(row.textContent).withContext('в списке с 0 студентов').toContain('0');
@@ -216,10 +174,10 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
 
     // Создание: «ик-221» против существующей «ИК-221».
     dialogButton('Создать группу').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     typeName('group-create-name', 'ик-221');
     dialogButton('Создать').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     expect(root().querySelector('.groups-page__dialog-error')?.textContent?.trim()).toBe(
       'Группа с таким названием уже существует',
@@ -227,16 +185,16 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     expect(root().querySelector('.p-dialog-title')?.textContent?.trim())
       .withContext('диалог остаётся открытым')
       .toBe('Создать группу');
-    expect(mockDbOf().read().groups.length).withContext('группа не создана').toBe(3);
+    expect(env.backend.read().groups.length).withContext('группа не создана').toBe(3);
 
     // Переименование: «ИК-223» → «ик-221» — тот же 409, имя не изменено.
     dialogButton('Отмена').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     rowButton('ИК-223', 'Переименовать').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     typeName('group-rename-name', 'ик-221');
     dialogButton('Сохранить').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     expect(root().querySelector('.groups-page__dialog-error')?.textContent?.trim()).toBe(
       'Группа с таким названием уже существует',
@@ -249,22 +207,22 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     createGroupsPage();
 
     rowButton('ИК-223', 'Переименовать').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     typeName('group-rename-name', 'ИК-223А');
     dialogButton('Сохранить').click();
-    settle(fixture, 1200); // rename (500) + перечитывание списка (500)
+    env.settle(fixture, 2); // rename + перечитывание списка
 
     expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
-    drainNotifications();
+    env.drainNotifications();
     expect(root().querySelector('.p-dialog-title')).withContext('диалог закрыт').toBeNull();
     expect(listNames()).toEqual(['ИК-221', 'ИК-222', 'ИК-223А']);
 
     // Конфликт: «ИК-223А» → «ИК-221».
     rowButton('ИК-223А', 'Переименовать').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     typeName('group-rename-name', 'ИК-221');
     dialogButton('Сохранить').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     expect(root().querySelector('.groups-page__dialog-error')?.textContent?.trim()).toBe(
       'Группа с таким названием уже существует',
@@ -275,15 +233,15 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
   /**
    * TS-333 (редакция сценариев, ADR-112/QG-005): сохранение блокируется
    * КЛИЕНТСКОЙ валидацией — полевой текст из ERROR_TEXTS у поля внутри
-   * диалога, диалог остаётся открытым, мок-метод groups.create не вызывается,
+   * диалога, диалог остаётся открытым, groups.create не вызывается,
    * группа не создана; ровно 100 символов — успех «Сохранено».
    */
-  it('TS-333: пустое/пробелы/101 символ — полевой текст из ERROR_TEXTS в диалоге, мок не вызван, группа не создана; 100 символов — «Сохранено»', fakeAsync(() => {
+  it('TS-333: пустое/пробелы/101 символ — полевой текст из ERROR_TEXTS в диалоге, create не вызван, группа не создана; 100 символов — «Сохранено»', fakeAsync(() => {
     const createSpy = spyOn(groupsService, 'create').and.callThrough();
     createGroupsPage();
 
     dialogButton('Создать группу').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe('Создать группу');
 
     const fieldError = (): string =>
@@ -291,7 +249,7 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
 
     // Пустое имя: requiredTrim → «Заполните поле».
     dialogButton('Создать').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     expect(fieldError()).withContext('полевой текст у поля внутри диалога').toBe('Заполните поле');
     expect(root().querySelector('.p-dialog-title')?.textContent?.trim())
       .withContext('диалог остаётся открытым')
@@ -301,29 +259,29 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     // Только пробелы: requiredTrim трактует как пустое.
     typeName('group-create-name', '   ');
     dialogButton('Создать').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     expect(fieldError()).toBe('Заполните поле');
     expect(createSpy).not.toHaveBeenCalled();
 
     // 101 символ: groupName → «Название группы — от 1 до 100 символов».
     typeName('group-create-name', 'И'.repeat(101));
     dialogButton('Создать').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     expect(fieldError()).toBe('Название группы — от 1 до 100 символов');
     expect(createSpy).not.toHaveBeenCalled();
-    expect(mockDbOf().read().groups.length).withContext('группа не создана').toBe(3);
+    expect(env.backend.read().groups.length).withContext('группа не создана').toBe(3);
     expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe('Создать группу');
 
     // Ровно 100 символов — успех: «Сохранено», группа создана.
     typeName('group-create-name', 'И'.repeat(100));
     dialogButton('Создать').click();
-    settle(fixture, 1200); // groups.create (500) + перечитывание списка (500)
+    env.settle(fixture, 2); // groups.create + перечитывание списка
 
     expect(createSpy).toHaveBeenCalledTimes(1);
     expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
-    drainNotifications();
+    env.drainNotifications();
     expect(root().querySelector('.p-dialog-title')).withContext('диалог закрыт').toBeNull();
-    expect(mockDbOf().read().groups.length).withContext('группа создана').toBe(4);
+    expect(env.backend.read().groups.length).withContext('группа создана').toBe(4);
     expect(rowByText('И'.repeat(100))).toBeDefined();
   }));
 
@@ -341,36 +299,35 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
 
     // 🗑 → диалог с именем группы → «No»: ничего не изменилось, диалог закрыт.
     rowButton('ИК-222', 'Удалить').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     expect(confirmMessage()).toBe('Вы точно хотите удалить группу ИК-222?');
     expect(confirmButton('accept').textContent?.trim()).toBe('Yes');
     expect(confirmButton('reject').textContent?.trim()).toBe('No');
     confirmButton('reject').click();
-    waitConfirmClosed();
-    flushNgModel(fixture);
+    env.waitConfirmClosed(fixture);
+    env.flushNgModel(fixture);
     expect(confirmMessage()).withContext('диалог закрыт').toBeNull();
-    expect(mockDbOf().read().groups.length).withContext('ничего не изменилось').toBe(3);
+    expect(env.backend.read().groups.length).withContext('ничего не изменилось').toBe(3);
     expect(listNames()).toContain('ИК-222');
 
     // Повторно → «Yes»: «Удалено», группа исчезла.
     rowButton('ИК-222', 'Удалить').click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     confirmButton('accept').click();
-    settle(fixture, 1200); // groups.remove (500) + перечитывание списка (500)
+    env.settle(fixture, 2); // groups.remove + перечитывание списка
 
     expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Удалено' });
-    drainNotifications();
+    env.drainNotifications();
     expect(listNames()).withContext('группа исчезла').toEqual(['ИК-221', 'ИК-223']);
-    expect(mockDbOf().read().groups.length).toBe(2);
+    expect(env.backend.read().groups.length).toBe(2);
     fixture.destroy();
 
     // Студенты 26–30 сохранились: в /access — «Без группы» и в фильтре
     // (вместе с сидовыми 31/32 — 7 записей).
-    fixture = TestBed.createComponent(AccessPage);
-    fixture.detectChanges();
-    settle(fixture, 1100);
+    fixture = env.mount(AccessPage);
+    env.settle(fixture, 2);
     root().querySelector<HTMLInputElement>('input[type="checkbox"]')!.click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     const names = Array.from(root().querySelectorAll('tbody tr td:first-child')).map((cell) =>
       cell.textContent?.trim() ?? '',
     );
@@ -386,13 +343,13 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     fixture.destroy();
 
     // Их нет в ведомости ни одной группы: ИК-221 — 25, ИК-223 — 0.
-    const ik223 = groupIdOf(mockDbOf().read(), 'ИК-223');
+    const ik223 = env.backend.groupIdByName('ИК-223');
     for (const groupId of [ik221, ik223]) {
       let grid!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
       void submissionsService
         .getGrid({ groupId, semester: 1, page: 1 })
         .then((result) => (grid = result));
-      tick(600);
+      env.settleRequests(1);
       expect(grid.total).withContext(`ведомость группы ${groupId}`).toBe(groupId === ik221 ? 25 : 0);
       const members = grid.students.map((student) => student.fullName);
       for (let nn = 26; nn <= 30; nn++) {
@@ -401,12 +358,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     }
 
     // /my-submissions студента 26 — предупреждение вместо таблицы.
-    switchSession(student26);
-    void TestBed.inject(AuthService).loadMe();
-    fixture = TestBed.createComponent(MySubmissionsPage);
-    settle(fixture, 600); // loadMe (500)
-    fixture.detectChanges();
-    settle(fixture, 1100); // getSemesters (500) + getMy (500)
+    env.loginAs('student26');
+    fixture = env.mount(MySubmissionsPage);
+    env.settle(fixture, 2); // getSemesters + getMy
     expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
     expect(root().querySelector('p-table')).toBeNull();
   }));
@@ -455,11 +409,11 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     };
 
     pageButton('2').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(firstNames()).toEqual(expected.slice(10, 20));
 
     pageButton('3').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(firstNames()).toEqual(expected.slice(20, 25));
     expect(firstNames().length).toBe(5);
     expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
@@ -471,26 +425,26 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
     createGroupPage(ik221);
 
     root().querySelector<HTMLButtonElement>('tbody tr button')!.click();
-    flushNgModel(fixture);
+    env.flushNgModel(fixture);
     expect(confirmMessage()).toBe('Исключить студента Иванов Иван Иванович 01 из группы?');
     confirmButton('accept').click();
-    settle(fixture, 1200); // setGroup (500) + перечитывание состава (500)
+    env.settle(fixture, 2); // setGroup + перечитывание состава
 
     expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
-    drainNotifications();
+    env.drainNotifications();
     expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 24');
     expect(root().querySelector('tbody')?.textContent).not.toContain('Иванов Иван Иванович 01');
 
     // В /access студент — «Без группы» (фильтр «none»).
     let none!: Awaited<ReturnType<StudentsService['getList']>>;
     void studentsService.getList({ groupId: 'none', page: 1 }).then((result) => (none = result));
-    tick(600);
+    env.settleRequests(1);
     expect(none.items.some((student) => student.login === 'student01')).toBeTrue();
 
     // Счётчик в списке /groups обновился.
     let list!: Awaited<ReturnType<GroupsService['getList']>>;
     void groupsService.getList().then((result) => (list = result));
-    tick(600);
+    env.settleRequests(1);
     expect(list.find((group) => group.id === ik221)?.studentCount).toBe(24);
   }));
 
@@ -498,7 +452,7 @@ describe('GroupsPage/GroupPage — интеграция с реальным мо
   // group-page.html — подпись выводится всегда (аменда 7), при total=0
   // скрываются только кнопки страниц; тест зелёный и фиксирует исправление.
   it('TS-340: карточка пустой группы ИК-223 — «Студентов: 0», пустая таблица и подпись «Показать записи с 1 по 0 из 0» (аменда 7)', fakeAsync(() => {
-    createGroupPage(groupIdOf(mockDbOf().read(), 'ИК-223'));
+    createGroupPage(env.backend.groupIdByName('ИК-223'));
 
     expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-223');
     expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 0');

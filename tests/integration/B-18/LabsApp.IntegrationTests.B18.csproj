@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-18 (клиент: FR-090 — удаление мок-слоя,
+    FR-091 — перевод сервисов core на HttpClient и единый префикс /api/v1).
+    Зона батча: tests/integration/B-18. Код реализации (src/client) не
+    изменяется; собственная копия RepoPaths — изоляция от чужих тестовых зон
+    (урок BL-001 BUG-001: параллельные батчи пишут соседние зоны).
+    Проект сознательно не включается в src/api/LabsApp.sln и не ссылается на
+    проекты реализации: сценарии TS-171/TS-175 — статические проверки ФС/grep
+    по исходникам клиента; сценарии TS-173/TS-174 — karma-спеки рядом
+    (*.spec.ts), запускаемые проектом integration-b18 из angular.json.
+  -->
+
+  <PropertyGroup>
+    <!--
+      Целевой фреймворк тестового проекта — runtime, фактически установленный
+      на хосте прогона (SDK 10.x, как в B-01/B-19); проверяемый клиент —
+      Angular/node, версия .NET на проверяемое поведение не влияет.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Поддерево backend/ — ОТДЕЛЬНЫЙ тестовый проект (backend/
+      LabsApp.IntegrationTests.B18Profile.csproj, WebApplicationFactory-зона
+      профиля). Без исключения глоббиновый Compile-шаринг втянул бы .cs
+      поддерева (вместе с его obj-артефактами) в корневой клиентский проект,
+      где нет ни Mvc.Testing, ни ссылки на LabsApp — CS0246 (тот же приём,
+      что в корнях B-08/B-14/B-17).
+    -->
+    <Compile Remove="backend\**\*.cs" />
+    <None Remove="backend\**" />
+    <Content Remove="backend\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

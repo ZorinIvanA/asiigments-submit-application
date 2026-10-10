@@ -1,0 +1,133 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-05 (контракт ошибок, словарь §8, границы,
+    конкурентность: TS-119, TS-120, TS-121, TS-145..TS-147, TS-154, TS-160..TS-163,
+    TS-168, TS-169 — FR-002/FR-007/FR-012/FR-014/FR-019/FR-022/FR-024/NFR-007).
+    Зона батча: tests/integration/B-05. Реализация (src/api) не изменяется: LabsApp
+    остаётся net8.0 (FR-001); зона ссылается на него ProjectReference и не включается
+    в solution src/api — батчи пишут зоны параллельно (образец — зоны B-01/B-02;
+    урок BL-001 BUG-001: собственный проект зоны вместо правки общего LabsApp.Tests).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01/B-02):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Проверяемое поведение — HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    CR-001 (раунд ревью стадии tests): legacy-кластер прошлых раундов (B05Security*,
+    Ts033..Ts037 и лимитерно-прокси-сценарии Ts163..Ts170) выведен из компиляции.
+    Типы, на которые он опирается, удалены из src/api реворком (консолидация
+    ISecurityTokenRepository, Pbkdf2PasswordHasher(password, caller), отказ
+    RateLimitsOptions и ForwardedProxyOptions — ADR-006/030/033), из-за чего
+    проект зоны не собирался (21 уникальная ошибка CS7036/CS0103/CS0246/CS1061,
+    воспроизведено dotnet build). Вывод из компиляции выполнен по fix_direction
+    замечания CR-001 (вариант «Exclude/Remove»); файлы остаются в зоне для
+    возможного портирования владельцем раунда (one-file-one-writer). Критерий
+    закрытия: dotnet build зоны — 0 ошибок, dotnet test фильтром батча запускается.
+  -->
+  <ItemGroup>
+    <Compile Remove="Infrastructure\B05SecurityClients.cs" />
+    <Compile Remove="Infrastructure\B05SecurityWebAppFactory.cs" />
+    <Compile Remove="Scenarios\Ts033_PasswordHashTests.cs" />
+    <Compile Remove="Scenarios\Ts034_PasswordHashUniquenessTests.cs" />
+    <Compile Remove="Scenarios\Ts035_RecoveryCodeHashTests.cs" />
+    <Compile Remove="Scenarios\Ts036_RefreshTokenStorageTests.cs" />
+    <Compile Remove="Scenarios\Ts037_AccessJwtTests.cs" />
+    <Compile Remove="Scenarios\Ts163_RegisterIpLimitTests.cs" />
+    <Compile Remove="Scenarios\Ts164_SlidingWindowReleaseTests.cs" />
+    <Compile Remove="Scenarios\Ts165_RateLimitBeforeValidationTests.cs" />
+    <Compile Remove="Scenarios\Ts166_KeyCeilingOverflowTests.cs" />
+    <Compile Remove="Scenarios\Ts167_LimiterMemoryFloodTests.cs" />
+    <Compile Remove="Scenarios\Ts168_XffNotTrustedTests.cs" />
+    <Compile Remove="Scenarios\Ts169_TrustedProxyXffTests.cs" />
+    <Compile Remove="Scenarios\Ts170_RetryAfterHeaderTests.cs" />
+  </ItemGroup>
+
+  <!--
+    Опись раунда c-954 (кейсы TS-116..TS-125, TS-159, TS-161, TS-167, TS-168,
+    TS-174): староволновые дубликаты выведены из компиляции по описи —
+    Ts142/Ts143/Ts146 заменены файлами с текущими номерами Ts117/Ts116/Ts121
+    (конкурентный стимул Ts146 воспроизведён в Ts121, РЕВ-ISS-001); Ts159 и
+    Ts161_RegisterNonStringFields — копии, канонические файлы созданы в
+    зоне-владельце tests/integration/B-03 (доменная зона списков работ и
+    регистрационная зона); Ts161_EmailBoundary и Ts168_RegisterCounterCounts —
+    староволновой дубликат и числовая коллизия с Ts168_SubmissionsPageNormalization.
+    Файлы остаются в зоне для возможного портирования владельцем раунда
+    (one-file-one-writer). Критерий закрытия: dotnet build зоны — 0 ошибок,
+    dotnet test фильтром батча запускается.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts142_SubmissionsGridUnknownGroupTests.cs" />
+    <Compile Remove="Scenarios\Ts143_SubmissionsGridMissingSemesterTests.cs" />
+    <Compile Remove="Scenarios\Ts146_ConcurrentSubmissionUpsertTests.cs" />
+    <Compile Remove="Scenarios\Ts159_LabsSortNormalizationTests.cs" />
+    <Compile Remove="Scenarios\Ts161_EmailBoundaryTests.cs" />
+    <Compile Remove="Scenarios\Ts161_RegisterNonStringFieldsTests.cs" />
+    <Compile Remove="Scenarios\Ts168_RegisterCounterCountsInvalidAttemptsTests.cs" />
+  </ItemGroup>
+
+  <!--
+    Опись раунда c-1128 (кейсы TS-107..TS-115, зона-владелец students/submissions):
+    староволновые дубликаты выведены из компиляции по описи кейсов — стимул каждого
+    воспроизведён файлом с текущим номером: Ts130 → Ts108 (токены в разных полях
+    не складываются), Ts131/Ts134 → Ts109 (groupId=none и неизвестный uuid),
+    Ts132/Ts133 → Ts110 (граница длины поиска 200/201), Ts135 → Ts111 (перевод
+    в группу), Ts136 → Ts112 (исключение из группы), Ts137/Ts138/Ts139 → Ts113
+    (404 для не-студента/неизвестного id/неизвестной группы), Ts140/Ts144 → Ts114
+    (ведомость первой страницы, ru-порядок, дискриминирующие ФИО), Ts141 → Ts115
+    (поле page в ответе, AR-003). Названные в given кейсов Ts113 имена
+    «Ts141_StudentsExcludeTeachers» и «Ts144_PutStudentGroupRemove» в фактическом
+    дереве отсутствуют; ссылка «Ts145..Ts147» коллизирует с ТЕКУЩИМИ номерами
+    конкурентных кейсов TS-145..TS-147 этой зоны (файлы Ts145/Ts147 —
+    FR-014/FR-002, Ts146 уже выведен раундом c-954) — эти файлы описью не
+    выводятся (запрос на изменение кейса TS-113). Ts142_PutStudentGroupAssign
+    из given TS-111 в дереве отсутствует (фактический Ts142 выведен раундом
+    c-954). Файлы остаются в зоне для возможного портирования владельцем раунда
+    (one-file-one-writer). Критерий закрытия: dotnet build зоны — 0 ошибок,
+    dotnet test фильтром батча зелёный.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts130_StudentsCrossFieldTokensTests.cs" />
+    <Compile Remove="Scenarios\Ts131_StudentsGroupNoneFilterTests.cs" />
+    <Compile Remove="Scenarios\Ts132_StudentsSearchTooLongTests.cs" />
+    <Compile Remove="Scenarios\Ts133_StudentsSearchBoundary200Tests.cs" />
+    <Compile Remove="Scenarios\Ts134_StudentsUnknownGroupUuidTests.cs" />
+    <Compile Remove="Scenarios\Ts135_StudentsAssignGroupTests.cs" />
+    <Compile Remove="Scenarios\Ts136_StudentsExcludeGroupTests.cs" />
+    <Compile Remove="Scenarios\Ts137_StudentsTeacherNotStudentTests.cs" />
+    <Compile Remove="Scenarios\Ts138_StudentsUnknownStudentTests.cs" />
+    <Compile Remove="Scenarios\Ts139_StudentsUnknownTargetGroupTests.cs" />
+    <Compile Remove="Scenarios\Ts140_SubmissionsGridFirstPageTests.cs" />
+    <Compile Remove="Scenarios\Ts141_SubmissionsGridPageFieldTests.cs" />
+    <Compile Remove="Scenarios\Ts144_SubmissionsGridSemesterRangeTests.cs" />
+  </ItemGroup>
+
+</Project>

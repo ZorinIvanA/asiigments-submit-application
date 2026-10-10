@@ -1,16 +1,20 @@
 /**
  * Конфигурация приложения (appConfig) — единый набор провайдеров бутстрапа:
- * маршруты, русская локаль, зона детекции изменений, асинхронные анимации
- * и тема PrimeNG Aura с кастомизацией design-токенов по макетам
- * (AppThemePreset, ADR-108).
+ * маршруты, русская локаль, зона детекции изменений, асинхронные анимации,
+ * тема PrimeNG Aura с кастомизацией design-токенов по макетам
+ * (AppThemePreset, ADR-108), HTTP-ядро с интерцептором аутентификации
+ * (C-013, FR-091/FR-092) и холодный старт сессии в фазе APP_INITIALIZER
+ * (AuthService.initSession, FR-092).
  *
  * Относится к core/config по NFR-003 («сервисы и конфиг»).
  */
 import { registerLocaleData } from '@angular/common';
 import localeRu from '@angular/common/locales/ru';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   ApplicationConfig,
   LOCALE_ID,
+  inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
@@ -22,7 +26,8 @@ import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
 import { providePrimeNG } from 'primeng/config';
 
-import { setupMockLayer } from '../../mock';
+import { authInterceptor } from '../auth-interceptor';
+import { AuthService } from '../services/auth.service';
 import { routes } from './app.routes';
 import { PRIME_NG_RU } from './primeng-ru';
 
@@ -109,9 +114,18 @@ export const appConfig: ApplicationConfig = {
       },
       translation: PRIME_NG_RU,
     }),
-    // Мок-слой (FR-002, IF-110, ADR-110): сид и обработчики всех доменов
-    // регистрируются один раз при бутстрапе, до первого обращения любой
-    // страницы к сервисам core. Повторная регистрация заменяет обработчики.
-    provideAppInitializer(() => setupMockLayer()),
+    // HTTP-ядро (T-017, контракт IF-014, FR-091/FR-092): HttpClient с
+    // функциональным интерцептором аутентификации — withCredentials на
+    // API-запросах, дедуплицированный 401 → POST /auth/refresh → повтор
+    // один раз. Базовый префикс API_BASE_URL предоставляется фабрикой
+    // токена (core/api-base-url.ts, ADR-009) — явный провайдер не нужен.
+    provideHttpClient(withInterceptors([authInterceptor])),
+    // Холодный старт сессии (FR-092, IF-014): инициализатор выполняется в
+    // фазе APP_INITIALIZER ДО первого решения guard'а — initSession
+    // (GET /auth/me) наполняет кэш currentUser при валидных cookie;
+    // 401/сеть — анонимный старт без необработанных исключений (редирект
+    // определяют guards). Мок-инициализатор прежней реализации удалён
+    // вместе с мок-слоем (FR-026(1), T-022/T-023).
+    provideAppInitializer(() => inject(AuthService).initSession()),
   ],
 };

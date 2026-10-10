@@ -11,8 +11,9 @@
  *  - TS-220: кнопка-цепочка — тултип, поле URL, добавление/изменение/очистка;
  *  - TS-221: серверный 400 — только баннер body.message (ADR-112).
  *
- * Уровень — интеграционный: LabFormPage → LabsService → мок (IF-103) →
- * localStorage; уведомления — через NotificationService и хосты IF-109.
+ * Уровень — интеграционный: LabFormPage → LabsService → HttpTestingController →
+ * состояние WorksBackendStub (без мок-слоя, FR-026); уведомления — через
+ * NotificationService и хосты IF-109.
  */
 import { By } from '@angular/platform-browser';
 import { fakeAsync } from '@angular/core/testing';
@@ -241,7 +242,7 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     expect(harness.router.url).toBe('/works/new'); // редиректа нет
     expect(
       harness.readDb().labs.filter((lab) => lab.semester === 1 && lab.number === 1).length,
-    ).toBe(1); // дубль в списке (мок-БД) не появился
+    ).toBe(1); // дубль в состоянии сервера не появился
 
     // Редактирование записи №1 с неизменённой парой — конфликта нет.
     const lab1 = harness.labId(1, 1);
@@ -267,8 +268,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     harness.navigate(`/works/${lab1}/edit`);
     harness.flush(); // getById
 
-    // Запись удалена извне — прямой вызов мока (эмуляция второй вкладки).
-    void harness.client.call('labs.remove', { id: lab1 });
+    // Запись удалена извне — прямой мутацией серверного состояния
+    // (эмуляция второй вкладки).
+    harness.removeLabDirect(lab1);
     harness.flush();
 
     harness.buttonByLabel('Сохранить').click();
@@ -365,7 +367,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
 
   it('TS-221: серверный 400 (оборонительная ветка) — только баннер body.message, полевые ошибки скрыты', fakeAsync(() => {
     openNewForm();
-    spyOn(harness.labs, 'create').and.rejectWith({
+    // Серверный отказ следующего create программируется бэкендом зоны —
+    // отказ проходит настоящий HTTP-конвейер (интерцептор → ApiError).
+    harness.backend.failNextCreate({
       status: 400,
       body: {
         message: INVALID_FORM_MESSAGE,

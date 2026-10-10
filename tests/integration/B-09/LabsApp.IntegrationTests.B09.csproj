@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-09 (профиль: движок rate-limiter'а — FR-003,
+    матрица лимитов и README — FR-004/FR-028, KDF-сервис паролей — FR-005/NFR-004:
+    TS-011..TS-025). Зона батча: tests/integration/B-09. Реализация (src/api) не
+    изменяется: LabsApp остаётся net8.0 (FR-001); зона ссылается на него
+    ProjectReference и не включается в solution src/api — батчи пишут зоны
+    параллельно (образец — зоны B-01..B-07; урок BL-001 BUG-001: собственный
+    проект зоны вместо правки общего LabsApp.Tests).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-07):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Microsoft.Extensions.TimeProvider.Testing 8.10.0 — FakeTimeProvider для
+    инжектируемых часов движка лимитера (FR-003: «тесты MUST уметь подставлять
+    фиксированное время»; та же зависимость, что у src/api/LabsApp.Tests).
+    Проверяемое поведение — семантика движка (SlidingWindowLimiter) и
+    HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!--
+    xunit.runner.json (последовательные тест-коллекции): изоляция прогона зоны.
+    ВАЖНО (CR-001): последовательность коллекций НЕ защищает от IOException при
+    построении хоста — пер-пользовательский лимит inotify-инстансов (128) исчерпывается
+    внешними процессами параллельных батчей независимо от порядка внутри зоны.
+    Фактическое закрытие — отключение файловых вотчеров в самой фабрике
+    (B09WebAppFactory.ConfigureWebHost: "hostBuilder:reloadConfigOnChange"="false",
+    образец B06WebAppFactory.cs): hot-reload конфигурации тестовому хосту не нужен.
+  -->
+  <ItemGroup>
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+</Project>

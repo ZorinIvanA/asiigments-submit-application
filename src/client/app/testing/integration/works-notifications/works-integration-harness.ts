@@ -1,45 +1,52 @@
 /**
  * Интеграционный стенд батча «works + notifications» (FR-4.3/FR-4.9,
  * сценарии TS-201..TS-228): реальные страницы works, реальный Router
- * (маршруты фичи), реальный NotificationService со всеми хостами IF-109
- * и реальный мок-слой IF-103 поверх localStorage — без заглушек сервисов.
+ * (маршруты фичи), реальный NotificationService со всеми хостами IF-109 и
+ * реальные сервисы core (LabsService/AuthService) поверх HttpClient —
+ * HTTP-ядро приложения (authInterceptor: withCredentials, нормализация
+ * отказов в ApiError) на программируемом HttpTestingController-бэкенде
+ * (FR-026, зона без мок-слоя).
  *
  * Отличие от unit-спеков соседей: тесты проходят ЧЕРЕЗ границы компонентов
- * (страница → LabsService → MockApiClient → MockDb/localStorage и
- * NotificationService → toast/якоря), а данные берутся из сида T-107
- * (23 работы: семестр 1 №1–20, семестр 2 №1–3).
+ * (страница → LabsService → HttpTestingController → состояние бэкенда и
+ * NotificationService → toast/якоря); серверное состояние — детерминированный
+ * сид WorksBackendStub (23 работы: семестр 1 №1–20, семестр 2 №1–3),
+ * пересоздаваемый на каждый сценарий.
  *
- * Инфраструктура:
- *  - изоляция батча: общие процедуры батчей resetDemoEnv() (beforeEach) и
- *    resetDemoEnvAfterSpec() (afterEach) из src/client/app/testing/integration-env.ts,
- *    свежий MockApiClient с обработчиками всех доменов на каждый сценарий;
- *  - сессия teacher поднимается настоящим auth.login (teacher/teacher123!,
- *    ADR-107) — как в демонстрации;
- *  - режим уведомлений (>=768px desktop / <768px mobile) — MockBreakpointObserver;
- *  - тайминги мока (задержка MOCK_DELAY_MS=500, NFR-§10.1) — детерминированный
- *    fakeAsync/tick: одна «волна» flush() завершает все мок-вызовы, стартовавшие
- *    одновременно, и не трогает последующие (сериальные) волны.
+ * Инфраструктура — только собственные двойники зоны и HttpTestingController
+ * (изоляция зоны, FR-026): BreakpointObserverStub и WorksBackendStub живут
+ * рядом; общее интеграционное окружение прежних батчей (файл вне зоны,
+ * его потребитель удаляется задачей T-023 — ISS-002) и мок-слой
+ * не используются.
+ *
+ *  - сессия teacher поднимается настоящим auth.login (POST /auth/login,
+ *    teacher/teacher123!, ADR-107) — как в демонстрации; признак сессии —
+ *    только память AuthService (FR-092);
+ *  - режим уведомлений (>=768px desktop / <768px mobile) — BreakpointObserverStub;
+ *  - тайминги: задержек бэкенда нет — «волна» flush() отвечает все
+ *    перехваченные на данный момент запросы; сериальные цепочки страницы
+ *    (например remove → getList → getSemesters) обслуживаются следующими
+ *    волнами — детерминированный fakeAsync/tick без искусственных задержек.
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Component, DebugElement } from '@angular/core';
 import { ComponentFixture, TestBed, flushMicrotasks, tick } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 
+import { API_BASE_URL } from '../../../core/api-base-url';
+import { authInterceptor } from '../../../core/auth-interceptor';
 import { AuthService } from '../../../core/services/auth.service';
 import { LabsService } from '../../../core/services/labs.service';
 import { WORKS_ROUTES } from '../../../features/works/works.routes';
-import { setupMockLayer } from '../../../mock';
-import { MockApiClient } from '../../../mock/mock-api-client';
-import { MockDbData } from '../../../mock/mock-db';
-import { MOCK_DELAY_MS, STORAGE_KEYS } from '../../../shared/models';
 import { HeaderNotification } from '../../../shared/notifications/header-notification';
 import { NOTIFICATION_AUTO_CLOSE_MS } from '../../../shared/notifications/notification-model';
 import { NotificationService } from '../../../shared/notifications/notification-service';
 import { NotificationToast } from '../../../shared/notifications/notification-toast';
-import { resetDemoEnv, resetDemoEnvAfterSpec } from '../../integration-env';
-// Заглушка BreakpointObserver живёт в src/client/testing (корневая зона тестов).
-import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
+import { BreakpointObserverStub } from './breakpoint-observer-stub';
+import { WorksBackendSnapshot, WorksBackendStub } from './works-backend-stub';
 
 /**
  * Хост-оболочка — сокращённый аналог app-root + app-shell (IF-109/C-109):
@@ -63,8 +70,15 @@ export class WorksIntegrationHost {}
  * flush/uiSettle) обязаны вызываться внутри fakeAsync — они используют tick.
  */
 export class WorksIntegrationHarness {
-  readonly breakpoints = new MockBreakpointObserver();
-  readonly client = new MockApiClient();
+  readonly breakpoints = new BreakpointObserverStub();
+
+  /** Программируемый HTTP-бэкенд зоны: состояние REST-домена works. */
+  readonly backend = new WorksBackendStub();
+
+  /** HttpTestingController — контролируемый стоп сценария (verify). */
+  readonly httpMock: HttpTestingController;
+
+  private readonly apiBase: string;
 
   private fixture!: ComponentFixture<WorksIntegrationHost>;
   private nativeElement!: HTMLElement;
@@ -75,16 +89,13 @@ export class WorksIntegrationHarness {
   readonly router: Router;
 
   private constructor() {
-    // Общая процедура сброса батчей (integration-env.ts батча 1): чистые
-    // хранилища + детерминированный сид T-107; свежий MockApiClient —
-    // чтобы состояние в памяти не протекло между сценариями.
-    resetDemoEnv();
-    setupMockLayer(this.client); // configureMockDbSeed(seedFixtures) + все домены
-
     TestBed.configureTestingModule({
       imports: [WorksIntegrationHost],
       providers: [
-        { provide: MockApiClient, useValue: this.client },
+        // Производственная цепочка HTTP: interceptors + тестовый бэкенд
+        // (паттерн spec-файлов сервисов core).
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
         { provide: BreakpointObserver, useValue: this.breakpoints },
         // Маршруты фичи works без guards: авторизация сессией через
         // auth.login, guards — зона app.routes (вне scope батча).
@@ -92,20 +103,23 @@ export class WorksIntegrationHarness {
         provideNoopAnimations(),
       ],
     });
+    this.apiBase = TestBed.inject(API_BASE_URL);
+    this.httpMock = TestBed.inject(HttpTestingController);
     this.labs = TestBed.inject(LabsService);
     this.auth = TestBed.inject(AuthService);
     this.notifications = TestBed.inject(NotificationService);
     this.router = TestBed.inject(Router);
   }
 
-  /** Создаёт стенд с чистым окружением (beforeEach). */
+  /** Создаёт стенд с чистым состоянием бэкенда (beforeEach). */
   static setup(): WorksIntegrationHarness {
     return new WorksIntegrationHarness();
   }
 
-  /** Сброс после спеки (afterEach): пустой поставщик сида + очистка хранилищ. */
+  /** Сброс после спеки (afterEach): очистка хранилищ браузера. */
   static restoreSeed(): void {
-    resetDemoEnvAfterSpec();
+    localStorage.clear();
+    sessionStorage.clear();
   }
 
   /** Монтирует оболочку в document (позиционирование и диалоги — в дереве). */
@@ -116,12 +130,18 @@ export class WorksIntegrationHarness {
     this.fixture.detectChanges();
   }
 
-  /** Снимает оболочку с документа и уничтожает (afterEach). */
+  /**
+   * Снимает оболочку с документа и уничтожает (afterEach). Хвостовые
+   * запросы серийных цепочек получают ответы, затем контроль: ни один
+   * перехваченный запрос не остался без ответа (verify).
+   */
   detach(): void {
     if (this.fixture) {
       document.body.removeChild(this.nativeElement);
       this.fixture.destroy();
     }
+    this.respondPendingRequests();
+    this.httpMock.verify();
   }
 
   /** Корневой элемент оболочки. */
@@ -134,7 +154,7 @@ export class WorksIntegrationHarness {
     return this.fixture.debugElement;
   }
 
-  /** Вход teacher/teacher123! настоящим auth.login (одна волна мока). */
+  /** Вход teacher/teacher123! настоящим auth.login (одна волна ответов). */
   loginTeacher(): void {
     void this.auth.login({ login: 'teacher', password: 'teacher123!' });
     this.flush();
@@ -144,28 +164,28 @@ export class WorksIntegrationHarness {
    * Навигация средствами реального Router. Дренаж: (1) микрозадачи роутера
    * монтируют страницу; (2) CD назначает required-входы смонтированным
    * компонентам (защита от NG0950 при последующей смене маршрута);
-   * (3) волна MOCK_DELAY_MS завершает стартовые загрузки страницы
+   * (3) волна ответов завершает стартовые загрузки страницы
    * (getList/getSemesters/getById); (4) финальный сеттлмент.
    */
   navigate(url: string): void {
     void this.router.navigateByUrl(url).catch(() => undefined);
     tick();
     this.detectChanges(1);
-    tick(MOCK_DELAY_MS);
-    tick();
-    this.settle();
+    this.flush();
   }
 
   /**
-   * Завершает `waves` волн мок-вызовов (задержка MOCK_DELAY_MS каждая):
-   * вызовы, стартовавшие одновременно, завершаются одной волной; следующие
-   * за ними сериальные вызовы (например перезагрузка после remove) —
-   * следующей. CD между волнами назначает входы страницам, смонтированным
-   * навигацией внутри волны (редиректы форм). В конце — сеттлмент.
+   * Завершает `waves` волн ответов бэкенда: волна отвечает все
+   * перехваченные к этому моменту запросы (вызовы, стартовавшие
+   * одновременно, завершаются одной волной); запросы сериальных цепочек
+   * (например перезагрузка после remove) — следующими волнами. CD между
+   * волнами назначает входы страницам, смонтированным навигацией внутри
+   * волны (редиректы форм). В конце — сеттлмент.
    */
   flush(waves = 1): void {
     for (let wave = 0; wave < waves; wave += 1) {
-      tick(MOCK_DELAY_MS);
+      this.respondPendingRequests();
+      tick();
       this.detectChanges(1);
     }
     tick();
@@ -182,7 +202,7 @@ export class WorksIntegrationHarness {
    * Завершение жизненного цикла диалога PrimeNG: скрытие планирует
    * отложенный (~10 мс) таймер из CD, следующей за кликом. Порядок обязателен:
    * CD (старт скрытия) → короткое продвижение времени (выгорание таймера,
-   * безопасно меньше волны мок-вызова MOCK_DELAY_MS) → микрозадачи → CD.
+   * безопасно меньше сериальной волны) → микрозадачи → CD.
    */
   dialogSettle(): void {
     this.detectChanges(1);
@@ -212,39 +232,58 @@ export class WorksIntegrationHarness {
   }
 
   /**
-   * Финализация сценария: выгорает очередь таймеров fakeAsync-зоны —
-   * автозакрытие уведомлений (NOTIFICATION_AUTO_CLOSE_MS) и life-таймеры
-   * PrimeNG Toast, а также незавершённые мок-волны (все ≤ 5000 мс, включая
-   * сериальные цепочки remove → перезагрузка → getSemesters). Зона обязана
-   * завершиться с пустой очередью, иначе zone.js бросает
-   * «N timer(s) still in the queue». Вызывается в конце спеков, порождающих
-   * уведомления, ПОСЛЕ основных ассертов.
+   * Финализация сценария: отвечает остаточные запросы сериальных цепочек
+   * (например getSemesters после перезагрузки списка), выгорает очередь
+   * таймеров fakeAsync-зоны — автозакрытие уведомлений
+   * (NOTIFICATION_AUTO_CLOSE_MS) и life-таймеры PrimeNG Toast — и отвечает
+   * запросы, стартовавшие при выгорании. Зона обязана завершиться с пустой
+   * очередью, иначе zone.js бросает «N timer(s) still in the queue».
+   * Вызывается в конце спеков, порождающих уведомления, ПОСЛЕ основных
+   * ассертов.
    */
   finalize(): void {
+    this.respondPendingRequests();
     tick(NOTIFICATION_AUTO_CLOSE_MS);
+    this.respondPendingRequests();
     this.fixture.detectChanges();
   }
 
-  // ---------- мок-БД (интеграция с localStorage) ----------
+  /**
+   * Число перехваченных, но ещё не отвеченных HTTP-запросов. Осторожно:
+   * match() у HttpTestingController снимает запросы с контроля (verify),
+   * поэтому метод предназначен только для ассертов «ожидается 0 запросов»
+   * (например read-only чекбоксы не порождают HTTP).
+   */
+  pendingHttpRequests(): number {
+    return this.httpMock.match(() => true).length;
+  }
 
-  /** Снимок мок-БД из localStorage (ключ mock.db.v1). */
-  readDb(): MockDbData {
-    const raw = localStorage.getItem(STORAGE_KEYS.mockDb);
-    if (raw === null) {
-      throw new Error('works-integration-harness: мок-БД не инициализирована (нет ключа mock.db.v1)');
+  /** Отвечает все перехваченные запросы по состоянию бэкенда. */
+  private respondPendingRequests(): void {
+    for (const request of this.httpMock.match(() => true)) {
+      const response = this.backend.handle(request.request, this.apiBase);
+      request.flush(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+      });
     }
-    return JSON.parse(raw) as MockDbData;
+  }
+
+  // ---------- состояние бэкенда (чтение сценариями) ----------
+
+  /** Снимок серверного состояния бэкенда (пользователи/работы/сдачи). */
+  readDb(): WorksBackendSnapshot {
+    return this.backend.snapshot();
   }
 
   /** uuid сид-работы по паре (семестр, номер). */
   labId(semester: number, number: number): string {
-    const lab = this.readDb().labs.find(
-      (candidate) => candidate.semester === semester && candidate.number === number,
-    );
-    if (lab === undefined) {
-      throw new Error(`works-integration-harness: в мок-БД нет работы ${semester}:${number}`);
-    }
-    return lab.id;
+    return this.backend.labId(semester, number);
+  }
+
+  /** Удаление работы «из другой вкладки» — мимо UI, прямая мутация. */
+  removeLabDirect(id: string): void {
+    this.backend.removeLabDirect(id);
   }
 
   // ---------- DOM: список /works ----------

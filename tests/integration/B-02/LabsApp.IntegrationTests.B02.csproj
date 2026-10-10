@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-02 (сид FR-025 и scope-гейты FR-001/FR-002/FR-023:
+    TS-136 «Production guard сид-пароля», TS-137 «Production — только преподаватель»,
+    TS-138 «Development демо-набор мок-слоя» (один файл по описи ревизии —
+    Ts138_DemoDataMockParityTests.cs, два теста: количества + детали; прежний
+    Ts138_DevelopmentDemoDataCountsTests.cs выведен по описи при слиянии),
+    TS-139 «идемпотентность сида», TS-154 «CORS не настраивается», TS-156 «клиентский
+    error-texts.ts без серверных дополнений», TS-158 «полная CSP не добавляется»).
+    Зона батча: tests/integration/B-02. Реализация (src/api) не изменяется: LabsApp
+    остаётся net8.0 (FR-001); зона ссылается на него ProjectReference и не включается
+    в solution src/api — батчи пишут зоны параллельно (образец — зона B-01; урок
+    BL-001 BUG-001: собственный проект зоны вместо правки общего LabsApp.Tests.csproj).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зоны B-01): на хосте
+    только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует. Поведенческие
+    проверки (сид FR-025, scope-гейты) не зависят от TFM тестового хоста.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer 8.0.x несовместим
+    с runtime 10 (PipeWriter.UnflushedBytes — 500 на любых JSON-ответах). Для процессных
+    тестов (dotnet run net8.0-приложения) используется DOTNET_ROLL_FORWARD=LatestMajor
+    (Infrastructure/AppProcess).
+
+    Предыдущие волны этой же зоны удалены вместе с обновлением набора кейсов батча:
+    (1) TS-016..TS-025, TS-189, TS-190, TS-199, TS-200 (спека до v2.3); (2) волна
+    TS-160..TS-164 / TS-191..TS-192 (конверт ошибок FR-023, граница 413, матрица
+    Set-Cookie NFR-007) — эти кейсы закреплены за зонами B-01 и B-10, дублирование
+    в B-02 убрано вместе с осиротевшей инфраструктурой (TestSessions, CookieFlow).
+    Волна сида TS-170..TS-174 переработана под те же кейсы с новой нумерацией
+    TS-136..TS-139 (проверяемое поведение кейсов не менялось).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Тестовый wwwroot для кейса TS-158 (given «wwwroot/index.html существует»; FR-002):
+    копируется в $(OutputPath)wwwroot — content root тестового хоста совпадает с
+    выходным каталогом тестов (механика зоны B-01; проект приложения wwwroot не
+    содержит — SPA-сборка в репо не поставляется).
+  -->
+  <Target Name="CopyTestWwwroot" AfterTargets="Build">
+    <ItemGroup>
+      <TestWwwrootFiles Include="TestAssets\wwwroot\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TestWwwrootFiles)"
+          DestinationFiles="@(TestWwwrootFiles->'$(OutputPath)wwwroot/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

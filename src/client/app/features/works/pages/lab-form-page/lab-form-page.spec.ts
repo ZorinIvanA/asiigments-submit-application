@@ -13,7 +13,13 @@
  * Мок-слой не поднимается: LabsService шпионируется, отказы — ApiError
  * (транспортная форма FR-003); маршрутизация — provideRouter([]) со шпионом
  * на Router.navigate; режим уведомлений — MockBreakpointObserver.
+ *
+ * Реальный LabsService с перевода на HttpClient (T-020) требует провайдеров
+ * HttpClient для конструкции — регистрируем provideHttpClientTesting:
+ * HTTP-вызовов нет (все методы шпионируются), сетка не флешится.
  */
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
@@ -24,6 +30,7 @@ import { Select } from 'primeng/select';
 import { Tooltip } from 'primeng/tooltip';
 import { of } from 'rxjs';
 
+import { authInterceptor } from '../../../../core/auth-interceptor';
 import { LabsService } from '../../../../core/services/labs.service';
 import { MockBreakpointObserver } from '../../../../../testing/mock-breakpoint-observer';
 import { ApiError, LabDto } from '../../../../shared/models';
@@ -115,6 +122,8 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       imports: [LabFormPage],
       providers: [
         { provide: BreakpointObserver, useValue: new MockBreakpointObserver() },
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
         provideRouter([]),
         provideNoopAnimations(),
         // ВАЖНО: строго после provideRouter — ROUTER_PROVIDERS объявляет свой

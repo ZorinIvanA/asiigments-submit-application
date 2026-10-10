@@ -1,18 +1,32 @@
 /**
  * Юнит-тесты конфигурации приложения: русская локаль, тема PrimeNG Aura,
- * русские переводы PrimeNG (требования FR-001/NFR-004 на уровне каркаса)
- * и провайдер анимаций для PrimeNG-оверлеев (VBUG-001/VBUG-002, NG05105).
+ * русские переводы PrimeNG (требования FR-001/NFR-004 на уровне каркаса),
+ * провайдер анимаций для PrimeNG-оверлеев (VBUG-001/VBUG-002, NG05105)
+ * и HTTP-ядро с интерцептором аутентификации (T-017, FR-091/FR-092):
+ * provideHttpClient(withInterceptors([authInterceptor])). Мок-слой удалён
+ * вместе с его инициализатором (FR-026(1), T-022/T-023): спек утверждает
+ * ОТСУТСТВИЕ инициализатора мок-слоя в фазе APP_INITIALIZER (сид и
+ * мок-сессия не записываются) и успешный бутстрап с холодным стартом
+ * сессии (AuthService.initSession, FR-092).
  */
 import { formatDate } from '@angular/common';
-import { ANIMATION_MODULE_TYPE, Component, LOCALE_ID } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  ANIMATION_MODULE_TYPE,
+  Component,
+  LOCALE_ID,
+} from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { firstValueFrom } from 'rxjs';
 
 import Aura from '@primeuix/themes/aura';
 import { MessageService } from 'primeng/api';
 import { PrimeNG } from 'primeng/config';
 import { Toast } from 'primeng/toast';
 
+import { API_BASE_URL } from '../api-base-url';
 import { appConfig } from './app.config';
 import { PRIME_NG_RU } from './primeng-ru';
 
@@ -105,5 +119,79 @@ describe('appConfig — провайдер анимаций (VBUG-001/VBUG-002, 
       providers: [...appConfig.providers, provideNoopAnimations()],
     });
     expect(TestBed.inject(ANIMATION_MODULE_TYPE)).toBe('NoopAnimations');
+  });
+});
+
+describe('appConfig — HTTP-ядро (T-017, IF-014, FR-091/FR-092)', () => {
+  let http: HttpClient;
+  let httpMock: HttpTestingController;
+  let apiBase: string;
+
+  beforeEach(() => {
+    // provideHttpClientTesting ПОСЛЕ appConfig.providers — как provideNoop
+    // -Animations: последний провайдер HttpBackend побеждает, цепочка
+    // интерцепторов из provideHttpClient(withInterceptors([authInterceptor]))
+    // сохраняется (проверка поведения конфигурации, а не деталей provide*).
+    TestBed.configureTestingModule({
+      providers: [...appConfig.providers, provideHttpClientTesting()],
+    });
+    http = TestBed.inject(HttpClient);
+    httpMock = TestBed.inject(HttpTestingController);
+    apiBase = TestBed.inject(API_BASE_URL);
+    // Фаза инициализации бутстрапа (APP_INITIALIZER) выполняется TestBed при
+    // первом обращении к инжектору — как bootstrapApplication. Единственный
+    // HTTP фазы — холодный старт сессии (AuthService.initSession, GET
+    // /auth/me, FR-092): уходит в тестовый бэкенд, перехватываем его здесь.
+    httpMock.expectOne(`${apiBase}/auth/me`).flush(null);
+  });
+
+  afterEach(() => {
+    // Ни одного незакрытого/лишнего запроса (в т.ч. POST /auth/logout).
+    httpMock.verify();
+    // Чистка storage — изоляция от соседних spec-файлов (конвенция спек).
+    localStorage.clear();
+  });
+
+  it('provideHttpClient включён: HttpClient инъекцируется, API-запрос проходит через authInterceptor (withCredentials)', async () => {
+    const pending = firstValueFrom(http.get(`${apiBase}/labs`));
+
+    const request = httpMock.expectOne(`${apiBase}/labs`);
+    // withCredentials выставляет именно authInterceptor из конфигурации
+    // appConfig — без него API-запрос ушёл бы без cookie-аутентификации.
+    expect(request.request.withCredentials)
+      .withContext('интерцептор подключён провайдерами appConfig')
+      .toBeTrue();
+    request.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+
+    await expectAsync(pending).toBeResolved();
+  });
+
+  it('инициализатор мок-слоя отсутствует (FR-026(1)): фаза APP_INITIALIZER стартует сессию без мок-сида, бутстрап успешен', async () => {
+    // Фаза инициализации бутстрапа выполнена TestBed при первом обращении к
+    // инжектору (beforeEach): единственный HTTP фазы — холодный старт сессии
+    // (AuthService.initSession → GET /auth/me), и он ушёл через интерцептор
+    // appConfig в тестовый бэкенд, а не в мок. Инициализатора мок-слоя в
+    // фазе больше нет — его отсутствие подтверждается поведением: ни сид
+    // мок-БД, ни мок-сессия, которые писал прошлый инициализатор, не
+    // записаны (FR-026(1)/(4)); проверяем по произвольным legacy-ключам.
+    expect(localStorage.getItem('legacy.db.v1'))
+      .withContext('мок-сид не записан (инициализатор мока удалён)')
+      .toBeNull();
+    expect(localStorage.getItem('legacy.session.userId'))
+      .withContext('мок-сессия не записана (признак сессии только в памяти, FR-092)')
+      .toBeNull();
+
+    // Успешный бутстрап: после фазы инициализации HTTP-цепочка жива — запрос
+    // через интерцептор appConfig разрешается тестовым бэкендом без ошибок.
+    let failure: unknown = null;
+    const pending = firstValueFrom(http.get(`${apiBase}/auth/me`)).then(
+      () => undefined,
+      (error: unknown) => (failure = error),
+    );
+    const request = httpMock.expectOne(`${apiBase}/auth/me`);
+    expect(request.request.withCredentials).toBeTrue();
+    request.flush(null);
+    await pending;
+    expect(failure).withContext('запрос через цепочку appConfig разрешён').toBeNull();
   });
 });

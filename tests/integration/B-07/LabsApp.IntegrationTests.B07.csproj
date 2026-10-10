@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты зоны tests/integration/B-07 — общий тестовый проект
+    двух батчей зоны (реворк CR-003: заголовок называет оба батча). Лимитер-батч
+    B-07: TS-011..TS-025 — движок скользящего окна с потолком 10000 ключей и
+    overflow-корзиной (FR-003/NFR-003, IF-006), матрица лимитов
+    login/register/recovery_request (FR-004; FR-007 login, FR-012 recovery),
+    KDF-сервис (FR-005, IF-002), README-реестр амплитуд (FR-028). Профиль-батч:
+    PUT /api/v1/me/profile — TS-089..TS-096, TS-193, TS-194 (FR-015; инспекция
+    журнала — IF-016/NFR-006). Реализация (src/api) не изменяется: LabsApp
+    остаётся net8.0; зона ссылается на него ProjectReference и не включается
+    в solution src/api — батчи пишут зоны параллельно (образец — зоны
+    B-01..B-05; урок BL-001 BUG-001: собственный проект зоны вместо правки
+    общего LabsApp.Tests).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-05):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Проверяемое поведение — HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
+
+    Microsoft.Extensions.TimeProvider.Testing — FakeTimeProvider сценариев
+    с бизнес-временем (TS-012/TS-015/TS-020: скольжение окна лимитера;
+    TS-056/TS-058/TS-060: TTL refresh; глоссарий TimeProvider / ADR-002).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Ремонт сборки зоны (rework CR-001, подзадача T-103): сценарии
+    Ts093/Ts094/Ts095 проверяют событие Security/email_changed и константу
+    DevEmailSender.EmailChangedSubject, УДАЛЁННЫЕ из реализации по спеке v2.2
+    (T-103: событие email_changed и счётчик security_email_changed_total
+    изъяты из SecurityEventLogger — в v2.2/IF-016 такого события нет).
+    Файлы не компилируются (CS0117: SecurityEventLogger.EmailChangedEvent,
+    DevEmailSender.EmailChangedSubject) и не могут быть исполнены против
+    текущей спеки. Суть чужих кейсов не переписывается: файлы сохранены на
+    диске и ИСКЛЮЧЕНЫ из компиляции зоны — тот же механизм, что в зоне B-15
+    (<Compile Remove> + поясняющий комментарий). Финальный гейт конвейера —
+    контур B-22.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts093_EmailChangedSecurityEventDevTests.cs" />
+    <Compile Remove="Scenarios\Ts094_CiUnchangedEmailNoEventsTests.cs" />
+    <Compile Remove="Scenarios\Ts095_EmailChangedProductionNoNotificationTests.cs" />
+  </ItemGroup>
+
+</Project>

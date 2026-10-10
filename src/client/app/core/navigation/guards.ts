@@ -1,13 +1,17 @@
 /**
- * Навигационные guards (C-108, контракт IF-108, FR-4.8, ADR-105):
+ * Навигационные guards (C-014, контракт IF-108, FR-4.8, FR-092):
  * функциональные CanActivateFn поверх AuthService/RecoveryFlowStore.
  *
- * Схема защиты (IF-108):
- *  - наличие сессии проверяется синхронно по ключу localStorage
- *    (isAuthenticated, ADR-105) — переходы между вкладками мгновенны;
- *  - при первом входе после F5 роль доожидается однократным
- *    AuthService.loadMe() (кэш currentUser заполняется, дальше синхронно);
- *  - битая сессия (me 401) очищается внутри loadMe → редирект /login;
+ * Схема защиты (IF-108/FR-092):
+ *  - сессия существует ТОЛЬКО в памяти AuthService: isAuthenticated()
+ *    синхронно отражает currentUser; localStorage не читается и не пишется
+ *    (localStorage-ключ сессии прошлой, моковой реализации удалён из
+ *    обращения — FR-092);
+ *  - кэш currentUser наполняет инициализация сессии (AuthService.initSession
+ *    из provideAppInitializer: GET /auth/me → 200) ДО первого решения
+ *    guard'а, поэтому guard'и синхронны и HTTP-вызовов не выполняют;
+ *  - аноним (пустой кэш: 401 от /auth/me, logout или событие
+ *    sessionExpired$) → редирект /login;
  *  - returnUrl не используется — после входа редирект по роли.
  *
  * Редиректы возвращаются как UrlTree; guards не выполняют побочных
@@ -18,8 +22,8 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 
 import { UserRole } from '../../shared/models';
-// MeDto — через реэкспорт AuthService (IF-101): core не импортирует мок-слой
-// напрямую, минуя сервисы (ревью CR-001 T-108).
+// MeDto — через реэкспорт AuthService (IF-007): единый словарь типов
+// домена Auth для guard'ов и страниц.
 import { AuthService, MeDto } from '../services/auth.service';
 import { RecoveryFlowStore } from '../services/recovery-flow-store';
 
@@ -40,35 +44,31 @@ function toHome(router: Router, role: UserRole): UrlTree {
 }
 
 /**
- * Текущий пользователь для решения guard'а: без сессии — null (синхронно);
- * сессия есть, кэш пуст (первый вход после F5) — однократная догрузка
- * loadMe(); битая сессия (401) очищается внутри loadMe → null.
+ * Текущий пользователь для решения guard'а: кэш AuthService (сессия только
+ * в памяти — FR-092). Пустой кэш = аноним: loadMe здесь не вызывается —
+ * холодный старт обслуживает initSession (provideAppInitializer).
  */
-async function resolveCurrentUser(auth: AuthService): Promise<MeDto | null> {
-  if (!auth.isAuthenticated()) {
-    return null;
-  }
-  return auth.currentUser() ?? (await auth.loadMe());
+function resolveCurrentUser(auth: AuthService): MeDto | null {
+  return auth.isAuthenticated() ? auth.currentUser() : null;
 }
 
 /**
- * Авторизованный доступ: нет сессии ИЛИ битая сессия → /login,
- * иначе навигация разрешена.
+ * Авторизованный доступ: нет сессии → /login, иначе навигация разрешена.
  */
-export const authGuard: CanActivateFn = async () => {
+export const authGuard: CanActivateFn = () => {
   const router = inject(Router);
-  const me = await resolveCurrentUser(inject(AuthService));
+  const me = resolveCurrentUser(inject(AuthService));
   return me !== null ? true : toLogin(router);
 };
 
 /**
- * Доступ по роли (after authGuard): нет/битая сессия → /login;
+ * Доступ по роли (after authGuard): нет сессии → /login;
  * роль вне списка → /403; иначе навигация разрешена.
  */
 export function roleGuard(...roles: UserRole[]): CanActivateFn {
-  return async () => {
+  return () => {
     const router = inject(Router);
-    const me = await resolveCurrentUser(inject(AuthService));
+    const me = resolveCurrentUser(inject(AuthService));
     if (me === null) {
       return toLogin(router);
     }
@@ -78,11 +78,11 @@ export function roleGuard(...roles: UserRole[]): CanActivateFn {
 
 /**
  * Страницы входа/регистрации для гостя: есть сессия (с валидной ролью) →
- * домашний маршрут роли; гость (и битая сессия, очищенная loadMe) → вход.
+ * домашний маршрут роли; гость → вход.
  */
-export const guestGuard: CanActivateFn = async () => {
+export const guestGuard: CanActivateFn = () => {
   const router = inject(Router);
-  const me = await resolveCurrentUser(inject(AuthService));
+  const me = resolveCurrentUser(inject(AuthService));
   return me !== null ? toHome(router, me.role) : true;
 };
 
@@ -104,8 +104,8 @@ export function recoveryStepGuard(step: 'code' | 'reset'): CanActivateFn {
  * Корень '' и wildcard '**': есть сессия → домашний маршрут роли,
  * иначе → /login (вход с последующим редиректом по роли).
  */
-export const homeGuard: CanActivateFn = async () => {
+export const homeGuard: CanActivateFn = () => {
   const router = inject(Router);
-  const me = await resolveCurrentUser(inject(AuthService));
+  const me = resolveCurrentUser(inject(AuthService));
   return me !== null ? toHome(router, me.role) : toLogin(router);
 };

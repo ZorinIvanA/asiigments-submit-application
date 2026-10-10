@@ -1,7 +1,10 @@
 /**
  * Интеграционные спеки ведомости преподавателя /submissions (батч 3, FR-4.4,
- * SCR-009): реальные SubmissionsPage + core-сервисы + мок-слой (IF-104/103/106)
- * поверх сида seedFixtures, сессия teacher через SessionStore.
+ * SCR-009): реальные SubmissionsPage + core-сервисы на реальном HTTP-ядре
+ * (HttpClient + authInterceptor) поверх программируемого
+ * HttpTestingController-бэкенда GridBackendStub с сидом зоны; серверная
+ * сессия teacher — serverSession (признак сессии — память AuthService,
+ * FR-092).
  *
  * Покрываемые согласованные сценарии (scenarios.batch3.json, automation:
  * automated): TS-301 (дефолты), TS-302 (датапик: upsert обеих дат), TS-303
@@ -14,35 +17,23 @@
  * (формат сид-сдач), TS-314 (обновление по удалённой лабораторной: 404 +
  * перезагрузка).
  *
- * Тайминги мока — fakeAsync + tick (500 мс на вызов, MOCK_DELAY_MS); мутации
- * «другого сеанса» — mutateMockDb поверх того же экземпляра MockDb.
+ * Тайминги: задержек бэкенда нет — «волны» settle() отвечают перехваченные
+ * запросы и продвигают виртуальное время (fakeAsync + tick); мутации
+ * «другого сеанса» — env.backend.mutate/removeLabDirect над тем же
+ * состоянием бэкенда.
  */
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ComponentFixture, fakeAsync } from '@angular/core/testing';
 
-import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
 import { NotificationService } from '../../../shared/notifications/notification-service';
-import { STORAGE_KEYS } from '../../../shared/models';
 import { SubmissionsService } from '../../../core/services/submissions.service';
 import { SubmissionsPage } from '../../../features/submissions/pages/submissions-page';
 import {
-  drainNotifications,
-  hydrateSeed,
-  installMockLayer,
-  labIdOf,
-  groupIdOf,
-  mockDbOf,
-  mutateMockDb,
+  GridAccessEnv,
   openSelect,
   pickOption,
   qsAllIn,
   qsIn,
-  resetZoneEnvAfterSpec,
   selectLabelOf,
-  settle,
-  switchSession,
-  userIdOf,
 } from './integration-env';
 
 /** Тексты и пара сид-сдач (SCR-009) — дословно сценарии TS-302/TS-303. */
@@ -50,13 +41,13 @@ const GROUP_NAMES = ['ИК-221', 'ИК-222', 'ИК-223'] as const;
 const PAGE_SIZE = 5;
 const TOTAL_221 = 25;
 
-describe('SubmissionsPage — интеграция с реальным мок-слоем (батч 3, FR-4.4)', () => {
-  let breakpoints: MockBreakpointObserver;
+describe('SubmissionsPage — интеграция с реальным HTTP-ядром (батч 3, FR-4.4)', () => {
+  let env: GridAccessEnv;
   let notifications: NotificationService;
   let submissionsService: SubmissionsService;
   let fixture: ComponentFixture<SubmissionsPage>;
 
-  /** Идентификаторы сида (детерминированные uuid, порядок генерации ADR-107). */
+  /** Идентификаторы сида (детерминированные uuid). */
   let teacherId: string;
   let student01: string;
   let student02: string;
@@ -68,47 +59,35 @@ describe('SubmissionsPage — интеграция с реальным мок-с
   let lab6: string;
 
   beforeEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    breakpoints = new MockBreakpointObserver();
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: BreakpointObserver, useValue: breakpoints },
-        provideNoopAnimations(),
-      ],
-    });
-    notifications = TestBed.inject(NotificationService);
-    submissionsService = TestBed.inject(SubmissionsService);
-    installMockLayer();
-
-    const db = hydrateSeed();
-    teacherId = userIdOf(db, 'teacher');
-    student01 = userIdOf(db, 'student01');
-    student02 = userIdOf(db, 'student02');
-    ik221 = groupIdOf(db, 'ИК-221');
-    ik222 = groupIdOf(db, 'ИК-222');
-    ik223 = groupIdOf(db, 'ИК-223');
-    lab1 = labIdOf(db, 1, 1);
-    lab2 = labIdOf(db, 1, 2);
-    lab6 = labIdOf(db, 1, 6);
-    switchSession(teacherId);
+    env = GridAccessEnv.setup();
+    notifications = env.notifications;
+    submissionsService = env.inject(SubmissionsService);
+    teacherId = env.backend.userIdByLogin('teacher');
+    student01 = env.backend.userIdByLogin('student01');
+    student02 = env.backend.userIdByLogin('student02');
+    ik221 = env.backend.groupIdByName('ИК-221');
+    ik222 = env.backend.groupIdByName('ИК-222');
+    ik223 = env.backend.groupIdByName('ИК-223');
+    lab1 = env.backend.labId(1, 1);
+    lab2 = env.backend.labId(1, 2);
+    lab6 = env.backend.labId(1, 6);
+    env.serverSession('teacher');
   });
 
   afterEach(() => {
     notifications.dismissMobile();
     fixture?.destroy();
-    resetZoneEnvAfterSpec();
+    env.stop();
   });
 
   function root(): HTMLElement {
     return fixture.nativeElement as HTMLElement;
   }
 
-  /** Создаёт страницу и доводит init (селекторы 500 + грид 500) до конца. */
+  /** Создаёт страницу и доводит init (селекторы волна 1 + грид волна 2). */
   function createPage(): void {
-    fixture = TestBed.createComponent(SubmissionsPage);
-    fixture.detectChanges();
-    settle(fixture, 1100);
+    fixture = env.mount(SubmissionsPage);
+    env.settle(fixture, 2);
   }
 
   /** Строка tbody по номеру (1-based). */
@@ -248,34 +227,36 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     expect(rangeCaption()).toBe('Показать записи с 1 по 5 из 25');
   }));
 
-  it('TS-302: выбор 15.09.2026 шлёт update с обеими датами пары, ячейка 15.09.2026; перезагрузка и листание страниц значение сохраняют; в mock.db.v1 updated_by — преподаватель', fakeAsync(() => {
+  it('TS-302: выбор 15.09.2026 шлёт update с обеими датами пары, ячейка 15.09.2026; перезагрузка и листание страниц значение сохраняют; в состоянии бэкенда updated_by — преподаватель', fakeAsync(() => {
     createPage();
     expect(cellInput(1, 6, 'submit').value).withContext('сид: сдача лабы 6 пуста').toBe('');
 
     // Выбор даты в датапике ячейки (dateFormat дд.мм.гггг).
     fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     // upsert: обе даты пары, вторая — актуальное значение (была пуста).
-    const saved = mockDbOf().read().submissions.find(
-      (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
-    );
+    const saved = env.backend
+      .read()
+      .submissions.find(
+        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+      );
     expect(saved?.submitDate).toBe('2026-09-15');
     expect(saved?.defenseDate).toBeNull();
     expect(saved?.updatedBy).withContext('updated_by — id преподавателя сессии').toBe(teacherId);
 
     expect(cellInput(1, 6, 'submit').value).toBe('15.09.2026');
 
-    // Перезагрузка страницы: сервер — истина, значение восстановлено из мока.
+    // Перезагрузка страницы: сервер — истина, значение восстановлено бэкендом.
     fixture.destroy();
     createPage();
     expect(cellInput(1, 6, 'submit').value).toBe('15.09.2026');
 
     // Листание страниц туда-обратно: значение сохранено.
     paginatorButton('next').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     paginatorButton('page', '1').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(cellInput(1, 6, 'submit').value).toBe('15.09.2026');
   }));
 
@@ -287,7 +268,7 @@ describe('SubmissionsPage — интеграция с реальным мок-с
    * результат персистентен. Непарсящийся текст ('abc', «99.99.9999» —
    * переполнение года parseDate отбрасывает) НЕ порождает серверного вызова
    * (null от неудачного парсинга — не актуальное значение): при blur поле
-   * откатывается к прежнему значению сервера, запись в мок-БД не менялась.
+   * откатывается к прежнему значению сервера, запись в бэкенде не менялась.
    * Регресс CR-001: промежуточные парсинги ('1', '15.') — ноль update,
    * недопечатанный текст не затирается. Пользовательские пути — через DOM
    * реальной ячейки (паттерн typeCellDate/blurCellDate зоны T-114).
@@ -297,9 +278,11 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     const updateSpy = spyOn(submissionsService, 'update').and.callThrough();
 
     const defenseRecord = (): { submitDate: string | null; defenseDate: string | null } | undefined =>
-      mockDbOf().read().submissions.find(
-        (candidate) => candidate.studentId === student01 && candidate.labId === lab1,
-      );
+      env.backend
+        .read()
+        .submissions.find(
+          (candidate) => candidate.studentId === student01 && candidate.labId === lab1,
+        );
     const expectCleared = (calls: number): void => {
       expect(updateSpy.calls.count()).toBe(calls);
       expect(updateSpy.calls.mostRecent().args[0]).toEqual({
@@ -316,24 +299,24 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     /** Возврат защите сид-значения: альтернативные пути — из того же given. */
     const resetDefense = (): void => {
       fixture.componentInstance.onCellDateChange(student01, lab1, 'defenseDate', new Date(2026, 8, 11));
-      settle(fixture, 600);
+      env.settle(fixture, 1);
       expect(defenseRecord()?.defenseDate).toBe('2026-09-11');
     };
 
     // Регресс CR-001: промежуточные неудачные парсинги не шлют update
     // и не затирают недопечатанный текст.
     typeCell(1, 1, 'defense', '1');
-    settle(fixture, 0);
+    env.settle(fixture, 1);
     expect(updateSpy.calls.count()).withContext('«1» — ноль update').toBe(0);
     expect(cellInput(1, 1, 'defense').value).withContext('ввод не затёрт').toBe('1');
 
     typeCell(1, 1, 'defense', '15.');
-    settle(fixture, 0);
+    env.settle(fixture, 1);
     expect(updateSpy.calls.count()).withContext('«15.» — ноль update').toBe(0);
     expect(cellInput(1, 1, 'defense').value).toBe('15.');
 
     blurCell(1, 1, 'defense');
-    settle(fixture, 0);
+    env.settle(fixture, 1);
     expect(updateSpy.calls.count()).withContext('blur после промежуточных — ноль update').toBe(0);
     expect(cellInput(1, 1, 'defense').value)
       .withContext('поле откатилось к прежнему значению сервера')
@@ -342,13 +325,13 @@ describe('SubmissionsPage — интеграция с реальным мок-с
 
     // Непарсящийся текст «abc»: серверного вызова нет; blur откатывает поле.
     typeCell(1, 1, 'defense', 'abc');
-    settle(fixture, 0);
+    env.settle(fixture, 1);
     expect(updateSpy.calls.count()).withContext('«abc» — ноль update').toBe(0);
     expect(cellInput(1, 1, 'defense').value).toBe('abc');
     expect(defenseRecord()?.defenseDate).withContext('запись не менялась').toBe('2026-09-11');
 
     blurCell(1, 1, 'defense');
-    settle(fixture, 0);
+    env.settle(fixture, 1);
     expect(updateSpy.calls.count()).toBe(0);
     expect(cellInput(1, 1, 'defense').value)
       .withContext('откат к прежнему значению сервера')
@@ -357,24 +340,24 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     // «99.99.9999» — тоже непарсящийся (переполнение года отбрасывается
     // parseDate): ноль update, blur возвращает 11.09.2026.
     typeCell(1, 1, 'defense', '99.99.9999');
-    settle(fixture, 0);
+    env.settle(fixture, 1);
     expect(updateSpy.calls.count()).toBe(0);
     blurCell(1, 1, 'defense');
-    settle(fixture, 0);
+    env.settle(fixture, 1);
     expect(updateSpy.calls.count()).toBe(0);
     expect(cellInput(1, 1, 'defense').value).toBe('11.09.2026');
     expect(defenseRecord()?.defenseDate).toBe('2026-09-11');
 
     // Явная очистка 1: кнопка × коммитит сброс.
     clickCellClearIcon(1, 1, 'defense');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expectCleared(1);
 
     // Явная очистка 2: пустой blur (resetDefense увеличил счётчик до 2).
     resetDefense();
     cellInput(1, 1, 'defense').value = '';
     blurCell(1, 1, 'defense');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expectCleared(3);
 
     // Явная очистка 3: Enter в пустом поле (после resetDefense счётчик 4).
@@ -383,10 +366,10 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     cellInput(1, 1, 'defense').dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
     );
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expectCleared(5);
 
-    // Персистентность: перезагрузка страницы читает сброс из мок-БД.
+    // Персистентность: перезагрузка страницы читает сброс из бэкенда.
     fixture.destroy();
     createPage();
     expect(cellInput(1, 1, 'defense').value).withContext('защита пуста после перезагрузки').toBe('');
@@ -410,19 +393,19 @@ describe('SubmissionsPage — интеграция с реальным мок-с
 
     // Стрелка: страница 2.
     paginatorButton('next').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(rangeCaption()).toBe('Показать записи с 6 по 10 из 25');
     expect(rowNames()).toEqual(expectedNames.slice(5, 10));
 
     // Номера страниц: страница 5 и возврат на 1.
     paginatorButton('page', '5').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(rangeCaption()).toBe('Показать записи с 21 по 25 из 25');
     expect(rowNames()).toEqual(expectedNames.slice(20, 25));
     expect(rowNames().length).toBe(5);
 
     paginatorButton('page', '1').click();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(rangeCaption()).toBe('Показать записи с 1 по 5 из 25');
     expect(rowNames()).toEqual(expectedNames.slice(0, 5));
   }));
@@ -431,7 +414,7 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     createPage();
 
     selectToolbarOption(0, 'ИК-223');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     const emptyRow = qsIn(fixture, '[data-test="empty-group-row"]');
     expect(emptyRow?.textContent?.trim()).toBe('В группе нет студентов');
@@ -442,10 +425,11 @@ describe('SubmissionsPage — интеграция с реальным мок-с
   }));
 
   it('TS-307: вырожденные состояния — без работ «Нет семестров с работами», без групп «Нет групп»; таблица скрыта, ошибочных баннеров нет', fakeAsync(() => {
-    // Сценарий А: удалены все работы (каскадно со сдачами) в mock.db.v1.
-    mutateMockDb((data) => {
-      data.labs = [];
-      data.submissions = [];
+    // Сценарий А: удалены все работы (каскадно со сдачами) — прямой мутацией
+    // состояния бэкенда (другой сеанс).
+    env.backend.mutate((state) => {
+      state.labs = [];
+      state.submissions = [];
     });
     createPage();
 
@@ -463,8 +447,8 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     fixture.destroy();
 
     // Сценарий Б: удалены все группы.
-    mutateMockDb((data) => {
-      data.groups = [];
+    env.backend.mutate((state) => {
+      state.groups = [];
     });
     createPage();
 
@@ -486,7 +470,7 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     selectToolbarOption(0, 'ИК-222'); // группа → ИК-222
     selectToolbarOption(1, '2'); // семестр → 2
     paginatorButton('next').click(); // страница → 2
-    settle(fixture, 1100);
+    env.settle(fixture, 1);
 
     // Селекторы согласованы с последним положением.
     const selects = Array.from(root().querySelectorAll('p-select'));
@@ -505,7 +489,7 @@ describe('SubmissionsPage — интеграция с реальным мок-с
       rowTexts.some((text) => text.includes('Иванов Иван Иванович')),
     ).withContext('данные других групп/семестров/страниц не мелькают').toBeFalse();
 
-    // Итог в мок-БД согласован: записи сдач семестра 1 в этом гриде не видны.
+    // Итог согласован: записи сдач семестра 1 в этом гриде не видны.
     expect(root().querySelector('tbody')?.textContent).not.toContain('01.09.2026');
   }));
 
@@ -513,21 +497,21 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     createPage();
 
     // Эмуляция другого сеанса: лабораторная второй пары удаляется до сохранения.
-    mutateMockDb((data) => {
-      data.labs = data.labs.filter((lab) => lab.id !== lab2);
-    });
+    env.backend.removeLabDirect(lab2);
 
     // Почти одновременное сохранение: первая ячейка (student01, лаб 6) и
     // вторая (student02, лаб 2) без ожидания завершения первой.
     fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
     fixture.componentInstance.onCellDateChange(student02, lab2, 'submitDate', new Date(2026, 8, 16));
-    settle(fixture, 1200);
+    env.settle(fixture, 2);
 
-    // Первая дата сохранена и видна; в мок-БД запись с updated_by преподавателя.
+    // Первая дата сохранена и видна; в бэкенде запись с updated_by преподавателя.
     expect(cellInputByHeader(1, 6, 'submit').value).toBe('15.09.2026');
-    const saved = mockDbOf().read().submissions.find(
-      (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
-    );
+    const saved = env.backend
+      .read()
+      .submissions.find(
+        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+      );
     expect(saved?.submitDate).toBe('2026-09-15');
     expect(saved?.updatedBy).toBe(teacherId);
 
@@ -536,7 +520,7 @@ describe('SubmissionsPage — интеграция с реальным мок-с
       severity: 'error',
       text: 'Лабораторная не найдена',
     });
-    drainNotifications();
+    env.drainNotifications();
 
     // Грид перезагружен (сервер — истина): колонки лабы 2 больше нет.
     expect(labGroupHeaders()).not.toContain('Лаб 2');
@@ -552,23 +536,27 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     createPage();
 
     fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
-    settle(fixture, 600);
-    const first = mockDbOf().read().submissions.find(
-      (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
-    );
+    env.settle(fixture, 1);
+    const first = env.backend
+      .read()
+      .submissions.find(
+        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+      );
     expect(first).toBeDefined();
 
     // Повторный выбор той же даты.
     fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
-    const records = mockDbOf().read().submissions.filter(
-      (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
-    );
+    const records = env.backend
+      .read()
+      .submissions.filter(
+        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+      );
     expect(records.length).withContext('дубликат не создан').toBe(1);
     expect(records[0]!.updatedBy).toBe(teacherId);
     expect(records[0]!.updatedAt > first!.updatedAt)
-      .withContext('updated_at обновился (fake-часы tick)')
+      .withContext('updated_at обновился (виртуальные часы волн)')
       .toBeTrue();
 
     const valueInputs = Array.from(root().querySelectorAll('tbody tr:nth-child(1) input')).filter(
@@ -600,18 +588,16 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     createPage();
 
     // Другой сеанс удаляет лабораторную открытой пары.
-    mutateMockDb((data) => {
-      data.labs = data.labs.filter((lab) => lab.id !== lab6);
-    });
+    env.backend.removeLabDirect(lab6);
 
     fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
-    settle(fixture, 1200);
+    env.settle(fixture, 2);
 
     expect(notifications.desktopMessage()).toEqual({
       severity: 'error',
       text: 'Лабораторная не найдена',
     });
-    drainNotifications();
+    env.drainNotifications();
 
     // Грид перезагружен (сервер — истина): колонки лабы 6 нет, ячейки
     // отражают фактическое состояние, блокировка снята.
@@ -619,42 +605,27 @@ describe('SubmissionsPage — интеграция с реальным мок-с
     expect(labGroupHeaders().length).toBe(19);
     expect(fixture.componentInstance.isCellSaving(student01, lab6, 'submitDate')).toBeFalse();
     expect(cellInput(1, 1, 'submit').disabled).withContext('ячейки разблокированы').toBeFalse();
-    // Запись пары в мок-БД не появилась.
+    // Запись пары в состоянии бэкенда не появилась.
     expect(
-      mockDbOf().read().submissions.some(
-        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
-      ),
+      env.backend
+        .read()
+        .submissions.some(
+          (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+        ),
     ).toBeFalse();
   }));
 
-  // Константы GROUP_NAMES используются для самопроверки сид-набора групп.
-  it('сид соответствует сценарию: группы ИК-221(25)/ИК-222(5)/ИК-223(0)', () => {
-    const db = mockDbOf().read();
+  // Константа GROUP_NAMES используется для самопроверки сид-набора групп.
+  it('сид соответствует сценарию: группы ИК-221(25)/ИК-222(5)/ИК-223(0), 4 сид-сдачи', () => {
+    const state = env.backend.read();
     const counts = GROUP_NAMES.map((name) => ({
       name,
-      students: db.users.filter((user) => {
-        const group = db.groups.find((candidate) => candidate.name === name);
+      students: state.users.filter((user) => {
+        const group = state.groups.find((candidate) => candidate.name === name);
         return user.role === 'student' && user.groupId === group?.id;
       }).length,
     }));
     expect(counts.map((entry) => entry.students)).toEqual([25, 5, 0]);
-    expect(db.submissions.length).withContext('сид-сдачи: 4 записи по SCR-009/010').toBe(4);
-  });
-
-  // CR-013: sanity-тест тестового шва mockDbOf (каст к приватному полю db
-  // MockApiClient, контракт — в докстринге integration-env).
-  it('integration-env (CR-013): mockDbOf — тот же MockDb, что читают обработчики; мутация персистит localStorage[mock.db.v1]', () => {
-    mutateMockDb((data) => {
-      data.groups.push({ id: 'sanity-group', name: 'SAN', studentCount: 0 });
-    });
-    // Обработчики читают то же состояние: та же точка чтения db.read().
-    expect(mockDbOf().read().groups.some((group) => group.id === 'sanity-group')).toBeTrue();
-    // Мутация персистентна в том же ключе, из которого MockDb гидратируется.
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.mockDb) ?? 'null') as {
-      groups: Array<{ id: string }>;
-    } | null;
-    expect(raw?.groups.some((group) => group.id === 'sanity-group'))
-      .withContext('localStorage содержит мутацию')
-      .toBeTrue();
+    expect(state.submissions.length).withContext('сид-сдачи: 4 записи по SCR-009/010').toBe(4);
   });
 });

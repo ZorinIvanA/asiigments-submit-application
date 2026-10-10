@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-22 (сквозные NFR-проверки: TS-184/NFR-001,
+    TS-185/NFR-002, TS-187/NFR-004, TS-188/NFR-005, TS-189/NFR-006, TS-193/NFR-008).
+    Зона батча: tests/integration/B-22. Реализация (src/api) не изменяется;
+    собственные копии инфраструктуры (B22WebAppFactory/B22LogSink/B22Sessions/
+    B22DomainSeed/B22ProcessRunner/B22DotNetCli/B22NgCli) — изоляция от чужих
+    тестовых зон (урок BL-001 BUG-001: параллельные батчи пишут соседние зоны;
+    межпроцессная сборка src/api — под единым lock-файлом, конвенция зоны B-18).
+    Проект сознательно не включается в src/api/LabsApp.sln.
+  -->
+
+  <PropertyGroup>
+    <!--
+      Тестовый проект целится в runtime, фактически установленный на хосте прогона
+      (SDK 10.x, рантаймы 9/10; как в зонах B-01/B-03/B-19). Само приложение остаётся
+      net8.0 (FR-001); для дочернего прогона `dotnet build`/`dotnet test` над src/api
+      (TS-185) выставляется DOTNET_ROLL_FORWARD=LatestMajor.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <!-- TS-187 (NFR-004): FakeTimeProvider — «инжектируемые часы» кейса
+         (перевод тестового времени на 60 с без реального ожидания; ADR-002). -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Последовательное исполнение коллекций зоны: замер p95 (TS-184/TS-193) и
+    многопоточная нагрузка (TS-188) не должны конкурировать за CPU с другими
+    тест-классами батча; дочерние dotnet-сборки (TS-185) не пересекаются внутри зоны.
+  -->
+  <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,2875 @@
+{
+ "meta": {
+  "title": "Бэкенд «Сдача лабораторных работ» (лабораторная №3, ветка lab3-api): ASP.NET Core (.NET 8) REST API /api/v1 + статика SPA на in-memory репозиториях-заглушках; перевод Angular-клиента с мок-слоя на реальные HTTP-эндпойнты",
+  "version": "2.2",
+  "source_type": "ТЗ + docs/system-specification.md v1.2 + src/client (мок-слой как эталон поведения эндпойнтов) + ревизионные правки итерации 15 (ISS-001..016, AR-001..005, SEC-001..006)",
+  "rfc2119_compliant": true
+ },
+ "glossary": [
+  {
+   "term": "Access-токен",
+   "definition": "JWT, подписан HS256 ключом Auth__JwtKey; клеймы sub (uuid пользователя), role ('student'|'teacher'), iat, exp; TTL 15 мин (Auth__AccessTtlMinutes); перевозится ТОЛЬКО в HttpOnly-cookie с именем access_token."
+  },
+  {
+   "term": "Refresh-токен",
+   "definition": "Непрозрачная случайная строка ≥256 бит (base64url); в хранилище-заглушке хранится только SHA-256-хэш; TTL 7 дней (Auth__RefreshTtlDays); перевозится в HttpOnly-cookie с именем refresh_token; отзывается при logout, смене/сбросе пароля."
+  },
+  {
+   "term": "KDF",
+   "definition": "PBKDF2-HMAC-SHA256 (Rfc2898DeriveBytes): число итераций из конфигурации Auth__Pbkdf2Iterations (по умолчанию 210000), соль 16 случайных байт, длина ключа 32 байта. Одна «операция KDF» = один полный вызов деривации."
+  },
+  {
+   "term": "Эталонный хэш",
+   "definition": "Зафиксированный при старте приложения хэш строки-заглушки с теми же параметрами KDF (те же итерации), что и у пользовательских хэшей; используется веткой неизвестного логина POST /auth/login для выполнения ровно одной операции KDF с идентичной стоимостью; результат проверки отбрасывается."
+  },
+  {
+   "term": "Счётчик KDF (auth_kdf_operations_total)",
+   "definition": "In-memory счётчик выполненных операций KDF с меткой вызывателя (login|register|reset_password|change_password|reference); каждый инкремент — ровно одна деривация; доступен unit-тестам как тестовый шов и логируется раз в 60 с."
+  },
+  {
+   "term": "Ключ лимитера",
+   "definition": "Строка, идентифицирующая счётчик политики: 'lower(login)|IP' для входа, 'IP' для регистрации, 'lower(email)' для запроса кода восстановления. IP — Connection.RemoteIpAddress запроса Kestrel."
+  },
+  {
+   "term": "Скользящее окно",
+   "definition": "Учитываются метки времени строго новее границы now−windowMs; метка ровно windowMs назад — уже ВНЕ окна. Отклонённый (заблокированный) вызов метку НЕ дописывает и окно НЕ продлевает."
+  },
+  {
+   "term": "MaxTrackedKeys",
+   "definition": "Потолок числа индивидуально отслеживаемых ключей одной политики лимитера: 10000. Матрица применения — FR-004."
+  },
+  {
+   "term": "Overflow-корзина",
+   "definition": "Единый дополнительный ключ политики ('__overflow__') с теми же окном и лимитом, что у индивидуальных ключей; в неё попадает каждый НОВЫЙ ключ, когда индивидуальных уже MaxTrackedKeys; слот индивидуального ключа освобождается после истечения всех его меток."
+  },
+  {
+   "term": "Репозиторий-заглушка",
+   "definition": "Потокобезопасная in-memory реализация интерфейса репозитория (словари + блокировка); НЕ использует EF Core/Npgsql; заменяется на реальную БД в следующей итерации без правки контроллеров и сервисов."
+  },
+  {
+   "term": "SPA fallback",
+   "definition": "Любой HTTP-запрос не к /api/* и не к /health, не совпавший с файлом в wwwroot, отдаёт wwwroot/index.html (200); если index.html отсутствует — 404."
+  },
+  {
+   "term": "Семестр",
+   "definition": "Порядковый номер семестра курса, целое 1..Labs__MaxSemester (по умолчанию 10), включительно; не семестр учебного года."
+  },
+  {
+   "term": "Ведомость",
+   "definition": "Ответ GET /api/v1/submissions: таблица «страница студентов выбранной группы × лабораторные выбранного семестра» + записи сдач только для пар текущей страницы."
+  },
+  {
+   "term": "Сид",
+   "definition": "Начальные данные, создаваемые при старте приложения (FR-025): учётная запись преподавателя из Seed__TeacherLogin/Seed__TeacherPassword и (флаг Seed__DemoData) демо-набор, повторяющий сид мок-слоя."
+  },
+  {
+   "term": "DTO клиента",
+   "definition": "Транспортные формы из src/client/app/shared/models.ts: MeDto, ProfileDto, LabDto (=Lab), GroupDto (=Group), StudentDto, SubmissionsGridDto, MySubmissionsDto, PagedResult<T> {items,total,page,pageSize}, Submission. Серверные ответы MUST соответствовать им поле в поле (camelCase JSON)."
+  },
+  {
+   "term": "Коды ошибок контракта",
+   "definition": "Словарь кодов интерфейсов: VALIDATION (400), WRONG_CREDENTIALS (401), UNAUTHORIZED (401), FORBIDDEN (403), NOT_FOUND (404, уточняется сущностью), CONFLICT (409, уточняется сущностью), RATE_LIMITED (429), CODE_REJECTED (400), RESET_LINK_INVALID (400), WRONG_CURRENT_PASSWORD (400), SEARCH_TOO_LONG (400), DATE_FORMAT (400), MALFORMED_JSON (400), INTERNAL (500)."
+  },
+  {
+   "term": "IEmailSender",
+   "definition": "Абстракция отправки почты. Единственная реализация итерации — dev-заглушка: при Environment=Development пишет письмо в ВЫДЕЛЕННУЮ категорию лога 'EmailDev' (Serilog sublogger; каждая запись с маркером [DEV-EMAIL]), содержит адресата и текст письма (включая 6-значный код восстановления); формат записи одинаков для существующего и несуществующего email, чтобы лог не раскрывал существование учётной записи. В средах, отличных от Development, заглушка — no-op с одним warning-сообщением БЕЗ адресата и содержимого письма. Категория 'EmailDev' — единственный разрешённый канал появления кода восстановления в логах (NFR-006). Реальный SMTP — out_of_scope."
+  },
+  {
+   "term": "Тексты ошибок полей",
+   "definition": "Дословный словарь клиента (src/client/app/shared/validation/error-texts.ts, ERROR_TEXTS) ПЛЮС серверные дополнения спеки. Клиентские: required='Заполните поле'; password.min='Пароль должен содержать не менее 8 символов'; password.digit='Пароль должен содержать хотя бы одну цифру'; password.letter='Пароль должен содержать хотя бы одну букву'; password.special='Пароль должен содержать хотя бы один специальный знак'; password.mismatch='Пароли не совпадают'; email='Введите корректный email'; email.length='Email — не более 254 символов'; login='Логин — от 1 до 100 символов'; login.charset='Логин может содержать только латинские буквы, цифры, точку, дефис и подчёркивание'; code='Код должен состоять из 6 цифр'; lab.number='Номер должен быть положительным числом'; lab.semester='Семестр — число от 1 до N' (N подставляется из Labs__MaxSemester; при N=10 текст дословно равен клиентскому 'Семестр — число от 1 до 10'); lab.content='Содержание — от 1 до 500 символов'; lab.url='Ссылка должна начинаться с http:// или https://'; group.name='Название группы — от 1 до 100 символов'; fullName='ФИО — от 1 до 200 символов'. Серверские дополнения (в ответах API; в клиентском файле отсутствуют — ISS-015/ISS-016): password.max='Пароль — не более 128 символов'; lab.url.length='Ссылка — не более 1000 символов'. Тексты вне словаря в ответах API ЗАПРЕЩЕНЫ (FR-023)."
+  },
+  {
+   "term": "Персональные данные",
+   "definition": "Поля, относящиеся к идентифицируемому человеку: ФИО (User.fullName), email (User.email), связка «студент ↔ группа» (User.groupId + имя группы), записи успеваемости (Submission.submitDate/defenseDate). Пароли и их хэши — секреты (не ПДн, но чувствительны). Доступ к ПДн — только через матрицу ролей FR-022 (свои данные — владелец; все студенты и ведомости — teacher). API этой итерации не предоставляет удаления/анонимизации пользователей и retention-политик (out_of_scope, решение — при миграции на реальную БД)."
+  }
+ ],
+ "domain_model": {
+  "entities": [
+   {
+    "name": "User",
+    "attributes": [
+     {
+      "name": "id",
+      "type": "string(uuid)",
+      "constraints": "Генерируется сервером (Guid); формат uuid",
+      "required": true
+     },
+     {
+      "name": "login",
+      "type": "string",
+      "constraints": "1–100 символов после трима; только [A-Za-z0-9._-]; уникален без учёта регистра (lower(login))",
+      "required": true
+     },
+     {
+      "name": "email",
+      "type": "string",
+      "constraints": "Формат логин@домен.зона (без пробелов, '@' одна, домен из непустых меток через точку, зона непустая), 1–254 символа после трима; уникален без учёта регистра",
+      "required": true
+     },
+     {
+      "name": "passwordHash",
+      "type": "string",
+      "constraints": "Формат 'pbkdf2-sha256$<iterations>$<saltBase64>$<hashBase64>', ≤500 символов; наружу не отдаётся никогда",
+      "required": true
+     },
+     {
+      "name": "fullName",
+      "type": "string",
+      "constraints": "1–200 символов после трима",
+      "required": true
+     },
+     {
+      "name": "role",
+      "type": "string",
+      "constraints": "Словарь {'student','teacher'}; иное значение во вводе игнорируется/невозможно (регистрация создаёт только student; смены роли в API нет)",
+      "required": true
+     },
+     {
+      "name": "groupId",
+      "type": "string(uuid)|null",
+      "constraints": "null = без группы; у преподавателя всегда null",
+      "required": true
+     },
+     {
+      "name": "createdAt",
+      "type": "datetime(UTC ISO-8601)",
+      "constraints": "Серверное время создания",
+      "required": true
+     }
+    ],
+    "states": [],
+    "transitions": []
+   },
+   {
+    "name": "Group",
+    "attributes": [
+     {
+      "name": "id",
+      "type": "string(uuid)",
+      "constraints": "Генерируется сервером",
+      "required": true
+     },
+     {
+      "name": "name",
+      "type": "string",
+      "constraints": "1–100 символов после трима; уникально без учёта регистра (lower(name))",
+      "required": true
+     },
+     {
+      "name": "createdAt",
+      "type": "datetime(UTC ISO-8601)",
+      "constraints": "—",
+      "required": true
+     }
+    ],
+    "states": [],
+    "transitions": []
+   },
+   {
+    "name": "Lab",
+    "attributes": [
+     {
+      "name": "id",
+      "type": "string(uuid)",
+      "constraints": "Генерируется сервером",
+      "required": true
+     },
+     {
+      "name": "semester",
+      "type": "int",
+      "constraints": "Целое 1..Labs__MaxSemester (по умолчанию 10) включительно",
+      "required": true
+     },
+     {
+      "name": "number",
+      "type": "int",
+      "constraints": "Целое > 0, верхней границы нет; пара (semester, number) уникальна",
+      "required": true
+     },
+     {
+      "name": "content",
+      "type": "string",
+      "constraints": "1–500 символов после трима",
+      "required": true
+     },
+     {
+      "name": "assignmentUrl",
+      "type": "string|null",
+      "constraints": "null = ссылки нет; иначе префикс http:// или https://, длина после трима ≤1000",
+      "required": true
+     },
+     {
+      "name": "defenseRequired",
+      "type": "boolean",
+      "constraints": "Строго boolean",
+      "required": true
+     },
+     {
+      "name": "createdAt",
+      "type": "datetime(UTC ISO-8601)",
+      "constraints": "—",
+      "required": true
+     },
+     {
+      "name": "updatedAt",
+      "type": "datetime(UTC ISO-8601)",
+      "constraints": "Обновляется при каждом изменении записи",
+      "required": true
+     }
+    ],
+    "states": [],
+    "transitions": []
+   },
+   {
+    "name": "Submission",
+    "attributes": [
+     {
+      "name": "id",
+      "type": "string(uuid)",
+      "constraints": "Генерируется сервером",
+      "required": true
+     },
+     {
+      "name": "studentId",
+      "type": "string(uuid)",
+      "constraints": "Ссылка на User с role='student'",
+      "required": true
+     },
+     {
+      "name": "labId",
+      "type": "string(uuid)",
+      "constraints": "Ссылка на Lab; при удалении Lab запись удаляется каскадно",
+      "required": true
+     },
+     {
+      "name": "submitDate",
+      "type": "string(date)|null",
+      "constraints": "'YYYY-MM-DD' (строгий формат, календарно корректная дата) либо null = не сдано",
+      "required": true
+     },
+     {
+      "name": "defenseDate",
+      "type": "string(date)|null",
+      "constraints": "'YYYY-MM-DD' либо null = защита не проставлена",
+      "required": true
+     },
+     {
+      "name": "updatedBy",
+      "type": "string(uuid)|null",
+      "constraints": "uuid преподавателя, последнего изменившего запись; null = не менялась после сида",
+      "required": true
+     },
+     {
+      "name": "updatedAt",
+      "type": "datetime(UTC ISO-8601)",
+      "constraints": "Обновляется при каждой мутации",
+      "required": true
+     }
+    ],
+    "states": [],
+    "transitions": []
+   },
+   {
+    "name": "RefreshToken",
+    "attributes": [
+     {
+      "name": "id",
+      "type": "string(uuid)",
+      "constraints": "—",
+      "required": true
+     },
+     {
+      "name": "userId",
+      "type": "string(uuid)",
+      "constraints": "Ссылка на User",
+      "required": true
+     },
+     {
+      "name": "tokenHash",
+      "type": "string",
+      "constraints": "SHA-256 (hex, 64 символа) значения refresh-токена; само значение не хранится и не логируется",
+      "required": true
+     },
+     {
+      "name": "expiresAt",
+      "type": "datetime(UTC)",
+      "constraints": "created+7 дней",
+      "required": true
+     },
+     {
+      "name": "revokedAt",
+      "type": "datetime(UTC)|null",
+      "constraints": "null = действителен",
+      "required": true
+     },
+     {
+      "name": "createdAt",
+      "type": "datetime(UTC)",
+      "constraints": "—",
+      "required": true
+     }
+    ],
+    "states": [
+     "active",
+     "revoked",
+     "expired"
+    ],
+    "transitions": [
+     {
+      "from": "active",
+      "to": "revoked",
+      "trigger": "logout / смена пароля из профиля (все, кроме токена текущей cookie) / сброс пароля (все)"
+     },
+     {
+      "from": "active",
+      "to": "expired",
+      "trigger": "наступило expiresAt"
+     }
+    ]
+   },
+   {
+    "name": "RecoveryCode",
+    "attributes": [
+     {
+      "name": "id",
+      "type": "string(uuid)",
+      "constraints": "—",
+      "required": true
+     },
+     {
+      "name": "userId",
+      "type": "string(uuid)",
+      "constraints": "Ссылка на User",
+      "required": true
+     },
+     {
+      "name": "codeHash",
+      "type": "string",
+      "constraints": "Солёный SHA-256 6-значного кода (формат 'sha256$<salt>$<hash>'); сам код не хранится",
+      "required": true
+     },
+     {
+      "name": "expiresAt",
+      "type": "datetime(UTC)",
+      "constraints": "created+10 минут",
+      "required": true
+     },
+     {
+      "name": "usedAt",
+      "type": "datetime(UTC)|null",
+      "constraints": "null = не использован (живой, если и не истёк)",
+      "required": true
+     },
+     {
+      "name": "attempts",
+      "type": "int",
+      "constraints": "Счётчик неверных подтверждений; 5-я неверная попытка гасит код (usedAt=now)",
+      "required": true
+     },
+     {
+      "name": "createdAt",
+      "type": "datetime(UTC)",
+      "constraints": "—",
+      "required": true
+     }
+    ],
+    "states": [
+     "live",
+     "used",
+     "expired"
+    ],
+    "transitions": [
+     {
+      "from": "live",
+      "to": "used",
+      "trigger": "успешное подтверждение ИЛИ 5-я неверная попытка ИЛИ повторный recovery/request того же email (гашение прежних живых кодов)"
+     },
+     {
+      "from": "live",
+      "to": "expired",
+      "trigger": "наступило expiresAt"
+     }
+    ]
+   },
+   {
+    "name": "PasswordResetToken",
+    "attributes": [
+     {
+      "name": "id",
+      "type": "string(uuid)",
+      "constraints": "—",
+      "required": true
+     },
+     {
+      "name": "userId",
+      "type": "string(uuid)",
+      "constraints": "Ссылка на User",
+      "required": true
+     },
+     {
+      "name": "tokenHash",
+      "type": "string",
+      "constraints": "SHA-256 (hex) значения resetToken (значение одноимённого поля контракта); само значение не хранится",
+      "required": true
+     },
+     {
+      "name": "expiresAt",
+      "type": "datetime(UTC)",
+      "constraints": "created+15 минут",
+      "required": true
+     },
+     {
+      "name": "usedAt",
+      "type": "datetime(UTC)|null",
+      "constraints": "null = действителен",
+      "required": true
+     },
+     {
+      "name": "createdAt",
+      "type": "datetime(UTC)",
+      "constraints": "—",
+      "required": true
+     }
+    ],
+    "states": [
+     "live",
+     "used",
+     "expired"
+    ],
+    "transitions": [
+     {
+      "from": "live",
+      "to": "used",
+      "trigger": "успешный reset-password ИЛИ предъявление найденного, но неживого токена (гашение) ИЛИ успешный reset-password гасит все токены пользователя"
+     },
+     {
+      "from": "live",
+      "to": "expired",
+      "trigger": "наступило expiresAt"
+     }
+    ]
+   },
+   {
+    "name": "RateLimitMark (runtime, не персистируется)",
+    "attributes": [
+     {
+      "name": "policy",
+      "type": "string",
+      "constraints": "Словарь {'login','register','recovery_request'}",
+      "required": true
+     },
+     {
+      "name": "key",
+      "type": "string",
+      "constraints": "См. глоссарий «Ключ лимитера»; ключи сверх MaxTrackedKeys учитываются в '__overflow__'",
+      "required": true
+     },
+     {
+      "name": "timestamps",
+      "type": "int[]",
+      "constraints": "Метки времени (мс) строго внутри текущего окна; вычищаются при каждой проверке",
+      "required": true
+     }
+    ],
+    "states": [],
+    "transitions": []
+   }
+  ],
+  "relationships": [
+   {
+    "entity_a": "Group",
+    "entity_b": "User",
+    "cardinality": "1:N",
+    "semantics": "User.groupId → Group.id; удаление группы сбрасывает groupId в null (студенты сохраняются)"
+   },
+   {
+    "entity_a": "User",
+    "entity_b": "Submission",
+    "cardinality": "1:N",
+    "semantics": "Submission.studentId → User(role=student); уникальность пары (studentId, labId)"
+   },
+   {
+    "entity_a": "Lab",
+    "entity_b": "Submission",
+    "cardinality": "1:N",
+    "semantics": "Submission.labId → Lab.id; удаление Lab каскадно удаляет её Submission"
+   },
+   {
+    "entity_a": "User",
+    "entity_b": "RefreshToken",
+    "cardinality": "1:N",
+    "semantics": "Отзываемые токены обновления сессии пользователя"
+   },
+   {
+    "entity_a": "User",
+    "entity_b": "RecoveryCode",
+    "cardinality": "1:N",
+    "semantics": "Коды восстановления; одновременно жив максимум один (переотправка гасит прежние)"
+   },
+   {
+    "entity_a": "User",
+    "entity_b": "PasswordResetToken",
+    "cardinality": "1:N",
+    "semantics": "Токены сброса пароля; успешный сброс гасит все"
+   }
+  ]
+ },
+ "functional_requirements": [
+  {
+   "id": "FR-001",
+   "title": "Хост приложения: Kestrel, /api/v1, /health, Swagger только в dev",
+   "description": "Система MUST представлять собой монолитное ASP.NET Core-приложение на .NET 8 в src/api, обслуживающее: (а) REST API под префиксом /api/v1; (б) GET /health → 200 с JSON-телом {'status':'ok'} без аутентификации; (в) Swagger UI по /swagger ТОЛЬКО в среде Development (в Production — 404). CORS MUST NOT настраиваться (dev-режим клиента идёт через прокси). EF Core/Npgsql/PostgreSQL MUST NOT присутствовать в зависимостях проекта.",
+   "source": "ТЗ п.1, п.2, п.5; docs §2, §10",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Health-check",
+     "given": "Приложение запущено",
+     "when": "GET /health",
+     "then": "200, тело {'status':'ok'}, время ответа <100 мс, без аутентификации"
+    },
+    {
+     "scenario": "Swagger только в dev",
+     "given": "Приложение запущено со средой Production",
+     "when": "GET /swagger/index.html",
+     "then": "404; в среде Development тот же запрос — 200"
+    },
+    {
+     "scenario": "Версионированный префикс",
+     "given": "Приложение запущено",
+     "when": "GET /api/v2/anything",
+     "then": "404 с телом {'message':'Не найдено'} (единый конверт ошибок FR-023)"
+    },
+    {
+     "scenario": "Нет запрещённых зависимостей",
+     "given": "Файл проекта src/api",
+     "when": "Анализ ссылок проекта",
+     "then": "Отсутствуют Microsoft.EntityFrameworkCore* и Npgsql*; TargetFramework = net8.0"
+    }
+   ],
+   "dependencies": [],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-002",
+   "title": "Раздача статики собранного SPA, SPA fallback и защитные заголовки",
+   "description": "Система MUST раздавать статические файлы собранного Angular-клиента из wwwroot и реализовывать SPA fallback: любой запрос не к /api/*, не к /health и не к /swagger*, не совпавший с существующим файлом в wwwroot, отдаёт wwwroot/index.html (200, text/html). Если wwwroot/index.html отсутствует (бэкенд запущен без сборки клиента) — несовпавшие маршруты возвращают 404 {'message':'Не найдено'} (единый конверт FR-023). Маршруты /swagger и все его под-пути MUST быть исключены из SPA fallback (ISS-008): в Development они обслуживаются Swagger middleware; в Production возвращают 404 {'message':'Не найдено'} и НИКОГДА не отдают содержимое index.html. API-маршруты (/api/*) MUST NOT перехватываться fallback'ом. Каждый ответ статики и SPA fallback (включая сам index.html) MUST нести заголовки X-Content-Type-Options: nosniff и X-Frame-Options: DENY (SEC-006); полная Content-Security-Policy — out_of_scope.",
+   "source": "ТЗ п.1; docs §2 (SPA fallback); ISS-008 (исключение /swagger из fallback); SEC-006 (защитные заголовки)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Deep-link отдаёт index.html",
+     "given": "wwwroot/index.html существует",
+     "when": "GET /works или GET /groups/abc без cookie",
+     "then": "200, Content-Type text/html, тело = содержимое wwwroot/index.html"
+    },
+    {
+     "scenario": "API не перехватывается fallback",
+     "given": "Приложение запущено без аутентификации в запросе",
+     "when": "GET /api/v1/labs",
+     "then": "401 UNAUTHORIZED (JSON-конверт), а не index.html"
+    },
+    {
+     "scenario": "Нет index.html",
+     "given": "Каталог wwwroot пуст/отсутствует",
+     "when": "GET /works",
+     "then": "404 {'message':'Не найдено'}"
+    },
+    {
+     "scenario": "Реальный файл отдаётся напрямую",
+     "given": "wwwroot/favicon.ico существует",
+     "when": "GET /favicon.ico",
+     "then": "200 с содержимым файла, MIME image/x-icon"
+    },
+    {
+     "scenario": "Swagger исключён из fallback (ISS-008)",
+     "given": "wwwroot/index.html существует; среда Production",
+     "when": "GET /swagger/index.html и GET /swagger",
+     "then": "Оба — 404 с телом {'message':'Не найдено'}; тело НЕ является содержимым index.html; в Development те же маршруты — 200 от Swagger UI"
+    },
+    {
+     "scenario": "Защитные заголовки fallback и статики (SEC-006)",
+     "given": "wwwroot/index.html существует",
+     "when": "GET /works и GET / (корень)",
+     "then": "Оба ответа содержат заголовки X-Content-Type-Options: nosniff и X-Frame-Options: DENY"
+    }
+   ],
+   "dependencies": [
+    "FR-001"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-003",
+   "title": "Движок rate-limiter'а: скользящее окно с потолком ключей и overflow-корзиной",
+   "description": "Система MUST реализовать in-memory потокобезопасный движок лимитера (за интерфейсом, единым для всех политик) с семантикой: (1) TryAcquire(policy, key, now): перед проверкой вычищаются метки старше окна (метка ровно windowMs назад — вне окна) и удаляются опустевшие ключи; запрос допускается, если меток ключа в окне < limit, и тогда метка now дописывается; отказ метку НЕ дописывает (окно не продлевается); (2) ShouldBlock(policy, key, now): та же проверка без записи; (3) потолок MaxTrackedKeys=10000 индивидуальных ключей на политику: если при появлении НОВОГО ключа индивидуальных уже 10000, новый ключ обслуживается overflow-корзиной '__overflow__' (те же окно и лимит); освобождение слота — после удаления опустевшего ключа; (4) общее число ключей политики в памяти никогда не превышает 10001 (10000 + overflow). Движок не знает бизнес-правил; параметры задаёт матрица FR-004. Тесты MUST уметь подставлять фиксированное время (инжектируемые часы).",
+   "source": "docs §4.1–4.2; mock rate-limiter.ts; исправление SEC-002 (корректный потолок и амплитуда)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Граница лимита в окне",
+     "given": "Политика window=60000мс, limit=5; в окне 4 метки ключа K",
+     "when": "TryAcquire(K, now) дважды",
+     "then": "Первый вызов = true (меток стало 5), второй = false; меток по-прежнему 5 (отказ не пишет метку)"
+    },
+    {
+     "scenario": "Граница окна: метка ровно windowMs назад — вне окна",
+     "given": "Метка ключа K в момент t0; политика window=60000мс, limit=5, в окне 5 меток",
+     "when": "TryAcquire(K, t0+60000)",
+     "then": "true (метка t0 вычищена: порог строго новее now−windowMs)"
+    },
+    {
+     "scenario": "Ключи независимы",
+     "given": "Ключ A заблокирован (5 меток), ключ B без меток",
+     "when": "TryAcquire(B)",
+     "then": "true"
+    },
+    {
+     "scenario": "Потолок ключей и overflow",
+     "given": "В политике уже 10000 индивидуальных ключей с живыми метками",
+     "when": "Запрос с новым уникальным ключом K10001 и затем ещё с новым K10002",
+     "then": "Оба учитываются в одной overflow-корзине: при limit=5 шестой суммарный запрос в корзине за окно отклоняется; размер словаря политики ≤10001"
+    },
+    {
+     "scenario": "Освобождение слота после окна",
+     "given": "10000 ключей; метки ключа K1 истекли (время переведено за границу окна)",
+     "when": "TryAcquire(K1, ...) вычистил метки, затем запрос с новым ключом",
+     "then": "K1 удалён из словаря, новому ключу выделен индивидуальный слот (словарь ≤10001)"
+    },
+    {
+     "scenario": "Потокобезопасность",
+     "given": "Политика limit=5",
+     "when": "32 параллельных TryAcquire одного ключа в один момент",
+     "then": "Ровно 5 вернули true"
+    }
+   ],
+   "dependencies": [],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-004",
+   "title": "Матрица применения лимитов и порядок KDF-проверки до лимитера (системное исправление SEC-001/SEC-002)",
+   "description": "Система MUST применять лимиты строго по матрице: [login] POST /auth/login — ключ 'lower(trim(login))|IP', окно 60 с, лимит 5; проверка ShouldBlock ТОЛЬКО на ветке неудачной проверки пароля и ПОСЛЕ выполнения ровно одной операции KDF (FR-007); метка пишется только для учтённой неудачной попытки; успешный вход лимитером не блокируется и не учитывается. [register] POST /auth/register — ключ 'IP', окно 3600 с, лимит 5; TryAcquire выполняется первым, ДО разбора и валидации тела. [recovery_request] POST /auth/recovery/request — ключ 'lower(trim(email))', окно 3600 с, лимит 3; TryAcquire ДО проверки существования email — 429 одинаково для существующего и несуществующего email (оракула нет). Превышение любого лимита → 429 RATE_LIMITED с message 'Слишком много попыток. Повторите позже'. Реестр остаточных поверхностей (нормативные оценки амплитуды, исправление SEC-002; README FR-028 обязан их воспроизводить): (а) вход с неизвестными логинами, распределёнными по ключам, с ОДНОГО IP: устойчивая интенсивность KDF = MaxTrackedKeys × 5 за 60 с = 50000 KDF/мин (≈833 KDF/с, каждая — 210000 итераций PBKDF2-HMAC-SHA256), обновляется каждый период окна; поверхность ПРИНЯТА осознанно, пер-IP сдерживание в этой итерации заморожено (OQ-001); (б) регистрация: ≤5 KDF/час с одного IP (KDF только при успешном создании, до создания — валидация и 409); (в) recovery/request и recovery/confirm: 0 операций KDF (коды/токены хэшируются быстрым солёным SHA-256), амплитуда CPU пренебрежима; (г) reset-password и me/password: KDF только после предъявления валидного токена/валидной сессии — неаутентифицированная амплитуда 0. Иные (неаутентифицированные) KDF-поверхности в системе ЗАПРЕЩЕНЫ.",
+   "source": "docs §4.1–4.2, §9; исправление SEC-001 (порядок Verify→ShouldBlock) и SEC-002 (амплитуда = MaxTrackedKeys × лимит за окно)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Матрица: ключи/окна/лимиты",
+     "given": "Реализация политик",
+     "when": "Чтение конфигурации политик в тесте",
+     "then": "login: ключ login|IP, 60с, 5; register: ключ IP, 3600с, 5; recovery_request: ключ email, 3600с, 3"
+    },
+    {
+     "scenario": "Register: лимит до валидации",
+     "given": "5 регистраций с IP X за час (успешных или нет)",
+     "when": "6-й POST /auth/register с IP X с любым телом",
+     "then": "429 RATE_LIMITED, тело не разбирается и не валидируется"
+    },
+    {
+     "scenario": "Recovery: 429 не раскрывает существование email",
+     "given": "3 запроса recovery/request на 'unknown@example.com' за час",
+     "when": "4-й запрос на тот же email и 4-й на существующий 'student01@example.com'",
+     "then": "Оба — 429 RATE_LIMITED (одинаковый статус и сообщение)"
+    },
+    {
+     "scenario": "Реестр амплитуд воспроизводится в README",
+     "given": "README src/api",
+     "when": "Проверка текста",
+     "then": "Содержит оценку «вход: ≈50000 KDF/мин (≈833/с) устойчиво с одного IP при ротации логинов» и порог алертинга auth_kdf_operations_total > 100/с на 5 минут"
+    }
+   ],
+   "dependencies": [
+    "FR-003",
+    "FR-005"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-005",
+   "title": "KDF-сервис паролей, эталонный хэш и счётчик операций",
+   "description": "Система MUST хэшировать пароли PBKDF2-HMAC-SHA256 (Rfc2898DeriveBytes): соль 16 случайных байт, 32-байтный ключ, число итераций из Auth__Pbkdf2Iterations (по умолчанию 210000; тесты могут задавать меньшее, например 1000). Формат хранения: 'pbkdf2-sha256$<iterations>$<saltBase64>$<hashBase64>'. Verify(password, storedHash) MUST читать параметры из САМОГО хранимого хэша (смена конфигурации не ломает старые хэши) и выполнять ровно одну деривацию. Сервис MUST предоставлять VerifyReference(password): ровно одна деривация против эталонного хэша, созданного при старте с теми же параметрами (итерациями), результат всегда отбрасывается. КАЖДАЯ выполненная деривация (включая эталонную) MUST инкрементировать счётчик auth_kdf_operations_total с меткой вызывателя. Равномерность стоимости (AR-004): Verify и VerifyReference MUST использовать идентичные параметры (алгоритм, итерации, длина) — гарантия действует для хэшей, созданных при ТЕКУЩЕМ значении Auth__Pbkdf2Iterations. Для legacy-хэшей, созданных при ином числе итераций, Verify корректно использует параметры хэша — остаточное расхождение тайминга с эталонной веткой ПРИНЯТО и задокументировано (in-memory хранилище пересоздаётся рестартом; смена конфигурации требует рестарта процесса).",
+   "source": "docs §5, §9 (PBKDF2-SHA256 210000); исправление SEC-001 (эталонный хэш равной стоимости); AR-004 (область действия гарантии)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Хэш и проверка",
+     "given": "Hash('Str0ng!pass') при итерациях 1000",
+     "when": "Verify('Str0ng!pass', hash) и Verify('wrong', hash)",
+     "then": "true и false; хэш начинается с 'pbkdf2-sha256$1000$'"
+    },
+    {
+     "scenario": "Параметры из хранимой строки",
+     "given": "Пользователь создан при Auth__Pbkdf2Iterations=1000, затем конфигурация изменена на 2000",
+     "when": "Вход со старым правильным паролем",
+     "then": "200 (Verify использует 1000 из хэша), новый хэш создаётся с 2000"
+    },
+    {
+     "scenario": "Legacy-хэш и равномерность веток (AR-004)",
+     "given": "Пользователь создан при Auth__Pbkdf2Iterations=1000; в рамках одного процесса теста конфигурация изменена на 2000 (хранилище не пересоздано)",
+     "when": "Неудачный вход по этому логину (ветка Verify) и неудачный вход по неизвестному логину (ветка VerifyReference)",
+     "then": "Оба — 401 'Неверный логин или пароль'; Δkdf=1 на каждый запрос; расхождение времени выполнения веток допускается (документированная остаточная поверхность)"
+    },
+    {
+     "scenario": "Эталонная проверка считается",
+     "given": "Счётчик обнулён",
+     "when": "VerifyReference('anything')",
+     "then": "Возвращает false; auth_kdf_operations_total{endpoint=reference} = 1"
+    },
+    {
+     "scenario": "Счётчик на каждый вызов",
+     "given": "Счётчик обнулён",
+     "when": "Hash(x); Verify(a,h); VerifyReference(b)",
+     "then": "Сумма счётчика по всем меткам = 3"
+    }
+   ],
+   "dependencies": [],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-006",
+   "title": "Регистрация студента POST /auth/register",
+   "description": "Система MUST обрабатывать POST /api/v1/auth/register в порядке: (1) TryAcquire регистрационного лимита (FR-004) — отказ 429; (2) валидация полей (все ошибки собираются одновременно): fullName 1–200 после трима; login 1–100 после трима, charset [A-Za-z0-9._-]; email формат + 1–254 после трима; password — сырая строка БЕЗ трима, длина 8–128 включительно: <8 → правила ≥1 цифра (\\d), ≥1 буква (\\p{L}), ≥1 спецзнак ([^\\p{L}\\d]) с текстами min/digit/letter/special (все сработавшие сразу), >128 → errors.password=['Пароль — не более 128 символов'] (серверное дополнение словаря, ISS-016; прочие правила при длине >128 не проверяются); repeatPassword обязателен и дословно равен password — нарушение → 400 VALIDATION message 'Данные заполнены неверно' + errors по полям с текстами словаря (ключи: fullName, login, email, password, repeatPassword); пустая строка и строка из одних пробелов в триммируемых полях невалидна (required 'Заполните поле'); (3) дубликат lower(login) → 409 CONFLICT_LOGIN 'Пользователь с таким логином уже существует' (проверяется РАНЬШЕ email); (4) дубликат lower(email) → 409 CONFLICT_EMAIL 'Пользователь с таким email уже существует'; (5) создание User (role='student' всегда; поле role во входе при наличии игнорируется; groupId=null; пароль хэшируется — 1 KDF), выпуск токенов и cookie (FR-008), ответ 201 + MeDto. Не-строковые значения полей обрабатываются как пустые строки.",
+   "source": "docs §4.1, §8; mock auth/handlers.ts handleAuthRegister; ISS-016 (верхняя граница пароля 128)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Успешная регистрация",
+     "given": "Нет пользователя с логином 'newuser'",
+     "when": "POST /auth/register {fullName:'Иванов Иван', login:'newuser', email:'nu@example.com', password:'Passw0rd!', repeatPassword:'Passw0rd!'}",
+     "then": "201; тело MeDto {login:'newuser', fullName:'Иванов Иван', role:'student', groupName:null}; Set-Cookie access_token и refresh_token; Δkdf(register)=1"
+    },
+    {
+     "scenario": "Пакет ошибок валидации",
+     "given": "Хранилище в любом состоянии (валидация полей выполняется до проверок уникальности)",
+     "when": "POST с login 'иван' (кириллица), email 'abc', password 'abc', repeatPassword 'xyz'",
+     "then": "400, message 'Данные заполнены неверно', errors содержит login (charset), email (формат), password (3 текста: min+digit+special), repeatPassword ('Пароли не совпадают'); Δkdf=0; пользователь не создан"
+    },
+    {
+     "scenario": "Верхняя граница пароля (ISS-016)",
+     "given": "Все прочие поля валидны; логин и email свободны",
+     "when": "POST с password длиной ровно 128 (содержит цифру, букву, спецзнак); затем POST с password длиной 129",
+     "then": "Первый — 201 (Δkdf=1); второй — 400, errors.password=['Пароль — не более 128 символов'], пользователь не создан, Δkdf=0"
+    },
+    {
+     "scenario": "Дубликат логина проверяется первым",
+     "given": "Существует login 'stu' и email 'stu@example.com'",
+     "when": "Регистрация {login:'STU', email:'stu@example.com', …валидные…}",
+     "then": "409 'Пользователь с таким логином уже существует' (без проверки email)"
+    },
+    {
+     "scenario": "Дубликат email",
+     "given": "Существует email 'a@b.ru'",
+     "when": "Регистрация с новым логином и email 'A@B.RU'",
+     "then": "409 'Пользователь с таким email уже существует'"
+    },
+    {
+     "scenario": "Пробельное ФИО невалидно",
+     "given": "Все прочие поля запроса валидны",
+     "when": "fullName='   '",
+     "then": "400, errors.fullName=['Заполните поле']"
+    },
+    {
+     "scenario": "Роль из входа игнорируется",
+     "given": "Все обязательные поля валидны; логин и email свободны",
+     "when": "POST c дополнительным полем role:'teacher'",
+     "then": "Создан student (роль в ответе 'student')"
+    }
+   ],
+   "dependencies": [
+    "FR-004",
+    "FR-005",
+    "FR-008",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-007",
+   "title": "Вход POST /auth/login: фиксированный порядок Verify→ShouldBlock (закрытие SEC-001)",
+   "description": "Система MUST обрабатывать POST /api/v1/auth/login в фиксированном порядке: (1) разбор JSON; синтаксически некорректный JSON → 400 VALIDATION без KDF (ошибка зависит только от формата — оракула нет); (2) извлечение login (строка; для поиска триммится и приводится к нижнему регистру; отсутствующее/нестроковое → '') и password (строка как есть, без трима; отсутствующее/нестроковое → ''); (3) поиск пользователя по lower(login); (4) выполнение ровно ОДНОЙ операции KDF: пользователь найден — Verify(password, passwordHash); не найден — VerifyReference(password); ветки неразличимы по стоимости (одинаковые параметры, одинаковое число дериваций); (5) при успешной проверке — успех: токены+cookie (FR-008), 200 MeDto; лимитер НЕ опрашивается и НЕ пишет метку (успешный вход никогда не блокируется и не учитывается); (6) при неуспешной — ShouldBlock('lower(login)|IP'): блок → 429 RATE_LIMITED без записи метки (уже после выполненного KDF — тайминг 429 неотличим от 401); не блок → запись метки и 401 WRONG_CREDENTIALS 'Неверный логин или пароль'. Сообщение 401 едино для любых неверных данных (несуществующий логин, неверный пароль, пустые поля). Гейт (обязательный тест): Δkdf на один запрос = 1 в КАЖДОЙ ветке 200/401/429, для известного и неизвестного логина.",
+   "source": "docs §4.1, §9; исправление SEC-001 (Verify до ShouldBlock, равный KDF в обеих 429-ветках)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Успешный вход",
+     "given": "Пользователь teacher/teacher123! существует; меток нет",
+     "when": "POST /auth/login {login:'teacher', password:'teacher123!'}",
+     "then": "200 MeDto {login:'teacher', role:'teacher', groupName:null}; оба cookie установлены; Δkdf(login)=1; меток неудач не добавлено"
+    },
+    {
+     "scenario": "Неверный пароль, известный логин",
+     "given": "teacher существует",
+     "when": "POST {login:'teacher', password:'nope123!'}",
+     "then": "401, message 'Неверный логин или пароль'; Δkdf=1; метка по ключу 'teacher|IP' записана"
+    },
+    {
+     "scenario": "Неизвестный логин",
+     "given": "Пользователя с lower(login)='ghost' не существует",
+     "when": "POST {login:'ghost', password:'whatever1!'}",
+     "then": "401, тот же текст; Δkdf=1 (эталонная деривация); метка по ключу 'ghost|IP' записана"
+    },
+    {
+     "scenario": "429 на известном логине — KDF выполнен",
+     "given": "5 меток 'teacher|IP' в текущем окне",
+     "when": "POST {login:'teacher', password:'nope123!'}",
+     "then": "429 'Слишком много попыток. Повторите позже'; Δkdf=1; число меток осталось 5"
+    },
+    {
+     "scenario": "429 на неизвестном логине — KDF выполнен",
+     "given": "5 меток 'ghost|IP' в текущем окне",
+     "when": "POST {login:'ghost', password:'whatever1!'}",
+     "then": "429; Δkdf=1 (столько же, сколько в сценарии 429 на известном — равная стоимость веток)"
+    },
+    {
+     "scenario": "Успех не блокируется лимитером",
+     "given": "5 меток 'teacher|IP' (все — прошлые неудачи)",
+     "when": "POST {login:'teacher', password:'teacher123!'}",
+     "then": "200 + cookie (верный пароль проходит несмотря на исчерпанный лимит неудач ключа); меток по-прежнему 5; Δkdf=1"
+    },
+    {
+     "scenario": "Логин без учёта регистра и с пробелами",
+     "given": "Пользователь teacher/teacher123! существует; меток лимитера нет",
+     "when": "POST {login:'  TEACHER  ', password:'teacher123!'}",
+     "then": "200 MeDto"
+    },
+    {
+     "scenario": "Отсутствующие поля — единый 401",
+     "given": "Пользователь teacher существует",
+     "when": "POST {} или {login:'teacher'} без password",
+     "then": "401 'Неверный логин или пароль'; Δkdf=1 (равномерная ветка: пустые значения не проходят проверку)"
+    },
+    {
+     "scenario": "Некорректный JSON",
+     "given": "Любое состояние хранилища (ошибка формата не зависит от данных)",
+     "when": "POST с телом '{bad json'",
+     "then": "400 'Данные заполнены неверно'; Δkdf=0"
+    },
+    {
+     "scenario": "Окно скользит",
+     "given": "5-я метка записана в момент t0",
+     "when": "Неудачный вход в t0+61с (окно 60с)",
+     "then": "401 (метка записана), не 429"
+    }
+   ],
+   "dependencies": [
+    "FR-004",
+    "FR-005",
+    "FR-008",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-008",
+   "title": "Выпуск токенов и cookie",
+   "description": "Система MUST выпускать: access — JWT HS256 (ключ Auth__JwtKey ≥32 байт), клеймы sub=userId, role, iat, exp=iat+15мин (Auth__AccessTtlMinutes), cookie access_token (HttpOnly, SameSite=Strict, Path=/, Secure вне Development, Max-Age=900); refresh — случайная строка ≥256 бит (base64url), в хранилище только SHA-256-хэш с expiresAt=now+7дней (Auth__RefreshTtlDays), cookie refresh_token (те же флаги, Max-Age=604800). Ротация refresh при /auth/refresh НЕ выполняется (упрощение допущено ТЗ п.4: до истечения/отзыва действует исходный токен). Значения токенов и их хэшей MUST NOT попадать в логи. Пустой Auth__JwtKey: в Production — отказ старта с ошибкой конфигурации; в Development — эпизодический случайный ключ и предупреждение в лог.",
+   "source": "docs §2, §9, §10 (JWT в HttpOnly-cookie 15мин/7дней); ТЗ п.4",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Форма cookie при входе",
+     "given": "Успешный вход",
+     "when": "Разбор Set-Cookie ответа",
+     "then": "Два cookie: access_token и refresh_token; оба HttpOnly; SameSite=Strict; Path=/; Max-Age 900 и 604800 соответственно"
+    },
+    {
+     "scenario": "Access-клеймы",
+     "given": "Выпущенный access",
+     "when": "Декодирование payload без верификации",
+     "then": "sub=uuid пользователя, role ∈ {student,teacher}, exp−iat=900"
+    },
+    {
+     "scenario": "Refresh хранится хэшем",
+     "given": "Успешный вход",
+     "when": "Инспекция хранилища-заглушки",
+     "then": "Запись RefreshToken содержит SHA-256 значения, но не само значение"
+    },
+    {
+     "scenario": "Production без ключа не стартует",
+     "given": "ASPNETCORE_ENVIRONMENT=Production, Auth__JwtKey не задан",
+     "when": "dotnet run",
+     "then": "Старт прерван ошибкой конфигурации, процесс завершён ненулевым кодом"
+    }
+   ],
+   "dependencies": [
+    "FR-005"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-009",
+   "title": "Обновление access-токена POST /auth/refresh",
+   "description": "Система MUST обрабатывать POST /auth/refresh по refresh-cookie: токен отсутствует, неизвестен (нет записи по SHA-256), просрочен (expiresAt ≤ now) или отозван (revokedAt ≠ null) → 401 UNAUTHORIZED 'Не авторизован', cookie не выставляются; валидный токен → выпуск НОВОГО access-cookie (FR-008), refresh не перевыпускается и не ротируется, ответ 204. Параллельные refresh-запросы допустимы и все получают 204 (идемпотентность без ротации).",
+   "source": "docs §6 (POST /auth/refresh); клиент auth-interceptor.ts",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Успешный refresh",
+     "given": "Валидная refresh-cookie",
+     "when": "POST /auth/refresh",
+     "then": "204; Set-Cookie нового access_token; refresh_token не переустановлен"
+    },
+    {
+     "scenario": "Просроченный refresh",
+     "given": "expiresAt в прошлом",
+     "when": "POST /auth/refresh",
+     "then": "401 'Не авторизован'; без Set-Cookie"
+    },
+    {
+     "scenario": "Отозванный refresh",
+     "given": "Пользователь выполнил logout (токен отозван)",
+     "when": "POST /auth/refresh с тем же токеном",
+     "then": "401 'Не авторизован'"
+    },
+    {
+     "scenario": "Без cookie",
+     "given": "Запрос не содержит cookie refresh_token",
+     "when": "POST /auth/refresh без cookie",
+     "then": "401 'Не авторизован'"
+    }
+   ],
+   "dependencies": [
+    "FR-008",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-010",
+   "title": "Выход POST /auth/logout",
+   "description": "Система MUST обрабатывать POST /auth/logout идемпотентно и БЕЗ требования валидного access-токена (чтобы logout отозвал refresh даже при истёкшем access): если refresh-cookie присутствует и токен по SHA-256 найден и жив — запись получает revokedAt=now; в любом случае оба cookie очищаются (выставляются с Max-Age=0); ответ всегда 204. Отзыв чужих/несуществующих токенов не происходит.",
+   "source": "docs §4.1, §6; mock handleAuthLogout (идемпотентность)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Выход с валидной сессией",
+     "given": "Пользователь вошёл (оба cookie)",
+     "when": "POST /auth/logout",
+     "then": "204; refresh-токен отозван (последующий /auth/refresh — 401); оба cookie сброшены"
+    },
+    {
+     "scenario": "Выход без cookie",
+     "given": "Запрос не содержит cookie access_token и refresh_token",
+     "when": "POST /auth/logout без cookie",
+     "then": "204 (без ошибок)"
+    },
+    {
+     "scenario": "Истёкший access + живой refresh",
+     "given": "access истёк, refresh валиден",
+     "when": "POST /auth/logout c refresh-cookie",
+     "then": "204 и refresh отозван (несмотря на невалидный/отсутствующий access)"
+    }
+   ],
+   "dependencies": [
+    "FR-008",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-011",
+   "title": "Текущий пользователь GET /auth/me",
+   "description": "Система MUST возвращать по валидному access-токену 200 MeDto {login, fullName, role, groupName}: groupName — имя группы для student с groupId, иначе null (у teacher всегда null); имя группы вычисляется по текущему состоянию групп. Без токена/с невалидным или просроченным access → 401 UNAUTHORIZED 'Не авторизован'.",
+   "source": "docs §3, §6; models.ts MeDto",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Студент в группе",
+     "given": "student01 входит в ИК-221",
+     "when": "GET /auth/me с его access",
+     "then": "200 {role:'student', groupName:'ИК-221', …}"
+    },
+    {
+     "scenario": "Преподаватель",
+     "given": "Валидная сессия преподавателя",
+     "when": "GET /auth/me с access учителя",
+     "then": "200, groupName:null"
+    },
+    {
+     "scenario": "Без токена",
+     "given": "Запрос без cookie access_token",
+     "when": "GET /auth/me без cookie",
+     "then": "401 'Не авторизован'"
+    }
+   ],
+   "dependencies": [
+    "FR-008",
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-012",
+   "title": "Запрос кода восстановления POST /auth/recovery/request",
+   "description": "Система MUST: (1) TryAcquire лимита 'lower(trim(email))' 3/3600с (до проверки существования) — отказ 429 RATE_LIMITED одинаково для любого email; (2) сгенерировать 6-значный код (ASCII-цифры, криптографический ГСЧ, ведущие нули допустимы) ВСЕГДА — и для существующего, и для несуществующего email; (3) если пользователь с lower(email) существует: погасить все его живые коды (usedAt=now; одновременно жив максимум один — прежние коды после переотправки отвергаются как использованные) и записать новый RecoveryCode (солёный SHA-256 кода, expiresAt=now+10мин, attempts=0); (4) отправить письмо с кодом через IEmailSender: в Environment=Development заглушка пишет запись в выделенную категорию лога 'EmailDev' (маркер [DEV-EMAIL], адресат, код) — это единственный разрешённый канал появления кода в логах (NFR-006, ISS-003/SEC-002); формат записи одинаков для существующего и несуществующего email; в средах ≠ Development — no-op с одним warning без адресата и содержимого; (5) ответ 200 с ПУСТЫМ телом (0 байт, Content-Length: 0; НЕ JSON-объект '{}' — ISS-014) в любом случае. Операций KDF в этом эндпойнте — 0.",
+   "source": "docs §4.2, §9; mock handleAuthRecoveryRequest (аменда 9C); ISS-003/SEC-002 (категория EmailDev); ISS-014 (форма тела)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Существующий email",
+     "given": "student01@example.com зарегистрирован, кодов нет",
+     "when": "POST {email:'student01@example.com'}",
+     "then": "200; Content-Length: 0; создан ровно один живой код с TTL 10 мин; IEmailSender вызван один раз; в тестовом log-sink запись с 6-значным кодом присутствует ТОЛЬКО в категории 'EmailDev'; Δkdf=0"
+    },
+    {
+     "scenario": "Несуществующий email",
+     "given": "Пользователя с lower(email)='nobody@example.com' не существует; лимит 3/час не исчерпан",
+     "when": "POST {email:'nobody@example.com'}",
+     "then": "200; в хранилище не появилось кодов; отправка (запись 'EmailDev') выполнена так же, как для существующего"
+    },
+    {
+     "scenario": "Код не попадает в основной лог (ISS-003/SEC-002)",
+     "given": "Тестовый log-sink разделяет категории; прогон в конфигурации Development и отдельно в конфигурации Production (заданы Auth__JwtKey и нестандартный Seed__TeacherPassword)",
+     "when": "POST recovery/request в обеих конфигурациях",
+     "then": "Development: ни одна запись вне категории 'EmailDev' не содержит код; Production: ни одна запись вообще не содержит код (no-op warning без содержимого)"
+    },
+    {
+     "scenario": "Переотправка гасит прежний код",
+     "given": "Живой код C1 пользователя",
+     "when": "Повторный request того же email",
+     "then": "200; C1.usedAt≠null; новый код C2 жив; подтверждение C1 → 400 'Код восстановления не подходит'"
+    },
+    {
+     "scenario": "Лимит 3/час",
+     "given": "3 request на email X за час (любой валидности)",
+     "when": "4-й request на X",
+     "then": "429 (и для существующего, и для несуществующего X)"
+    }
+   ],
+   "dependencies": [
+    "FR-004",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-013",
+   "title": "Подтверждение кода POST /auth/recovery/confirm",
+   "description": "Система MUST: email и code триммятся; пользователь не найден → 400 CODE_REJECTED 'Код восстановления не подходит' без раскрытия существования; найден — поиск его живого кода (usedAt=null и expiresAt>now) с совпадающим хэшем: совпадение → код гасится (usedAt=now), создаётся PasswordResetToken (сущность токена сброса пароля: случайная строка ≥256 бит, хранится SHA-256, TTL 15 мин), ответ 200 {resetToken:'<значение>'}; без совпадения → attempts инкрементируется у КАЖДОГО живого кода пользователя и при достижении 5 код гасится (usedAt=now); ответ 400 CODE_REJECTED. Просроченный/использованный код = не живой → 400 CODE_REJECTED. KDF — 0.",
+   "source": "docs §4.2; mock handleAuthRecoveryConfirm",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Верный код",
+     "given": "Живой код 123456 у student01@example.com",
+     "when": "POST {email:'student01@example.com', code:'123456'}",
+     "then": "200 {resetToken≠null}; код погашен; PasswordResetToken жив 15 мин"
+    },
+    {
+     "scenario": "Неверный код — попытки считаются",
+     "given": "Живой код, attempts=0",
+     "when": "POST с code '000000'",
+     "then": "400 'Код восстановления не подходит'; attempts=1"
+    },
+    {
+     "scenario": "Пятая неверная аннулирует код",
+     "given": "Живой код с attempts=4",
+     "when": "Неверный code",
+     "then": "400; код погашен (usedAt≠null); последующий верный код → 400 'Код восстановления не подходит'"
+    },
+    {
+     "scenario": "Незарегистрированный email",
+     "given": "Пользователя с email 'no@no.no' не существует",
+     "when": "POST {email:'no@no.no', code:'123456'}",
+     "then": "400 'Код восстановления не подходит' (тот же текст)"
+    }
+   ],
+   "dependencies": [
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-014",
+   "title": "Сброс пароля POST /auth/reset-password",
+   "description": "Система MUST: resetToken триммится; поиск по SHA-256: не найден, просрочен или использован → 400 RESET_LINK_INVALID 'Ссылка восстановления недействительна или истекла' (найденный, но неживой токен дополнительно гасится); живой → валидация password/confirmPassword по правилам FR-006, включая верхнюю границу 128 символов (errors.password=['Пароль — не более 128 символов']) → при полевых ошибках 400 VALIDATION и токен НЕ гасится; успех: passwordHash перезаписывается (1 KDF), гасятся ВСЕ reset-токены пользователя, отзываются ВСЕ его refresh-токены, ответ 204. Статус успеха — строго 204 с пустым телом (арбитраж ISS-004: ожидание design «200 с пустым телом» отклонено — см. ASM-016). Сессии (access) других пользователей не затрагиваются.",
+   "source": "docs §4.2, §6; mock handleAuthResetPassword (аменда 9D); ISS-004 (арбитраж статуса), ISS-016 (граница 128)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Успешный сброс",
+     "given": "Живой resetToken для student01",
+     "when": "POST {resetToken, password:'NewPass1!', confirmPassword:'NewPass1!'}",
+     "then": "204 с пустым телом; вход со старым паролем — 401, с новым — 200; все reset-токены пользователя погашены; его refresh-токены отозваны; Δkdf(reset_password)=1"
+    },
+    {
+     "scenario": "Несуществующий токен",
+     "given": "В хранилище нет записи с SHA-256 предъявленного значения",
+     "when": "POST {resetToken:'garbage', …валидные пароли…}",
+     "then": "400 'Ссылка восстановления недействительна или истекла'; пароль не изменён"
+    },
+    {
+     "scenario": "Просроченный токен гасится",
+     "given": "Токен с expiresAt в прошлом",
+     "when": "POST с ним",
+     "then": "400 RESET_LINK_INVALID; usedAt токена проставлен"
+    },
+    {
+     "scenario": "Полевая ошибка не гасит токен",
+     "given": "Живой токен",
+     "when": "POST с password 'abc'",
+     "then": "400 'Данные заполнены неверно' + errors.password (min/digit/special); токен остался живым (повтор с валидным паролем — 204)"
+    },
+    {
+     "scenario": "Сверхдлинный пароль отклоняется",
+     "given": "Живой токен; confirmPassword совпадает с password",
+     "when": "POST с password длиной 129",
+     "then": "400 'Данные заполнены неверно' + errors.password=['Пароль — не более 128 символов']; токен жив; Δkdf=0"
+    }
+   ],
+   "dependencies": [
+    "FR-005",
+    "FR-008",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-015",
+   "title": "Профиль GET/PUT /api/v1/me/profile",
+   "description": "Система MUST: GET → 200 ProfileDto {login, email, fullName, role, groupName} текущего пользователя (groupName вычисляется по текущему состоянию групп); PUT {fullName, email} → валидация как во FR-006 (errors {fullName, email}) → 400 VALIDATION; дубликат lower(email) среди ДРУГИХ пользователей → 409 'Пользователь с таким email уже существует'; успех — обновление только fullName/email (login, роль, группа неизменны; поле login во входе игнорируется), 200 обновлённый ProfileDto. Доступно любой авторизованной роли.",
+   "source": "docs §4.7, §6; mock profile/handlers.ts",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "GET профиля студента с группой",
+     "given": "student01 авторизован и состоит в ИК-221",
+     "when": "GET /me/profile под student01",
+     "then": "200 {login:'student01', email:…, fullName:…, role:'student', groupName:'ИК-221'}"
+    },
+    {
+     "scenario": "Успешное редактирование",
+     "given": "Пользователь авторизован; новые значения валидны и email свободен",
+     "when": "PUT {fullName:'Новое ФИО', email:'new@example.com'}",
+     "then": "200 ProfileDto с новыми значениями; groupName пересчитан"
+    },
+    {
+     "scenario": "Занятый email",
+     "given": "email занят другим пользователем",
+     "when": "PUT с этим email",
+     "then": "409 'Пользователь с таким email уже существует'"
+    },
+    {
+     "scenario": "Пустое ФИО",
+     "given": "Пользователь авторизован; email валиден",
+     "when": "PUT {fullName:'  ', email:'a@b.ru'}",
+     "then": "400, errors.fullName=['Заполните поле']"
+    },
+    {
+     "scenario": "Свой email не конфликтует",
+     "given": "Текущий email пользователя X",
+     "when": "PUT без изменения email",
+     "then": "200 (совпадение с самим собой — не 409)"
+    }
+   ],
+   "dependencies": [
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-016",
+   "title": "Смена пароля PUT /api/v1/me/password",
+   "description": "Система MUST (только авторизованные): (1) проверка currentPassword: несовпадение с passwordHash → 400 WRONG_CURRENT_PASSWORD 'Неверный текущий пароль' (одно сообщение, без errors-карты; проверка ДО полевых ошибок нового пароля; 1 KDF); currentPassword длиной >128 символов проверку не проходит БЕЗ выполнения KDF (ответ тот же 400 WRONG_CURRENT_PASSWORD — гейт Δkdf на /auth/login не затронут); (2) валидация password/confirmPassword по FR-006 (8–128, тексты словаря, включая password.max) → 400 VALIDATION errors {password, confirmPassword}; (3) успех: passwordHash перезаписывается (1 KDF), отзываются ВСЕ refresh-токены пользователя, КРОМЕ совпадающего с refresh-cookie текущего запроса (если cookie нет — отзываются все), ответ 204. АРБИТРАЖ ISS-002: политика «все, КРОМЕ токена текущей cookie» обязательна; требование design «гасить все, включая текущий» отклонено (design построен против иной версии спеки — ASM-016/OQ-007); сигнатура репозитория revoke-all-for-user-except сохраняется. Значение currentPassword сравнивается дословно, без трима (пробел — легальный спецзнак в пределах 128 символов).",
+   "source": "docs §4.7, §8; mock profile.changePassword; ISS-002 (арбитраж политики отзыва), ISS-016 (граница 128)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Неверный текущий пароль",
+     "given": "Пользователь авторизован; передан неверный currentPassword",
+     "when": "PUT {currentPassword:'wrong', password:'NewPass1!', confirmPassword:'NewPass1!'}",
+     "then": "400, message 'Неверный текущий пароль', без errors; новый пароль НЕ валидировался и не применён"
+    },
+    {
+     "scenario": "Сверхдлинный currentPassword — без KDF",
+     "given": "Пользователь авторизован",
+     "when": "PUT {currentPassword: <129 символов>, password:'NewPass1!', confirmPassword:'NewPass1!'}",
+     "then": "400 'Неверный текущий пароль'; Δkdf=0"
+    },
+    {
+     "scenario": "Успешная смена сохраняет текущую сессию (арбитраж ISS-002)",
+     "given": "refresh-cookie текущей сессии присутствует; у пользователя есть второй refresh-токен (другое устройство)",
+     "when": "PUT с верным currentPassword и валидным новым",
+     "then": "204; вход по новому паролю — 200, по старому — 401; refresh текущей cookie всё ещё валиден (последующий /auth/refresh — 204); refresh второго устройства отозван (его /auth/refresh — 401); Δkdf=2 (verify+hash)"
+    },
+    {
+     "scenario": "Смена без refresh-cookie отзывает все",
+     "given": "Пользователь авторизован (только access-cookie); в хранилище есть его refresh-токены",
+     "when": "PUT с верным currentPassword",
+     "then": "204; все refresh-токены пользователя отозваны"
+    },
+    {
+     "scenario": "Слабый новый пароль",
+     "given": "currentPassword совпадает с текущим паролем",
+     "when": "currentPassword верный, password 'abc'",
+     "then": "400 'Данные заполнены неверно' + errors.password (min/digit/special)"
+    }
+   ],
+   "dependencies": [
+    "FR-005",
+    "FR-008",
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-017",
+   "title": "Лабораторные: список, CRUD, семестр (teacher)",
+   "description": "Система MUST реализовать (все — только teacher, порядок отказов 401→403→400→404→409): GET /api/v1/labs?semester=&page=&sortField=&sortDir= → 200 PagedResult<LabDto>, pageSize=10. Фильтр semester (ISS-009/AR-002/SEC-005): параметр отсутствует ИЛИ не парсится в целое число (нечисловая строка, дробное) → фильтр НЕ применяется, выдаются все работы (мягкая нормализация без ошибки, в стиле page/sortField/sortDir); целое число → фильтр точного равенства, значение вне 1..Labs__MaxSemester даёт пустую выборку (items=[], total=0), НЕ 400. Сортировка двухколоночная, применяется всегда: первичный ключ sortField ('number'|'semester', по умолчанию 'semester') × sortDir ('asc'|'desc', по умолчанию 'asc'), вторичный — соседнее поле всегда asc (дефолт = semester↑,number↑); значения sortField/sortDir вне словаря нормализуются к дефолтам без ошибки; page — целое ≥1, некорректное (нецелое/нечисловое/<1) → 1; страница правее последней — пустые items при корректном total; в ответе page — нормализованное значение. GET /labs/{id} → 200 LabDto | 404 NOT_FOUND_LAB 'Лабораторная не найдена'. POST /labs (LabInput) → 201 LabDto; PUT /labs/{id} → 200 LabDto (несуществующий id → 404); валидация LabInput (все ошибки одновременно, errors {number, semester, content, assignmentUrl}, тексты ERROR_TEXTS): number — целое >0 (JSON-число или строка из цифр после трима; '0','-3','1.5','abc' невалидны); semester — целое 1..Labs__MaxSemester включительно, текст ошибки — 'Семестр — число от 1 до N' с N=Labs__MaxSemester (ISS-015; при N=10 дословно совпадает с клиентским); content — 1–500 после трима; assignmentUrl — null/пусто или префикс http:// или https://: нарушение префикса → errors.assignmentUrl=['Ссылка должна начинаться с http:// или https://'], длина после трима >1000 → errors.assignmentUrl=['Ссылка — не более 1000 символов'] (серверное дополнение словаря, ISS-015); ровно 1000 — валидно. Нормализация после валидации: числа приводятся к int, content/url триммятся, пустая ссылка → null, defenseRequired — строго boolean. Дубликат пары (semester, number) → 409 CONFLICT_LAB 'Лабораторная с таким номером уже есть в семестре' (при update собственная запись конфликтом не считается). DELETE /labs/{id} → 204 и каскадное удаление связанных Submission (несуществующий id → 404).",
+   "source": "docs §4.3, §6, §8; mock labs/handlers.ts; ISS-009/AR-002/SEC-005 (семантика semester query), ISS-015 (тексты ошибок)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Дефолтный список",
+     "given": "Сид: 20 работ семестра 1 и 3 работы семестра 2",
+     "when": "GET /labs (teacher)",
+     "then": "200 {items:10, total:23, page:1, pageSize:10}; первый элемент — (semester=1, number=1)"
+    },
+    {
+     "scenario": "Фильтр и сортировка",
+     "given": "Сид развёрнут: 20 работ семестра 1 и 3 работы семестра 2",
+     "when": "GET /labs?semester=2&sortField=number&sortDir=desc",
+     "then": "total=3; items упорядочены number 3,2,1"
+    },
+    {
+     "scenario": "Нечисловой semester — фильтр не применяется (ISS-009)",
+     "given": "Сид развёрнут: 23 работы",
+     "when": "GET /labs?semester=abc и GET /labs?semester=2.5 (teacher)",
+     "then": "Оба — 200 с total=23 и page=1 (поведение совпадает с запросом без параметра semester)"
+    },
+    {
+     "scenario": "Внедиапазонный semester — пустая выборка, не 400",
+     "given": "Сид: работы только в семестрах 1 и 2",
+     "when": "GET /labs?semester=99 (teacher)",
+     "then": "200 {items:[], total:0, page:1, pageSize:10}"
+    },
+    {
+     "scenario": "Некорректная страница нормализуется",
+     "given": "Список работ не пуст",
+     "when": "GET /labs?page=0 и ?page=abc и ?page=2.5",
+     "then": "Во всех случаях page=1 в ответе (эхо исходного значения запрещено)"
+    },
+    {
+     "scenario": "Страница правее последней",
+     "given": "В выборке 23 записи при pageSize=10",
+     "when": "GET /labs?page=99",
+     "then": "items=[], total=23, page=99"
+    },
+    {
+     "scenario": "Создание",
+     "given": "Запрос от teacher; пары (semester=1, number=21) не существует",
+     "when": "POST {number:21, semester:1, content:'Новая', assignmentUrl:'', defenseRequired:true}",
+     "then": "201 LabDto с assignmentUrl=null и id≠null"
+    },
+    {
+     "scenario": "Дубликат пары",
+     "given": "(1,1) существует",
+     "when": "POST {number:1, semester:1, …}",
+     "then": "409 'Лабораторная с таким номером уже есть в семестре'"
+    },
+    {
+     "scenario": "Границы семестра",
+     "given": "Запрос от teacher; Labs__MaxSemester=10",
+     "when": "POST с semester=1 и semester=10; затем semester=0 и semester=11",
+     "then": "Первые два — 201; последние два — 400 с errors.semester=['Семестр — число от 1 до 10'] (текст — шаблон от Labs__MaxSemester)"
+    },
+    {
+     "scenario": "Граница длины assignmentUrl (ISS-015)",
+     "given": "teacher; валидные прочие поля",
+     "when": "POST с assignmentUrl длиной ровно 1000 после трима (префикс https://); затем длиной 1001",
+     "then": "Первый — 201; второй — 400, errors.assignmentUrl=['Ссылка — не более 1000 символов']"
+    },
+    {
+     "scenario": "Редактирование без самоконфликта",
+     "given": "Лабораторная (1,5)",
+     "when": "PUT той же записи с теми же (semester=1, number=5), но новым content",
+     "then": "200 (не 409)"
+    },
+    {
+     "scenario": "Удаление каскадно",
+     "given": "Есть сдача по работе L",
+     "when": "DELETE /labs/{L.id}",
+     "then": "204; записей сдач с labId=L.id нет; GET /labs/{L.id} — 404"
+    },
+    {
+     "scenario": "Роли",
+     "given": "Существуют валидные сессии student и возможность анонимного запроса",
+     "when": "GET /labs под student и анонимно",
+     "then": "403 'Доступ запрещён' и 401 'Не авторизован' соответственно"
+    }
+   ],
+   "dependencies": [
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-018",
+   "title": "Перечень семестров GET /api/v1/semesters",
+   "description": "Система MUST возвращать 200: массив различных номеров семестров, по которым есть хотя бы одна лабораторная, отсортированный по возрастанию. Доступно любой авторизованной роли (student/teacher); анонимно — 401.",
+   "source": "docs §4.4, §6; mock labs.semesters",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Distinct по возрастанию",
+     "given": "Сид: работы в семестрах 1 и 2",
+     "when": "GET /semesters (student)",
+     "then": "200 [1,2]"
+    },
+    {
+     "scenario": "Требуется авторизация",
+     "given": "Запрос без cookie access_token",
+     "when": "GET /semesters без токена",
+     "then": "401 'Не авторизован'"
+    }
+   ],
+   "dependencies": [
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-019",
+   "title": "Группы: список, CRUD, состав (teacher)",
+   "description": "Система MUST (teacher-only, порядок 401→403→400→404→409): GET /api/v1/groups → 200 GroupDto[] (не пагинируется), сортировка name↑ без учёта регистра ПО ПРАВИЛАМ РУССКОЙ ЛОКАЛИ (ru) — единая культура сравнения со списками студентов FR-020/FR-021 (AR-005); studentCount — вычисляемое число студентов группы; POST /groups {name} → 201 GroupDto (name 1–100 после трима, иначе 400 errors.name=['Название группы — от 1 до 100 символов']; дубликат lower(name) → 409 'Группа с таким названием уже существует'); PUT /groups/{id} {name} → 200 (404 'Группа не найдена'; 409 кроме самой группы); DELETE /groups/{id} → 204 — группа удаляется, её студентам groupId=null (пользователи сохраняются), 404 при неизвестном id; GET /groups/{id}/students?page= → 200 PagedResult<StudentDto> (pageSize=10, порядок fullName↑ затем login↑ по правилам русской локали, page нормализуется как в FR-017, страница правее последней — пустые items при корректном total; StudentDto: {id, fullName, login, email, groupId=<id группы>, groupName=<имя группы>}).",
+   "source": "docs §4.5, §6; mock groups/handlers.ts; AR-005 (культура сортировки имён групп)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Список со счётчиком",
+     "given": "ИК-221 (25 студентов), ИК-222 (5), ИК-223 (0)",
+     "when": "GET /groups",
+     "then": "200 массив из 3 GroupDto с studentCount 25,5,0, порядок по имени без учёта регистра (ru-локаль)"
+    },
+    {
+     "scenario": "Создание и дубликат",
+     "given": "Запрос от teacher; группы ИК-224 не существует",
+     "when": "POST {name:'  ИК-224  '} затем POST {name:'ик-224'}",
+     "then": "201 {name:'ИК-224', studentCount:0}; затем 409 'Группа с таким названием уже существует'"
+    },
+    {
+     "scenario": "Удаление сбрасывает группу у студентов",
+     "given": "В ИК-222 есть студенты",
+     "when": "DELETE /groups/{ИК-222}",
+     "then": "204; студенты живы с groupId=null; видимы в выдаче GET /students?groupId=none"
+    },
+    {
+     "scenario": "Состав с пагинацией",
+     "given": "В группе 25 студентов",
+     "when": "GET /groups/{id}/students?page=3",
+     "then": "200 {items:5, total:25, page:3, pageSize:10}; все items имеют groupId=id группы и groupName её имя"
+    },
+    {
+     "scenario": "Неизвестная группа",
+     "given": "Группы с указанным uuid не существует",
+     "when": "GET /groups/{несуществующий-uuid}/students",
+     "then": "404 'Группа не найдена'"
+    }
+   ],
+   "dependencies": [
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-020",
+   "title": "Студенты: поиск/фильтр и назначение группы (teacher)",
+   "description": "Система MUST (teacher-only): GET /api/v1/students?search=&groupId=&page= → 200 PagedResult<StudentDto> (pageSize=10): search (после трима, >200 символов → 400 errors.search=['Поиск — не более 200 символов']) — многословный: запрос разбивается на токены по пробелам, запись проходит, если ВСЕ токены — подстроки без учёта регистра ОДНОГО И ТОГО ЖЕ поля (fullName ИЛИ login ИЛИ email), порядок токенов не значим, пустой/отсутствующий search — без фильтра; groupId: отсутствует — без фильтра, 'none' — только без группы, uuid — только эта группа (неизвестный uuid — пустая выборка, НЕ 404); сортировка fullName↑ затем login↑ (русская локаль) применяется к полной выборке до нарезки; page нормализуется как в FR-017; StudentDto {id, fullName, login, email, groupId|null, groupName|null (null при отсутствии группы)}. PUT /api/v1/students/{id}/group {groupId: uuid|null} → 204: включение/перевод при uuid, исключение при null; id не найден ИЛИ указывает на пользователя с ролью ≠ student → 404 'Студент не найден'; groupId ≠ null и группа не существует → 404 'Группа не найдена'.",
+   "source": "docs §4.6, §6; mock students/handlers.ts (уточнение CR-010)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Многословный поиск в одном поле",
+     "given": "student01: 'Иванов Иван Иванович 01'/'student01'/'student01@example.com'",
+     "when": "GET /students?search=иван 01",
+     "then": "student01 в выдаче (оба токена — подстроки fullName); total корректен"
+    },
+    {
+     "scenario": "Токены в разных полях не складываются",
+     "given": "student01: fullName 'Иванов Иван Иванович 01', login 'student01', email 'student01@example.com'",
+     "when": "GET /students?search=иванов student01@example.com",
+     "then": "0 записей ('иванов' только в fullName, email — другое поле)"
+    },
+    {
+     "scenario": "Фильтр 'none'",
+     "given": "В сиде student31 и student32 без группы",
+     "when": "GET /students?groupId=none",
+     "then": "Только студенты с groupId=null (в сиде — student31, student32)"
+    },
+    {
+     "scenario": "Поиск длиннее 200",
+     "given": "Запрос от teacher",
+     "when": "GET /students?search=<201 символ>",
+     "then": "400 'Данные заполнены неверно' + errors.search=['Поиск — не более 200 символов']"
+    },
+    {
+     "scenario": "Перевод в группу",
+     "given": "student31 без группы, ИК-223 существует",
+     "when": "PUT /students/{id31}/group {groupId:<ИК-223>}",
+     "then": "204; студент появляется в составе ИК-223"
+    },
+    {
+     "scenario": "Исключение из группы",
+     "given": "Студент состоит в группе",
+     "when": "PUT /students/{id}/group {groupId:null}",
+     "then": "204; groupId=null"
+    },
+    {
+     "scenario": "Преподаватель не студент",
+     "given": "Пользователь с указанным id существует с ролью teacher",
+     "when": "PUT /students/{teacherId}/group {groupId:null}",
+     "then": "404 'Студент не найден'"
+    }
+   ],
+   "dependencies": [
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-021",
+   "title": "Сдачи: ведомость группы, upsert дат, свои сдачи",
+   "description": "Система MUST: GET /api/v1/submissions?groupId=&semester=&page= (teacher-only): параметры обязательны — semester отсутствует, нечисловой, нецелый ИЛИ целое вне 1..Labs__MaxSemester → 400 errors.semester=['Семестр — число от 1 до N'] (N=Labs__MaxSemester; ISS-011/AR-002 — строгий контракт, арбитраж против design «200 с пустыми массивами» в пользу 400, ASM-016); groupId отсутствует → 400 errors.groupId=['Заполните поле']; группа не найдена → 404 'Группа не найдена'; иначе 200 {students:[{id,fullName}] (страница по 5, порядок fullName↑ затем login↑, русская локаль), labs:[{id,number,defenseRequired}] (работы семестра, number↑), submissions:[{studentId,labId,submitDate,defenseDate}] (только пары текущей страницы × работы семестра), total:<полное число студентов группы>, page:<нормализованный int>}. Поле page — серверное расширение SubmissionsGridDto (AR-003): клиентский интерфейс объявляет {students,labs,submissions,total}; правило глоссария «поле в поле» трактуется как «все поля клиентского DTO присутствуют с теми же именами и типами; дополнительные серверные поля допустимы и клиентом игнорируются» (паритет с мок-слоем, который тоже возвращает page). PUT /api/v1/submissions (teacher-only): дата-поля проверяются ДО разрешения сущностей: не null и не строка 'YYYY-MM-DD' (строгий формат, календарная корректность) → 400 errors{submitDate|defenseDate:['Дата должна быть строкой в формате ГГГГ-ММ-ДД']}; студент (id существует и role=student) → иначе 404 'Студент не найден'; работа → иначе 404 'Лабораторная не найдена'; upsert по паре (studentId, labId): обе даты заменяются переданными (null=сброс), updatedBy=uuid преподавателя сессии, updatedAt=now; ответ 200 — полная запись Submission {id, studentId, labId, submitDate, defenseDate, updatedAt(ISO-8601), updatedBy}. GET /api/v1/me/submissions?semester= (student-only; teacher → 403): semester обязателен по тем же строгим правилам (отсутствие/нечисловое/нецелое/вне 1..Labs__MaxSemester → 400 errors.semester); студент без группы → 200 {hasGroup:false, labs:[], submissions:[]}; с группой → {hasGroup:true, labs (number↑), submissions только свои (без studentId)}.",
+   "source": "docs §4.4, §6; mock submissions/handlers.ts; models.ts SubmissionsGridDto/MySubmissionsDto; AR-002 (внедиапазонный semester), AR-003 (поле page), ISS-011 (арбитраж 400)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Ведомость первой страницы",
+     "given": "ИК-221 (25 студентов), семестр 1 (20 работ), 4 сид-сдачи у student01/02",
+     "when": "GET /submissions?groupId=<ИК-221>&semester=1&page=1 (teacher)",
+     "then": "200: students.length=5 (первые по fullName↑,login↑), labs.length=20 (number↑), submissions — только для пар этих 5 студентов (сид-сдачи student01/02, если попали на страницу), total=25, page=1"
+    },
+    {
+     "scenario": "Поле page присутствует в ответе (AR-003)",
+     "given": "ИК-221, 25 студентов, семестр 1",
+     "when": "GET /submissions?groupId=<ИК-221>&semester=1&page=2",
+     "then": "200; тело содержит поля students, labs, submissions, total И page=2 (клиентское DTO — подмножество полей ответа)"
+    },
+    {
+     "scenario": "Нет группы — 404",
+     "given": "Группы с указанным groupId не существует",
+     "when": "GET /submissions?groupId=<неизвестный>&semester=1&page=1",
+     "then": "404 'Группа не найдена'"
+    },
+    {
+     "scenario": "Отсутствует semester",
+     "given": "groupId указывает на существующую группу",
+     "when": "GET /submissions?groupId=<валидный>&page=1",
+     "then": "400 'Данные заполнены неверно' + errors.semester"
+    },
+    {
+     "scenario": "Внедиапазонный semester — 400 (AR-002)",
+     "given": "teacher; Labs__MaxSemester=10; groupId валиден",
+     "when": "GET /submissions?groupId=<валидный>&semester=0 и ?semester=99",
+     "then": "Оба — 400 'Данные заполнены неверно', errors.semester=['Семестр — число от 1 до 10']"
+    },
+    {
+     "scenario": "Upsert создаёт",
+     "given": "Пары (student05, lab1) нет",
+     "when": "PUT {studentId, labId, submitDate:'2026-09-20', defenseDate:null}",
+     "then": "200; запись создана, updatedBy=uuid преподавателя; повторный GET ведомости отражает дату"
+    },
+    {
+     "scenario": "Upsert обновляет и сбрасывает",
+     "given": "Запись с submitDate='2026-09-01', defenseDate='2026-09-11'",
+     "when": "PUT {…, submitDate:null, defenseDate:null}",
+     "then": "200; обе даты null (сброс); updatedAt обновлён"
+    },
+    {
+     "scenario": "Неконтрактная дата — 400 раньше 404",
+     "given": "Запрос от teacher с датами в неконтрактном формате",
+     "when": "PUT {studentId:<неизвестный>, labId:<неизвестный>, submitDate:'20.09.2026', defenseDate:null}",
+     "then": "400 errors.submitDate=['Дата должна быть строкой в формате ГГГГ-ММ-ДД'] (не 404)"
+    },
+    {
+     "scenario": "Свои сдачи без группы",
+     "given": "student31 без группы",
+     "when": "GET /me/submissions?semester=1 (student31)",
+     "then": "200 {hasGroup:false, labs:[], submissions:[]}"
+    },
+    {
+     "scenario": "Свои сдачи в группе",
+     "given": "student01 состоит в ИК-221; в семестре 1 — 20 работ",
+     "when": "GET /me/submissions?semester=1 (student01)",
+     "then": "200 {hasGroup:true, labs:20, submissions:3 сид-сдачи student01 без чужих строк}"
+    },
+    {
+     "scenario": "me/submissions: внедиапазонный semester — 400 (ISS-011/AR-002)",
+     "given": "student01 авторизован; Labs__MaxSemester=10",
+     "when": "GET /me/submissions?semester=11 и ?semester=abc",
+     "then": "Оба — 400 'Данные заполнены неверно' + errors.semester=['Семестр — число от 1 до 10'] (не 200 с пустыми массивами)"
+    },
+    {
+     "scenario": "Роли",
+     "given": "Существуют валидные сессии student и teacher",
+     "when": "GET /submissions под student; GET /me/submissions под teacher",
+     "then": "403 'Доступ запрещён' в обоих случаях"
+    }
+   ],
+   "dependencies": [
+    "FR-022",
+    "FR-023",
+    "FR-024"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-022",
+   "title": "Авторизация и разграничение ролей",
+   "description": "Система MUST проверять права на сервере на каждом эндпойнте: анонимные — register, login, refresh, logout, recovery/request, recovery/confirm, reset-password, /health, swagger(dev), статика/fallback; role=user (любая роль) — auth/me, me/profile, me/password, semesters; role=teacher — labs*, groups*, students*, submissions (GET/PUT); role=student — me/submissions. Порядок проверок при отказе фиксирован: 401 (нет/невалиден/просрочен access) 'Не авторизован' → 403 (роль не подходит) 'Доступ запрещён' → 400 (валидация) → 404 (сущность) → 409 (конфликт). Роль читается из клейма role access-токена. Клиентские guards не считаются защитой.",
+   "source": "docs §3, §6, §9",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Матрица ролей",
+     "given": "Развёрнут сид; доступны сессии teacher и student и анонимные запросы",
+     "when": "Для каждой защищённой операции — вызов анонимно, чужой ролью, своей ролью",
+     "then": "Анонимно — 401; чужой ролью — 403; своей — не 401/403 (статус по бизнес-правилам)"
+    },
+    {
+     "scenario": "Порядок 403 раньше 404",
+     "given": "PUT /labs/<несуществующий-id> под student (тело невалидно)",
+     "when": "Вызов под student",
+     "then": "403 'Доступ запрещён' (роль проверяется до валидации и существования)"
+    },
+    {
+     "scenario": "Тело ошибок едино",
+     "given": "Вызван любой защищённый эндпойнт /api/v1/*",
+     "when": "Любой отказ авторизации",
+     "then": "JSON {message:'Не авторизован'|'Доступ запрещён'} без stack trace"
+    }
+   ],
+   "dependencies": [
+    "FR-008"
+   ],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-023",
+   "title": "Единый конверт ошибок API",
+   "description": "Система MUST возвращать все ошибки /api/v1/*, сгенерированные конвейером приложения, в едином JSON-формате {message: string, errors?: {<поле>: string[]}}; errors присутствует только у 400 VALIDATION. Синтаксически некорректный JSON тела → 400 {message:'Данные заполнены неверно'}; неизвестный маршрут под /api → 404 {message:'Не найдено'} (в Production включая /swagger* — FR-002); необработанное исключение → 500 {message:'Внутренняя ошибка сервера'} без деталей исключения и stack trace в ответе. Граница применения (ISS-016/OQ-004): инфраструктурные отклонения Kestrel ДО выполнения конвейера — 413 при теле сверх лимита запроса и 400 на синтаксически невалидном HTTP — отвечают телом фреймворка по умолчанию и ТРЕБОВАНИЮ конверта не подчиняются; словарный текст для них не вводится. Тексты message — только из словаря глоссария/«Текстов ошибок полей»; язык сообщений — русский.",
+   "source": "docs §6 (формат ошибок), §8; mock MockValidationError → ApiError; ISS-016 (граница конверта: 413)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Форма 400",
+     "given": "teacher авторизован (валидный access-токен)",
+     "when": "POST /api/v1/labs с semester=0",
+     "then": "400; Content-Type application/json; body.message='Данные заполнены неверно'; body.errors.semester — массив строк"
+    },
+    {
+     "scenario": "Неизвестный маршрут API",
+     "given": "Приложение запущено",
+     "when": "GET /api/v1/nothing",
+     "then": "404, тело {'message':'Не найдено'}"
+    },
+    {
+     "scenario": "500 без деталей",
+     "given": "В тестовом окружении сервис заменён реализацией, бросающей исключение",
+     "when": "Инжектированный сбой (имитация исключения сервиса)",
+     "then": "500 {'message':'Внутренняя ошибка сервера'}; ответ не содержит имён типов и stack trace"
+    }
+   ],
+   "dependencies": [],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-024",
+   "title": "In-memory репозитории за интерфейсами",
+   "description": "Система MUST определять в src/api интерфейсы персистенции — IUserRepository, IGroupRepository, ILabRepository, ISubmissionRepository, ISecurityTokenRepository (refresh/reset/recovery-коды, включая операции отзыва всех refresh-токенов пользователя, поиска живого кода, гашения), IRateLimitStore — и их потокобезопасные in-memory реализации. Контроллеры и прикладные сервисы MUST зависеть ТОЛЬКО от интерфейсов (конструкторная инъекция); замена реализаций на EF Core в следующей итерации НЕ должна требовать правок контроллеров. Уникальные ограничения (lower(login), lower(email), lower(group.name), (semester,number), (studentId,labId)) MUST проверяться атомарно относительно конкурентных созданий. EF Core/Npgsql MUST NOT использоваться.",
+   "source": "ТЗ п.2 (главное требование итерации)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Подмена реализации",
+     "given": "Тестовая реализация интерфейсов",
+     "when": "Регистрация тестовых реализаций вместо in-memory",
+     "then": "Все контроллеры работают без изменений их кода"
+    },
+    {
+     "scenario": "Нет утечки EF",
+     "given": "Исходники и файлы проекта src/api",
+     "when": "Поиск 'EntityFrameworkCore' и 'Npgsql' по src/api",
+     "then": "0 вхождений в коде и в файлах проекта"
+    },
+    {
+     "scenario": "Атомарность уникальности",
+     "given": "Ровно одна пара (semester,number) может существовать",
+     "when": "Два параллельных POST /labs с одной парой (semester,number)",
+     "then": "Ровно один ответ 201, второй — 409 (без исключений и дублей)"
+    }
+   ],
+   "dependencies": [],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-025",
+   "title": "Сид: преподаватель из конфигурации + демо-данные + guard прод-конфигурации",
+   "description": "Система MUST при старте: (0) guard конфигурации Production (SEC-001, CWE-798): при Environment=Production старт прерывается ошибкой конфигурации (ненулевой код выхода; в терминах теста — WebApplicationFactory/HostBuilder сообщает об ошибке валидации конфигурации), если Seed__TeacherPassword не задан, пуст или равен документированному дефолту 'teacher123!'; значение по умолчанию применяется ТОЛЬКО в Development; затем идемпотентно (повторный старт не дублирует): (1) преподаватель: login=Seed__TeacherLogin (по умолчанию 'teacher'), пароль Seed__TeacherPassword, fullName 'Сидоров Семён Семёнович', email 'teacher@example.com', role 'teacher' — если пользователя с таким lower(login) ещё нет (1 KDF при создании); (2) при Seed__DemoData=true (по умолчанию true в Development, false в Production) — демо-набор, повторяющий сид мок-слоя: группы ИК-221, ИК-222, ИК-223; студенты student01..student32 (email studentNN@example.com, fullName 'Иванов Иван Иванович NN', пароль 'student123!', группа: 01–25→ИК-221, 26–30→ИК-222, 31–32→без группы); работы семестр 1 №1–20 и семестр 2 №1–3 (content 'Содержание лабораторной работы №N', defenseRequired для чётных N, assignmentUrl 'https://git.example.com/assignments/<sem>/<N>' для N, кратных 5, иначе null); сдачи: (student01: 1.1 submit 2026-09-01 defense 2026-09-11), (student01: 1.2 2026-09-02/2026-09-12), (student01: 1.3 2026-09-03/null), (student02: 1.1 2026-09-01/null), updatedBy=преподаватель. Идемпотентность — по естественным ключам (login/email/имя группы/(semester,number)/пара (student,lab)); uuid генерируются заново (детерминизм НЕ требуется).",
+   "source": "docs §5 (Seed__*); mock seed.ts (демо-набор); ТЗ п.1; SEC-001 (guard дефолтного сид-пароля в Production)",
+   "inferred": true,
+   "acceptance_criteria": [
+    {
+     "scenario": "Production с дефолтным сид-паролем не стартует (SEC-001)",
+     "given": "ASPNETCORE_ENVIRONMENT=Production; Seed__TeacherPassword не задан (отдельный прогон: равен 'teacher123!'); Auth__JwtKey задан",
+     "when": "Попытка старта приложения",
+     "then": "Старт прерван ошибкой конфигурации (ненулевой код выхода / ошибка WebApplicationFactory); HTTP-запросы не обслуживаются"
+    },
+    {
+     "scenario": "Production со своим паролем стартует",
+     "given": "Production; Seed__TeacherPassword='Str0ng!Unique2026'; Auth__JwtKey задан",
+     "when": "Старт приложения",
+     "then": "Приложение стартует; создан только преподаватель (демо-данных нет); вход teacher/Str0ng!Unique2026 — 200"
+    },
+    {
+     "scenario": "Старт с демо-данными (Development)",
+     "given": "Чистое хранилище; Development (дефолтный пароль допустим)",
+     "when": "Старт приложения",
+     "then": "Существует teacher (вход teacher/teacher123! — 200), 3 группы, 32 студента, 23 работы, 4 сдачи"
+    },
+    {
+     "scenario": "Идемпотентность",
+     "given": "Приложение уже запущено один раз",
+     "when": "Перезапуск (в рамках одного процесса — повторный вызов сида в тесте)",
+     "then": "Число пользователей/групп/работ/сдач не изменилось"
+    },
+    {
+     "scenario": "Production без демо-данных",
+     "given": "ASPNETCORE_ENVIRONMENT=Production; задан нестандартный Seed__TeacherPassword",
+     "when": "Старт",
+     "then": "Создан только преподаватель; списки групп/работ пусты"
+    }
+   ],
+   "dependencies": [
+    "FR-005",
+    "FR-024"
+   ],
+   "priority": "P1"
+  },
+  {
+   "id": "FR-026",
+   "title": "Миграция клиента: удаление мок-слоя, реальные HTTP-запросы, прокси",
+   "description": "Клиент MUST ходить только на реальные HTTP-эндпойнты бэкенда: (1) слой src/client/app/mock удалён (или полностью исключён из сборки и тестов); из app.config.ts удалены import setupMockLayer и provideAppInitializer(setupMockLayer); (2) сервисы src/client/app/core/services сохраняют контракт (HttpClient + API_BASE_URL='/api/v1', интерцептор авторизации, ApiError-нормализация) — их публичный API не меняется; (3) ни один файл src/client вне удалённого каталога не импортирует app/mock (известные точки: app.config.spec.ts, app.routes.spec.ts, spec-файлы страниц access/recovery/recovery-code/reset-password/profile, интеграционные наборы app/testing/integration/**) — соответствующие тесты переработаны на программируемый HttpTestingController-бэкенд или удалены; после правок ng build и ng test проходят; (4) mock-только экспорты shared/models (STORAGE_KEYS.mockDb, STORAGE_KEYS.session, MOCK_DELAY_MS) удалены вместе с их тестами; STORAGE_KEYS.recoveryFlow и ApiError сохраняются; (5) proxy.conf.json обслуживает /api и /health → Kestrel (http://localhost:5080 по умолчанию, синхронизировано с README FR-028).",
+   "source": "ТЗ п.3",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Мок-слой исключён",
+     "given": "Ветка клиента после миграции на реальные HTTP-запросы",
+     "when": "Поиск 'app/mock' и 'setupMockLayer' по src/client",
+     "then": "0 вхождений в компилируемом коде и тестах"
+    },
+    {
+     "scenario": "Сборка клиента",
+     "given": "Зависимости клиента установлены (npm ci/ng cli доступны)",
+     "when": "ng build",
+     "then": "Exit 0"
+    },
+    {
+     "scenario": "Тесты клиента",
+     "given": "Зависимости установлены; мок-слой удалён",
+     "when": "ng test",
+     "then": "Exit 0; ни один spec не импортирует мок-слой"
+    },
+    {
+     "scenario": "Сервисы не изменили контракт",
+     "given": "Миграция сервисов завершена",
+     "when": "Инспекция сервисов core",
+     "then": "Методы и типы (LabsService.getList и пр.) неизменны; HTTP-вызовы идут через API_BASE_URL"
+    },
+    {
+     "scenario": "Прокси",
+     "given": "Запущены Kestrel (http://localhost:5080) и ng serve с proxy.conf.json",
+     "when": "Запрос из dev-сервера",
+     "then": "Запросы /api/v1/* и /health достигают Kestrel (login через UI даёт 200)"
+    }
+   ],
+   "dependencies": [],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-027",
+   "title": "Unit-тесты бэкенда (обязательные гейты)",
+   "description": "Система MUST сопровождаться unit-тестами (xUnit, dotnet test), покрывающими как минимум бизнес-логику сервисов и контроллеры на заглушках. Обязательные гейты: (1) SEC-001 KDF-матрица входа: для POST /auth/login утверждается Δkdf=1 в каждой ветке — 200 (известный+верный), 401 (известный+неверный), 401 (неизвестный), 429 (известный, заблокированный ключ), 429 (неизвестный, заблокированный ключ); плюс сценарий «успех на заблокированном ключе» — 200; (2) лимитер: 5-я попытка допускается/6-я блокируется, отказ не пишет метку, скольжение окна (метка ровно windowMs назад — вне окна), потолок MaxTrackedKeys + overflow, независимость ключей; (3) recovery-поток: request (всегда 200, переотправка гасит прежний код, 3/час), confirm (верный/неверный/5-я попытка/неизвестный email), reset-password (успех, все ветки отказа, отзыв refresh); (4) cookie/токены: флаги cookie, refresh 204/401, logout отзыв; (5) матрица ролей хотя бы по одному представителю каждой группы эндпойнтов; (6) labs/groups/students/submissions: happy path + 404 + 409 + валидация + нормализация page; (7) сид: идемпотентность; (8) конверт ошибок: форма 400/404/500. Тесты используют малые Auth__Pbkdf2Iterations и инжектируемые часы для детерминизма.",
+   "source": "ТЗ «Требования к результату» (dotnet test); исправление SEC-001 (гейт перенормирован с «0 на 429» на «1/1 по веткам на 429»)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Гейт KDF-матрицы",
+     "given": "Тестовый проект бэкенда собран",
+     "when": "dotnet test",
+     "then": "Тест(ы) KDF-матрицы входа зелёные; в них утверждается Δkdf=1 для обеих 429-веток (известный и неизвестный логин)"
+    },
+    {
+     "scenario": "Полный прогон",
+     "given": "Решение бэкенда собрано (dotnet build без предупреждений)",
+     "when": "dotnet test",
+     "then": "Exit 0; покрытие затрагивает все пункты (1)–(8)"
+    }
+   ],
+   "dependencies": [],
+   "priority": "P0"
+  },
+  {
+   "id": "FR-028",
+   "title": "README src/api: запуск, прокси, операции, остаточные риски, guard прод-конфигурации",
+   "description": "README src/api MUST быть обновлён и содержать: (1) требования и команду запуска бэкенда (dotnet run, порт по умолчанию http://localhost:5080 — ASPNETCORE_URLS), переменные окружения (Auth__JwtKey, Auth__AccessTtlMinutes, Auth__RefreshTtlDays, Auth__Pbkdf2Iterations, Labs__MaxSemester, Seed__TeacherLogin/Password, Seed__DemoData) со значениями по умолчанию; (2) схему dev-режима: ng serve с proxy.conf.json (/api, /health → Kestrel), сборка клиента в wwwroot для прод-режима; (3) сид-учётки (в Development: teacher/teacher123!; studentNN/student123! при демо-данных) с ЯВНЫМ предупреждением SEC-001: в Production старт блокируется при незаданном или дефолтном Seed__TeacherPassword — требуется собственный пароль (README не должен подсказывать дефолт для прод-развёртывания); (4) оперативную заметку о KDF-поверхности с КОРРЕКТНЫМИ оценками (SEC-002): вход ≈ MaxTrackedKeys×5=50000 KDF/мин (≈833/с) устойчиво с одного IP при ротации логинов; порог алертинга auth_kdf_operations_total >100/с в течение 5 минут; реестр остаточных поверхностей из FR-004, включая принятую поверхность неуспешных входов, распределённых по ключам, с замороженным пер-IP сдерживанием; (5) указание, что EF Core/PostgreSQL подключаются в следующей итерации заменой in-memory реализаций интерфейсов репозиториев; (6) заметку о dev-почте (ISS-003/SEC-002): письма восстановления в Development появляются ТОЛЬКО в категории лога 'EmailDev' (маркер [DEV-EMAIL]) — единственное место, где код восстановления виден; в остальных средах письмо не отправляется и не логируется.",
+   "source": "ТЗ «Требования к результату» (README); SEC-001 (guard в README), SEC-002/ISS-003 (заметка о EmailDev)",
+   "inferred": false,
+   "acceptance_criteria": [
+    {
+     "scenario": "Полнота README",
+     "given": "Реализация бэкенда завершена",
+     "when": "Чтение README",
+     "then": "Разделы (1)–(6) присутствуют; пороги и амплитуда совпадают с FR-004 (50000 KDF/мин, >100/с); описан guard Seed__TeacherPassword для Production; описана категория 'EmailDev'"
+    }
+   ],
+   "dependencies": [
+    "FR-004",
+    "FR-025"
+   ],
+   "priority": "P1"
+  }
+ ],
+ "non_functional_requirements": [
+  {
+   "id": "NFR-001",
+   "type": "performance",
+   "constraint": "p95 времени ответа ≤500 мс для GET /api/v1/labs (при 200 работах), GET /api/v1/students (при 300 пользователях), GET /api/v1/submissions (группа 25 студентов × семестр 20 работ) при последовательной нагрузке 100 запросов; KDF-зависимые эндпойнты (login/register/reset-password/me/password) исключены",
+   "verification": "Интеграционный бенчмарк-тест (WebApplicationFactory + Stopwatch), включён в dotnet test",
+   "source": "docs §10"
+  },
+  {
+   "id": "NFR-002",
+   "type": "maintainability",
+   "constraint": "dotnet build завершается с 0 предупреждений (TreatWarningsAsErrors=true); dotnet test, ng build, ng test — exit 0",
+   "verification": "CI-команды локально; фиксация TreatWarningsAsErrors в csproj",
+   "source": "ТЗ «Требования к результату»"
+  },
+  {
+   "id": "NFR-003",
+   "type": "scalability",
+   "constraint": "Память лимитера ограничена: ≤10001 ключей на политику (MaxTrackedKeys + overflow-корзина) независимо от числа запросов; метки вычищаются при каждой проверке",
+   "verification": "Unit-тест: 50000 уникальных ключей → размер словаря политики ≤10001",
+   "source": "Исправление SEC-002"
+  },
+  {
+   "id": "NFR-004",
+   "type": "maintainability",
+   "constraint": "Каждая операция KDF инкрементирует auth_kdf_operations_total с меткой вызывателя; суммарное значение логируется не реже раза в 60 с; счётчик доступен тестам",
+   "verification": "Unit-тесты счётчика; проверка записи лога при закреплённом тестовом времени",
+   "source": "SEC-002 (наблюдаемость KDF-поверхности)"
+  },
+  {
+   "id": "NFR-005",
+   "type": "reliability",
+   "constraint": "Параллельная нагрузка 8 потоков × 200 смешанных операций (создание/чтение/обновление labs, groups, students, submissions) на in-memory репозиториях завершается без исключений; инварианты уникальности не нарушаются",
+   "verification": "Многопоточный unit-тест в dotnet test",
+   "source": "ТЗ п.2 (заглушки должны выдерживать конкурентные HTTP-запросы)"
+  },
+  {
+   "id": "NFR-006",
+   "type": "security",
+   "constraint": "В логи ОСНОВНЫХ категорий (всё, кроме выделенной категории 'EmailDev') не попадают: пароли, хэши паролей, значения/хэши refresh- и reset-токенов, коды восстановления — во всех средах. Единственное исключение (ISS-003/SEC-002): категория 'EmailDev' в Environment=Development, куда dev-заглушка IEmailSender пишет письмо с кодом (маркер [DEV-EMAIL]); в средах ≠ Development записей с кодом нет вовсе (no-op). Логируются только метод/путь/статус/длительность и факты событий безопасности (429, отзыв токенов, смена/сброс пароля) без идентификаторов секретов.",
+   "verification": "Unit-тесты с кастомным log-sink в двух конфигурациях: (а) Development — после полного auth-потока (register→login→recovery/request→recovery/confirm→reset-password→logout) ни одна запись вне категории 'EmailDev' не содержит ни один из отправленных секретов (пароль, код, resetToken, значения cookie); код присутствует только в [DEV-EMAIL]-записи; (б) Production-конфигурация (заданы Auth__JwtKey и нестандартный Seed__TeacherPassword) — после recovery/request ни одна запись не содержит код",
+   "source": "docs §9, §10; ISS-003/SEC-002 (согласование с dev-заглушкой почты)"
+  },
+  {
+   "id": "NFR-007",
+   "type": "security",
+   "constraint": "Матрица инспекций Set-Cookie по-экземплярно (ISS-010/AR-001), всего 7 Set-Cookie на 4 эндпойнтах: register — access_token(Max-Age=900) и refresh_token(Max-Age=604800); login — access_token(900) и refresh_token(604800); refresh — ТОЛЬКО access_token(900), refresh_token не переустанавливается; logout — оба cookie с Max-Age=0 (сброс). Атрибуты HttpOnly, SameSite=Strict, Path=/ — 7 из 7; Max-Age: 900 — у всех 3 выпусков access, 604800 — у обоих выпусков refresh, 0 — у обоих сбросов logout; флаг Secure присутствует во всех 7 при Environment=Production и ни в одном при Environment=Development.",
+   "verification": "Интеграционный тест в dev-конфигурации разбирает все 7 Set-Cookie (7/7 атрибутов HttpOnly/SameSite=Strict/Path=/; Max-Age сверяется по экземплярам: 900/604800/0); unit-тест конфигурации cookie для Production (Secure 7/7)",
+   "source": "docs §9; ISS-010/AR-001 (перенормировка матрицы под фактические пары эндпойнт×cookie)"
+  },
+  {
+   "id": "NFR-008",
+   "type": "performance",
+   "constraint": "POST /auth/login при тестовых параметрах KDF (Auth__Pbkdf2Iterations=1000): p95 ≤300 мс на 100 последовательных запросов (проверяет отсутствие лишних дериваций и накладных расходов)",
+   "verification": "Бенчмарк-тест в dotnet test с закреплённой конфигурацией",
+   "source": "inferred (защита от регресса «двойной KDF»)"
+  }
+ ],
+ "interfaces": [
+  {
+   "name": "POST /api/v1/auth/register",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{fullName:string, login:string, email:string, password:string, repeatPassword:string}; лишние поля (включая role) игнорируются"
+    },
+    "output": {
+     "schema": "201 → MeDto {login, fullName, role, groupName} + Set-Cookie access_token, refresh_token"
+    },
+    "errors": [
+     {
+      "code": "RATE_LIMITED",
+      "condition": "TryAcquire(IP, 5/3600с) = false — до разбора тела",
+      "http_status": 429
+     },
+     {
+      "code": "VALIDATION",
+      "condition": "нарушение правил полей (все ошибки сразу, errors по полям)",
+      "http_status": 400
+     },
+     {
+      "code": "CONFLICT_LOGIN",
+      "condition": "lower(login) занят (проверяется первым)",
+      "http_status": 409
+     },
+     {
+      "code": "CONFLICT_EMAIL",
+      "condition": "lower(email) занят",
+      "http_status": 409
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/auth/login",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{login:string, password:string}; фиксированный порядок обработки (SEC-001): parse → lookup → ровно один KDF (Verify при найденном пользователе | VerifyReference при ненайденном) → при успехе 200 без лимитера; при неудаче ShouldBlock('lower(login)|IP') → 429|401"
+    },
+    "output": {
+     "schema": "200 → MeDto + Set-Cookie access_token, refresh_token; гарантия: Δkdf=1 в каждой ветке 200/401/429 для известного и неизвестного логина; успешный вход лимитером не блокируется и не учитывается"
+    },
+    "errors": [
+     {
+      "code": "MALFORMED_JSON",
+      "condition": "тело не парсится как JSON (без KDF)",
+      "http_status": 400
+     },
+     {
+      "code": "WRONG_CREDENTIALS",
+      "condition": "неудачная проверка пароля И лимит ключа не превышен (метка записывается)",
+      "http_status": 401
+     },
+     {
+      "code": "RATE_LIMITED",
+      "condition": "неудачная проверка пароля И ShouldBlock('lower(login)|IP')=true в окне 60с/5 — после ровно одной операции KDF, метка НЕ пишется",
+      "http_status": 429
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/auth/refresh",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "без тела; cookie refresh_token"
+    },
+    "output": {
+     "schema": "204 + Set-Cookie нового access_token (refresh не ротируется)"
+    },
+    "errors": [
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "cookie отсутствует / токен неизвестен / просрочен / отозван",
+      "http_status": 401
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/auth/logout",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "без тела (access НЕ требуется)"
+    },
+    "output": {
+     "schema": "204; оба cookie сбрасываются (Max-Age=0)"
+    },
+    "errors": []
+   }
+  },
+  {
+   "name": "GET /api/v1/auth/me",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "cookie access_token"
+    },
+    "output": {
+     "schema": "200 → MeDto {login, fullName, role, groupName}"
+    },
+    "errors": [
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "нет/невалиден/просрочен access",
+      "http_status": 401
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/auth/recovery/request",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{email:string}"
+    },
+    "output": {
+     "schema": "200, тело отсутствует (0 байт, Content-Length: 0; НЕ '{}') — всегда, независимо от существования email; в Development код доступен только в записи категории лога 'EmailDev' ([DEV-EMAIL])"
+    },
+    "errors": [
+     {
+      "code": "RATE_LIMITED",
+      "condition": "TryAcquire(lower(email), 3/3600с)=false — до проверки существования (одинаково для существующего/несуществующего email)",
+      "http_status": "429"
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/auth/recovery/confirm",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{email:string, code:string}"
+    },
+    "output": {
+     "schema": "200 → {resetToken:string} (≥256 бит, TTL 15 мин, одноразовый)"
+    },
+    "errors": [
+     {
+      "code": "CODE_REJECTED",
+      "condition": "email неизвестен / нет живого кода / код не совпал / просрочен / использован / 5-я неверная попытка погасила код (текст всегда 'Код восстановления не подходит')",
+      "http_status": 400
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/auth/reset-password",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{resetToken:string, password:string, confirmPassword:string}"
+    },
+    "output": {
+     "schema": "204; пароль изменён, все reset-токены пользователя погашены, все его refresh-токены отозваны"
+    },
+    "errors": [
+     {
+      "code": "RESET_LINK_INVALID",
+      "condition": "токен неизвестен/просрочен/использован (найденный неживой гасится)",
+      "http_status": 400
+     },
+     {
+      "code": "VALIDATION",
+      "condition": "правила пароля FR-006 (токен не гасится)",
+      "http_status": 400
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/me/profile",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "cookie access_token"
+    },
+    "output": {
+     "schema": "200 → ProfileDto {login, email, fullName, role, groupName}"
+    },
+    "errors": [
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "нет доступа",
+      "http_status": 401
+     }
+    ]
+   }
+  },
+  {
+   "name": "PUT /api/v1/me/profile",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{fullName:string, email:string}"
+    },
+    "output": {
+     "schema": "200 → обновлённый ProfileDto"
+    },
+    "errors": [
+     {
+      "code": "VALIDATION",
+      "condition": "правила ФИО/email",
+      "http_status": 400
+     },
+     {
+      "code": "CONFLICT_EMAIL",
+      "condition": "lower(email) занят другим пользователем",
+      "http_status": 409
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "нет доступа",
+      "http_status": 401
+     }
+    ]
+   }
+  },
+  {
+   "name": "PUT /api/v1/me/password",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{currentPassword:string, password:string, confirmPassword:string}"
+    },
+    "output": {
+     "schema": "204; прочие refresh-токены отозваны (текущий — нет)"
+    },
+    "errors": [
+     {
+      "code": "WRONG_CURRENT_PASSWORD",
+      "condition": "currentPassword не совпал (проверяется первым, без errors-карты)",
+      "http_status": 400
+     },
+     {
+      "code": "VALIDATION",
+      "condition": "правила нового пароля",
+      "http_status": 400
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "нет доступа",
+      "http_status": 401
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/labs",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "query: semester? — отсутствует или не парсится в целое (нечисловая/дробная строка) → фильтр не применяется (все работы); целое → точный фильтр (вне 1..Labs__MaxSemester — пустая выборка total=0, НЕ 400); page:int (некорректное → 1); sortField?:'number'|'semester' (default semester; иное значение → default); sortDir?:'asc'|'desc' (default asc; иное → default)"
+    },
+    "output": {
+     "schema": "200 → PagedResult<LabDto> {items, total, page, pageSize:10}"
+    },
+    "errors": [
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": "401"
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "роль не teacher",
+      "http_status": "403"
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/labs",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "LabInput {number: целое >0 (JSON-число или строка цифр), semester: целое 1..10, content: 1–500 симв., assignmentUrl: null|''|http(s)-префикс ≤1000, defenseRequired: boolean}"
+    },
+    "output": {
+     "schema": "201 → LabDto {id, semester, number, content, assignmentUrl:null|string, defenseRequired} (нормализация: трим, ''→null)"
+    },
+    "errors": [
+     {
+      "code": "VALIDATION",
+      "condition": "нарушение правил полей, errors{number,semester,content,assignmentUrl}",
+      "http_status": 400
+     },
+     {
+      "code": "CONFLICT_LAB",
+      "condition": "пара (semester, number) занята",
+      "http_status": 409
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/labs/{id}",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "path id: uuid"
+    },
+    "output": {
+     "schema": "200 → LabDto"
+    },
+    "errors": [
+     {
+      "code": "NOT_FOUND_LAB",
+      "condition": "id не существует",
+      "http_status": 404
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "PUT /api/v1/labs/{id}",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "path id + LabInput (как POST)"
+    },
+    "output": {
+     "schema": "200 → обновлённый LabDto"
+    },
+    "errors": [
+     {
+      "code": "VALIDATION",
+      "condition": "как POST",
+      "http_status": 400
+     },
+     {
+      "code": "NOT_FOUND_LAB",
+      "condition": "id не существует",
+      "http_status": 404
+     },
+     {
+      "code": "CONFLICT_LAB",
+      "condition": "пара занята другой записью",
+      "http_status": 409
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "DELETE /api/v1/labs/{id}",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "path id: uuid"
+    },
+    "output": {
+     "schema": "204; связанные Submission удалены каскадно"
+    },
+    "errors": [
+     {
+      "code": "NOT_FOUND_LAB",
+      "condition": "id не существует",
+      "http_status": 404
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/semesters",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "cookie access (любая роль)"
+    },
+    "output": {
+     "schema": "200 → int[] (distinct, по возрастанию)"
+    },
+    "errors": [
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/groups",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "— (teacher)"
+    },
+    "output": {
+     "schema": "200 → GroupDto[] {id, name, studentCount}, name↑ без учёта регистра"
+    },
+    "errors": [
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "POST /api/v1/groups",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{name: 1–100 после трима}"
+    },
+    "output": {
+     "schema": "201 → GroupDto"
+    },
+    "errors": [
+     {
+      "code": "VALIDATION",
+      "condition": "errors.name=['Название группы — от 1 до 100 символов']",
+      "http_status": 400
+     },
+     {
+      "code": "CONFLICT_GROUP",
+      "condition": "lower(name) занят — 'Группа с таким названием уже существует'",
+      "http_status": 409
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "PUT /api/v1/groups/{id}",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "path id + {name}"
+    },
+    "output": {
+     "schema": "200 → GroupDto"
+    },
+    "errors": [
+     {
+      "code": "VALIDATION",
+      "condition": "правила имени",
+      "http_status": 400
+     },
+     {
+      "code": "NOT_FOUND_GROUP",
+      "condition": "— 'Группа не найдена'",
+      "http_status": 404
+     },
+     {
+      "code": "CONFLICT_GROUP",
+      "condition": "lower(name) занят другой группой",
+      "http_status": 409
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "DELETE /api/v1/groups/{id}",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "path id"
+    },
+    "output": {
+     "schema": "204; студентам группы groupId=null"
+    },
+    "errors": [
+     {
+      "code": "NOT_FOUND_GROUP",
+      "condition": "—",
+      "http_status": 404
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/groups/{id}/students",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "query page? (некорректное → 1)"
+    },
+    "output": {
+     "schema": "200 → PagedResult<StudentDto> {items, total, page, pageSize:10}; порядок fullName↑, login↑ (ru); StudentDto {id, fullName, login, email, groupId=id группы, groupName=имя группы}"
+    },
+    "errors": [
+     {
+      "code": "NOT_FOUND_GROUP",
+      "condition": "—",
+      "http_status": 404
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/students",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "query: search? (≤200 симв.; многословный — все токены подстроки ci одного и того же поля ФИО|логин|email), groupId?: 'none'|uuid (неизвестный uuid → пустая выборка), page? (→1)"
+    },
+    "output": {
+     "schema": "200 → PagedResult<StudentDto> {items, total, page, pageSize:10}; StudentDto {id, fullName, login, email, groupId|null, groupName|null}; порядок fullName↑, login↑ (ru)"
+    },
+    "errors": [
+     {
+      "code": "SEARCH_TOO_LONG",
+      "condition": "search длиннее 200 — errors.search=['Поиск — не более 200 символов']",
+      "http_status": 400
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "PUT /api/v1/students/{id}/group",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{groupId: uuid|null}"
+    },
+    "output": {
+     "schema": "204; включение/перевод (uuid) или исключение (null)"
+    },
+    "errors": [
+     {
+      "code": "NOT_FOUND_STUDENT",
+      "condition": "id не существует или роль ≠ student — 'Студент не найден'",
+      "http_status": 404
+     },
+     {
+      "code": "NOT_FOUND_GROUP",
+      "condition": "groupId≠null и группа не существует — 'Группа не найдена'",
+      "http_status": 404
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/submissions",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "query: groupId (обязателен), semester (обязателен: целое 1..Labs__MaxSemester; отсутствие/нечисловое/нецелое/вне диапазона → 400 errors.semester=['Семестр — число от 1 до N']), page (некорректное → 1)"
+    },
+    "output": {
+     "schema": "200 → {students:[{id,fullName}] (страница по 5, fullName↑,login↑ ru), labs:[{id,number,defenseRequired}] (number↑), submissions:[{studentId,labId,submitDate,defenseDate}] (только пары текущей страницы), total:int, page:int — серверное расширение SubmissionsGridDto (клиентское DTO {students,labs,submissions,total}; page клиентом игнорируется, паритет с мок-слоем)}"
+    },
+    "errors": [
+     {
+      "code": "VALIDATION",
+      "condition": "semester отсутствует/нечисловой/нецелый/вне 1..Labs__MaxSemester (errors.semester) или groupId отсутствует (errors.groupId)",
+      "http_status": "400"
+     },
+     {
+      "code": "NOT_FOUND_GROUP",
+      "condition": "группа не существует",
+      "http_status": "404"
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": "401"
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": "403"
+     }
+    ]
+   }
+  },
+  {
+   "name": "PUT /api/v1/submissions",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "{studentId:uuid, labId:uuid, submitDate:'YYYY-MM-DD'|null, defenseDate:'YYYY-MM-DD'|null} — обе даты всегда целиком, null=сброс"
+    },
+    "output": {
+     "schema": "200 → Submission {id, studentId, labId, submitDate, defenseDate, updatedAt:ISO-8601, updatedBy:uuid}"
+    },
+    "errors": [
+     {
+      "code": "DATE_FORMAT",
+      "condition": "дата не null и не 'YYYY-MM-DD' — errors{submitDate|defenseDate}=['Дата должна быть строкой в формате ГГГГ-ММ-ДД'] (раньше 404)",
+      "http_status": 400
+     },
+     {
+      "code": "NOT_FOUND_STUDENT",
+      "condition": "студент не существует",
+      "http_status": 404
+     },
+     {
+      "code": "NOT_FOUND_LAB",
+      "condition": "работа не существует",
+      "http_status": 404
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": 401
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "не teacher",
+      "http_status": 403
+     }
+    ]
+   }
+  },
+  {
+   "name": "GET /api/v1/me/submissions",
+   "type": "rest_api",
+   "contract": {
+    "input": {
+     "schema": "query: semester (обязателен: целое 1..Labs__MaxSemester — отсутствие/нечисловое/нецелое/вне диапазона → 400 errors.semester=['Семестр — число от 1 до N']); cookie access; роль student"
+    },
+    "output": {
+     "schema": "200 → MySubmissionsDto {hasGroup:bool, labs:[{id,number,defenseRequired}], submissions:[{labId,submitDate,defenseDate}]}; hasGroup=false → оба массива пустые"
+    },
+    "errors": [
+     {
+      "code": "VALIDATION",
+      "condition": "semester отсутствует/нечисловой/нецелый/вне диапазона 1..Labs__MaxSemester",
+      "http_status": "400"
+     },
+     {
+      "code": "UNAUTHORIZED",
+      "condition": "анонимно",
+      "http_status": "401"
+     },
+     {
+      "code": "FORBIDDEN",
+      "condition": "роль teacher",
+      "http_status": "403"
+     }
+    ]
+   }
+  },
+  {
+   "name": "IRateLimiterEngine (внутренний контракт)",
+   "type": "function",
+   "contract": {
+    "input": {
+     "schema": "TryAcquire(policy, key, nowMs):bool — с записью метки при допуске; ShouldBlock(policy, key, nowMs):bool — без записи; политики: login(60с,5), register(3600с,5), recovery_request(3600с,3); потолок 10000 ключей + '__overflow__'"
+    },
+    "output": {
+     "schema": "bool"
+    },
+    "errors": [
+     {
+      "code": "—",
+      "condition": "Движок не бросает исключений; параметры валидируются при регистрации политик (windowMs>0, max≥1)",
+      "http_status": "—"
+     }
+    ]
+   }
+  },
+  {
+   "name": "IPasswordHasher + IKdfCounter (внутренний контракт)",
+   "type": "function",
+   "contract": {
+    "input": {
+     "schema": "Hash(password, endpointLabel):string; Verify(password, storedHash, endpointLabel):bool; VerifyReference(password, endpointLabel):bool; Counter.Total(endpointLabel):int; параметры: PBKDF2-HMAC-SHA256, Auth__Pbkdf2Iterations (default 210000), соль 16Б, ключ 32Б; формат 'pbkdf2-sha256$iters$saltB64$hashB64'; Verify читает параметры из storedHash"
+    },
+    "output": {
+     "schema": "string|bool|int"
+    },
+    "errors": [
+     {
+      "code": "—",
+      "condition": "Verify для malformed storedHash возвращает false (не исключение) и KDF не выполняет",
+      "http_status": "—"
+     }
+    ]
+   }
+  },
+  {
+   "name": "IEmailSender (внутренний контракт)",
+   "type": "function",
+   "contract": {
+    "input": {
+     "schema": "SendAsync(toEmail, subject, body):Task — Environment=Development: запись в категорию лога 'EmailDev' (маркер [DEV-EMAIL]) с адресатом и телом письма; единый формат записи для существующего и несуществующего email; среды ≠ Development: no-op + один warning без адресата и содержимого письма"
+    },
+    "output": {
+     "schema": "Task"
+    },
+    "errors": [
+     {
+      "code": "—",
+      "condition": "Ошибки отправки не меняют HTTP-ответ recovery/request (всегда 200, пустое тело); фиксируются в логе без секретов (кроме разрешённой категории 'EmailDev' в Development)",
+      "http_status": "—"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Репозитории-заглушки (внутренний контракт)",
+   "type": "function",
+   "contract": {
+    "input": {
+     "schema": "IUserRepository (GetByLoginCi, GetByEmailCi, GetById, Create, UpdateProfile, SetPassword, SetGroup, ListStudents(search,groupIdFilter), ListByGroup, CountByGroup), IGroupRepository (List, Create, Rename, Delete+DetachStudents, GetById, ExistsNameCi), ILabRepository (Paged(filter,sort,page), GetById, Create, Update, Delete+CascadeSubmissions, Semesters), ISubmissionRepository (GetGridPage, Upsert, ListForStudentAndSemester, DeleteByLab), ISecurityTokenRepository (refresh: issue/find-by-hash/revoke/revoke-all-for-user-except; recovery: add-live/increment-attempts/consume/find-live; reset: issue/find-live-by-hash/consume/consume-all-for-user)"
+    },
+    "output": {
+     "schema": "Доменные сущности; null при отсутствии"
+    },
+    "errors": [
+     {
+      "code": "—",
+      "condition": "Сигнатуры ориентировочные; обязательны: потокобезопасность, атомарная проверка уникальности, отсутствие EF Core",
+      "http_status": "—"
+     }
+    ]
+   }
+  }
+ ],
+ "out_of_scope": [
+  "EF Core, PostgreSQL, Npgsql, миграции — следующая итерация (замена in-memory реализаций интерфейсов репозиториев).",
+  "Реальная отправка почты (SMTP) — только IEmailSender-заглушка (Development: категория лога 'EmailDev'; прочие среды: no-op).",
+  "Подтверждение email при регистрации; массовый импорт; восстановление удалённых данных.",
+  "Управление ролями/смена роли (в v1 отсутствует вовсе; регистрация создаёт только студента).",
+  "Ротация refresh-токена и обнаружение его повторного использования (reuse-detection).",
+  "НОВЫЕ лимитеры частоты сверх матрицы FR-004 — в частности пер-IP окно поверх login-лимитера: ЗАМОРОЖЕНО (эскалация SI-002 предыдущего круга, OQ-001); поверхность задокументирована в FR-004/FR-028.",
+  "Распределённый (межинстансовый) rate limiting; Prometheus-эндпойнт метрик (счётчик KDF — in-memory + лог).",
+  "TLS-терминация/reverse-proxy, docker-compose, производственное развёртывание.",
+  "Обработка X-Forwarded-For (IP = Connection.RemoteIpAddress; конфигурация прокси-заголовков — при вводе reverse-proxy).",
+  "CORS-конфигурация (dev идёт через прокси ng; Cors__AllowedOrigins не настраивается).",
+  "Изменение UI/функций Angular-клиента, кроме отключения мок-слоя и миграции тестов (FR-026); изменение wire-контракта API.",
+  "Локализация сообщений API (только русский).",
+  "Удаление учётных записей, анонимизация и retention-политики персональных данных (ФИО, email, успеваемость) — API этой итерации не содержит механизма удаления пользователей (SEC-004); решение — при миграции на реальную БД.",
+  "Полная Content-Security-Policy: добавлены только X-Content-Type-Options: nosniff и X-Frame-Options: DENY (FR-002, SEC-006).",
+  "Правка клиентского словаря error-texts.ts: серверные дополнения (password.max, lab.url.length) живут только в ответах API."
+ ],
+ "implementation_order": [
+  "FR-001",
+  "FR-023",
+  "FR-024",
+  "FR-005",
+  "FR-003",
+  "FR-004",
+  "FR-008",
+  "FR-022",
+  "FR-006",
+  "FR-007",
+  "FR-009",
+  "FR-010",
+  "FR-011",
+  "FR-012",
+  "FR-013",
+  "FR-014",
+  "FR-015",
+  "FR-016",
+  "FR-017",
+  "FR-018",
+  "FR-019",
+  "FR-020",
+  "FR-021",
+  "FR-025",
+  "FR-002",
+  "FR-026",
+  "FR-027",
+  "FR-028"
+ ],
+ "assumptions": [
+  {
+   "id": "ASM-001",
+   "assumption": "Целевой стек — .NET 8 (не .NET 10 из README/docs): явное указание ТЗ приоритетнее",
+   "rationale": "Прямое указание в ТЗ п.1",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-002",
+   "assumption": "resetToken — непрозрачная случайная строка ≥256 бит, хранится SHA-256-хэшем (сущность PasswordResetToken), TTL 15 мин, одноразовая (не JWT, как в docs §4.2)",
+   "rationale": "ТЗ п.4 допускает упрощённый выпуск токенов на заглушках; wire-контракт {resetToken:string} идентичен; одноразовость и гашение воспроизведены",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-003",
+   "assumption": "Refresh-токен не ротируется при /auth/refresh: до истечения TTL/отзыва действует исходный токен",
+   "rationale": "Упрощение допущено ТЗ п.4; совместимо с дедупликацией refresh в интерцепторе клиента; отзыв при logout/смене/сбросе пароля сохранён",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-004",
+   "assumption": "Число итераций PBKDF2 — 210000 (по docs §5/§9), конфигурируемое через Auth__Pbkdf2Iterations; параметры верификации читаются из хранимого хэша",
+   "rationale": "docs зафиксировали 210000; конфигурируемость нужна для скорости тестов",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-005",
+   "assumption": "Коды восстановления и reset-токены хэшируются быстрым солёным SHA-256, а не KDF",
+   "rationale": "Код 6 цифр + 5 попыток + TTL 10 мин + 3 запроса/час ограничивают перебор онлайн; отказ от KDF на recovery-эндпойнтах устраняет поверхность «30000 KDF/час» из SEC-002",
+   "risk": "medium"
+  },
+  {
+   "id": "ASM-006",
+   "assumption": "Составы ключей лимитера: login → 'lower(login)|IP' (docs §4.1 «на пару (логин, IP)»); register → IP; recovery/request → lower(email)",
+   "rationale": "docs §4.1–4.2",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-007",
+   "assumption": "Флаг Secure у cookie выключен только в среде Development",
+   "rationale": "docs §9 требует Secure; dev запускается по http://localhost",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-008",
+   "assumption": "Значения по умолчанию сида: teacher/teacher123!; демо-данные включены только в Development (Seed__DemoData)",
+   "rationale": "Паритет с демо-учётками мок-слоя; в Production демо-данные опасны",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-009",
+   "assumption": "Auth__JwtKey: в Production пустой ключ блокирует старт; в Development — эфемерный случайный ключ с предупреждением",
+   "rationale": "Секрет не должен молчать в проде; dev-удобство",
+   "risk": "medium"
+  },
+  {
+   "id": "ASM-010",
+   "assumption": "GET /submissions и /me/submissions требуют целочисленный semester (отсутствие/нечисловое → 400), хотя мок не валидировал",
+   "rationale": "Клиент всегда передаёт корректное значение; строгий контракт проще и безопаснее молчаливой пустой выдачи",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-011",
+   "assumption": "ПРИНЯТА остаточная поверхность (SEC-002): неаутентифицированный POST /auth/login с ротацией логинов с одного IP вынуждает устойчиво ≈MaxTrackedKeys×5=50000 KDF/мин (≈833 KDF/с при 210000 итераций) — CPU-exhaustion класса CWE-770; сдерживание пер-IP окном в этой итерации заморожено, поверхность задокументирована в FR-004/README с порогами алертинга auth_kdf_operations_total>100/с",
+   "rationale": "Введение пер-IP лимита конфликтует с FR-007 (успех не блокируется) либо требует архитектурного решения; по SEC-002 достаточно корректной документации амплитуды без новых лимитеров",
+   "risk": "high"
+  },
+  {
+   "id": "ASM-012",
+   "assumption": "logout не требует валидного access-токена и всегда 204 (отзывает refresh-cookie, если та присутствует)",
+   "rationale": "Идемпотентность мока + практическая необходимость отзыва refresh при истёкшем access",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-013",
+   "assumption": "IP клиента = Connection.RemoteIpAddress (заголовки X-Forwarded-For игнорируются)",
+   "rationale": "Kestrel — краевой сервер в этой итерации; reverse-proxy появится при развёртывании",
+   "risk": "medium"
+  },
+  {
+   "id": "ASM-014",
+   "assumption": "Даты сдач — строго строки 'YYYY-MM-DD' без времени и таймзон; на сервере хранятся как дата без конверсий",
+   "rationale": "docs §5 (date), ADR-007 клиента",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-015",
+   "assumption": "Счётчик KDF — in-memory с логированием раз в 60 с; отдельный metrics-эндпойнт не вводится",
+   "rationale": "Минимум поверхности; наблюдаемость достаточна для порогов из FR-028 в учебной итерации",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-016",
+   "assumption": "Арбитраж design↔spec (ISS-001, ISS-002, ISS-004, ISS-005, ISS-006, ISS-007, ISS-011, ISS-012, ISS-013): артефакт design (spec_version '2.3') построен против иной версии спецификации — ссылается на несуществующие в спеки ID (FR-030..FR-093, SEC-005/SEC-006, AR-008..AR-011, ASM-020, ISS-201), а совпадающие ID имеют иное содержание. Все расхождения design со спекой разрешены В ПОЛЬЗУ СПЕКИ: смена пароля сохраняет refresh-cookie текущего запроса (FR-016); reset-password — 204 (FR-014); logout без cookie — 204 (FR-010); login на некорректный JSON — 400 MALFORMED_JSON с Δkdf=0 (FR-007); route-404 — конверт {'message':'Не найдено'} (FR-023); Path=/ у обоих cookie (FR-008/NFR-007); отсутствующий/нечисловой semester у /submissions и /me/submissions — 400 (FR-021); resetToken — непрозрачная строка, не JWT (ASM-002). Нумерация FR-001..FR-028 настоящей спеки стабильна. Design подлежит перегенерации против версии 2.2 (OQ-007) и до этого НЕ передаётся в следующие стадии конвейера.",
+   "rationale": "ISS-001: трассировка design.covers → FR невозможна; спека — единственный источник истины для реализации и приёмки",
+   "risk": "high"
+  },
+  {
+   "id": "ASM-017",
+   "assumption": "Верхняя граница длины пароля 128 символов (сырая строка, без трима) введена для password при регистрации/сбросе/смене (текст 'Пароль — не более 128 символов' — серверное дополнение словаря); currentPassword длиннее 128 — неуспешная проверка без KDF",
+   "rationale": "ISS-016: ограничение стоимости обработки сверхдлинных паролей + паритет с ожиданием design; KDF-гейт /auth/login не затронут",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-018",
+   "assumption": "Семантика semester в query зафиксирована асимметрично: GET /labs — мягкая нормализация (отсутствует/нечисловое = фильтр не применяется; целое вне диапазона = пустая выдача); GET /submissions и GET /me/submissions — строгая (отсутствие/нечисловое/нецелое/вне 1..Labs__MaxSemester → 400 с текстом-шаблоном от Labs__MaxSemester)",
+   "rationale": "ISS-009/AR-002/SEC-005: /labs наследует мягкий стиль нормализации query-параметров (page/sortField/sortDir), ведомостные эндпойнты — строгий контракт ASM-010",
+   "risk": "low"
+  },
+  {
+   "id": "ASM-019",
+   "assumption": "Классификация данных введена (глоссарий «Персональные данные»); удаление/анонимизация/retention отложены в out_of_scope до итерации с реальной БД",
+   "rationale": "SEC-004: регуляторика в ТЗ не заявлена; in-memory данные живут один запуск процесса, доступ ограничен матрицей ролей FR-022",
+   "risk": "medium"
+  },
+  {
+   "id": "ASM-020",
+   "assumption": "Остаточное расхождение тайминга KDF-веток входа для legacy-хэшей (созданных при ином Auth__Pbkdf2Iterations, чем текущий) принято; гарантия неразличимости веток действует для хэшей текущей конфигурации",
+   "rationale": "AR-004: иначе два MUST FR-005 несовместимы; in-memory хранилище не переживает смену конфигурации без рестарта",
+   "risk": "low"
+  }
+ ],
+ "open_questions": [
+  {
+   "id": "OQ-001",
+   "question": "Вводить ли пер-IP скользящее окно поверх login-лимитера для реального сдерживания распределённой по ключам KDF-амплитуды (≈50000 KDF/мин с одного IP)?",
+   "impact": [
+    "FR-004",
+    "FR-007",
+    "NFR-004"
+   ],
+   "default_resolution": "НЕ вводить в этой итерации (заморозка сохраняется): поверхность принята и задокументирована с корректными оценками и порогом алертинга auth_kdf_operations_total>100/с; введение — отдельным решением следующей итерации с учётом гарантии не-блокирования успешного входа"
+  },
+  {
+   "id": "OQ-002",
+   "question": "Требуется ли ротация refresh-токена с обнаружением повторного использования?",
+   "impact": [
+    "FR-008",
+    "FR-009"
+   ],
+   "default_resolution": "Нет: refresh не ротируется до истечения/отзыва (упрощение допущено ТЗ п.4)"
+  },
+  {
+   "id": "OQ-003",
+   "question": "Должны ли демо-данные включаться по умолчанию в Environment=Production?",
+   "impact": [
+    "FR-025"
+   ],
+   "default_resolution": "Нет: Seed__DemoData=true только в Development; в Production — false"
+  },
+  {
+   "id": "OQ-004",
+   "question": "Ограничивать ли размер запроса/тела нестандартными лимитами?",
+   "impact": [
+    "FR-023"
+   ],
+   "default_resolution": "Нет: значения Kestrel по умолчанию (30 МБ); отклонение 413 происходит до конвейера приложения с телом фреймворка по умолчанию — вне единого конверта FR-023, словарный текст не вводится (ISS-016); поля дополнительно ограничены валидацией длин (включая пароль ≤128 — ASM-017)"
+  },
+  {
+   "id": "OQ-005",
+   "question": "Нужно ли конфигурировать Cors__AllowedOrigins для dev-режима без прокси?",
+   "impact": [
+    "FR-001"
+   ],
+   "default_resolution": "Нет: dev использует ng-прокси; CORS не настраивается (зафиксировано в out_of_scope)"
+  },
+  {
+   "id": "OQ-006",
+   "question": "Какой минимальный объём переработки интеграционных тестов клиента (app/testing/integration/**) приемлем: полный перенос на HttpTestingController или частичное удаление?",
+   "impact": [
+    "FR-026"
+   ],
+   "default_resolution": "Допустимо частичное удаление; обязательный критерий — ng test проходит и ни один spec не импортирует app/mock; сценарии входа/регистрации и списка работ сохраняются в виде HttpTestingController-тестов"
+  },
+  {
+   "id": "OQ-007",
+   "question": "Перегенерировать (перемаппировать) артефакт design против актуальной спеки v2.2 (FR-001..FR-028, ASM-001..ASM-020, OQ-001..OQ-007)? Артефакт design (spec_version '2.3') ссылается на несуществующие ID и противоречит спеке по перечисленным в ASM-016 пунктам.",
+   "impact": [
+    "FR-007",
+    "FR-010",
+    "FR-012",
+    "FR-014",
+    "FR-016",
+    "FR-021",
+    "FR-023",
+    "FR-026"
+   ],
+   "default_resolution": "До перегенерации design НЕ используется стадиями ниже по потоку; все поведения реализуются и принимаются по настоящей спеке (ASM-016); перегенерация design — обязательное условие передачи UI-стадиям"
+  }
+ ]
+}

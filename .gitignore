@@ -430,3 +430,7 @@ FodyWeavers.xsd
 
 /.pipeline
 /.vscode
+
+# Межпроцессные замки тестовых зон (dotnet build/test над src/api; ng build/test)
+/.dotnet-srcapi-build.lock
+/.ng-cli-process.lock

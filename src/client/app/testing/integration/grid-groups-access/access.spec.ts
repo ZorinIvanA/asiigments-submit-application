@@ -1,8 +1,10 @@
 /**
  * Интеграционные спеки раздела «Доступ» /access и шва «Доступ → Ведомость»
  * (батч 3, FR-4.6, SCR-013): реальные AccessPage/SubmissionsPage + core-
- * сервисы + мок-слой (IF-105/IF-104/IF-106) поверх сида seedFixtures,
- * сессия teacher через SessionStore.
+ * сервисы на реальном HTTP-ядре (HttpClient + authInterceptor) поверх
+ * программируемого HttpTestingController-бэкенда GridBackendStub с сидом
+ * зоны; серверная сессия teacher — serverSession/loginAs (признак сессии —
+ * память AuthService, FR-092).
  *
  * Сценарии (automation: automated): TS-313 (шов: студент без группы невидим,
  * включение добавляет в ведомость), TS-350 (таблица, порядок, пагинация 10),
@@ -14,11 +16,8 @@
  * (дебаунс 300 мс и гонка запросов), TS-359 (отказ setGroup: баннер и
  * перезагрузка строки).
  */
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ComponentFixture, fakeAsync, tick } from '@angular/core/testing';
 
-import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
 import { AuthService } from '../../../core/services/auth.service';
 import { GroupsService } from '../../../core/services/groups.service';
 import { StudentsService } from '../../../core/services/students.service';
@@ -28,27 +27,17 @@ import { AccessPage } from '../../../features/access/pages/access-page/access-pa
 import { SubmissionsPage } from '../../../features/submissions/pages/submissions-page';
 import { MySubmissionsPage, TEXT_NO_GROUP } from '../../../features/my-submissions/pages/my-submissions-page';
 import {
-  drainNotifications,
-  flushNgModel,
-  groupIdOf,
-  hydrateSeed,
-  installMockLayer,
-  mockDbOf,
-  mutateMockDb,
+  GridAccessEnv,
   openSelect,
   pickOption,
   qsAllIn,
   qsIn,
-  resetZoneEnvAfterSpec,
   selectLabelOf,
   selectModelValueOf,
-  settle,
-  switchSession,
-  userIdOf,
 } from './integration-env';
 
-describe('AccessPage — интеграция с реальным мок-слоем (батч 3, FR-4.6)', () => {
-  let breakpoints: MockBreakpointObserver;
+describe('AccessPage — интеграция с реальным HTTP-ядром (батч 3, FR-4.6)', () => {
+  let env: GridAccessEnv;
   let notifications: NotificationService;
   let groupsService: GroupsService;
   let studentsService: StudentsService;
@@ -56,7 +45,6 @@ describe('AccessPage — интеграция с реальным мок-сло�
   let auth: AuthService;
   let fixture: ComponentFixture<AccessPage | SubmissionsPage | MySubmissionsPage>;
 
-  let teacherId: string;
   let student01: string;
   let student26: string;
   let student31: string;
@@ -64,54 +52,40 @@ describe('AccessPage — интеграция с реальным мок-сло�
   let ik222: string;
 
   beforeEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    breakpoints = new MockBreakpointObserver();
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: BreakpointObserver, useValue: breakpoints },
-        provideNoopAnimations(),
-      ],
-    });
-    notifications = TestBed.inject(NotificationService);
-    groupsService = TestBed.inject(GroupsService);
-    studentsService = TestBed.inject(StudentsService);
-    submissionsService = TestBed.inject(SubmissionsService);
-    auth = TestBed.inject(AuthService);
-    installMockLayer();
-
-    const db = hydrateSeed();
-    teacherId = userIdOf(db, 'teacher');
-    student01 = userIdOf(db, 'student01');
-    student26 = userIdOf(db, 'student26');
-    student31 = userIdOf(db, 'student31');
-    ik221 = groupIdOf(db, 'ИК-221');
-    ik222 = groupIdOf(db, 'ИК-222');
-    switchSession(teacherId);
+    env = GridAccessEnv.setup();
+    notifications = env.notifications;
+    groupsService = env.inject(GroupsService);
+    studentsService = env.inject(StudentsService);
+    submissionsService = env.inject(SubmissionsService);
+    auth = env.auth;
+    student01 = env.backend.userIdByLogin('student01');
+    student26 = env.backend.userIdByLogin('student26');
+    student31 = env.backend.userIdByLogin('student31');
+    ik221 = env.backend.groupIdByName('ИК-221');
+    ik222 = env.backend.groupIdByName('ИК-222');
+    env.serverSession('teacher');
   });
 
   afterEach(() => {
     notifications.dismissMobile();
     fixture?.destroy();
-    resetZoneEnvAfterSpec();
+    env.stop();
   });
 
   function root(): HTMLElement {
     return fixture.nativeElement as HTMLElement;
   }
 
-  /** Открытие /access: справочник групп (500) → первая страница списка (500). */
+  /** Открытие /access: справочник групп (волна 1) → первая страница списка (волна 2). */
   function createAccessPage(): void {
-    fixture = TestBed.createComponent(AccessPage);
-    fixture.detectChanges();
-    settle(fixture, 1100);
+    fixture = env.mount(AccessPage);
+    env.settle(fixture, 2);
   }
 
-  /** Ведомость: селекторы (500) + грид (500). */
+  /** Ведомость: селекторы (волна 1) + грид (волна 2). */
   function createSubmissionsPage(): void {
-    fixture = TestBed.createComponent(SubmissionsPage);
-    fixture.detectChanges();
-    settle(fixture, 1100);
+    fixture = env.mount(SubmissionsPage);
+    env.settle(fixture, 2);
   }
 
   function tableRowFullNames(): string[] {
@@ -173,46 +147,22 @@ describe('AccessPage — интеграция с реальным мок-сло�
     return found;
   }
 
-  /**
-   * Ожидание ответа сервисного вызова: только tick — CD фикстуры не нужна
-   * (ассерты по захваченным ответам), и фикстура может быть ещё не создана
-   * либо уже уничтожена.
-   */
-  function waitMock(ms: number): void {
-    tick(ms);
-  }
-
-  /**
-   * Дожидается закрытия confirm-оверлея (CR-009): оверлей анимируется и
-   * исчезает через несколько циклов CD — одного detectChanges мало.
-   */
-  function waitConfirmClosed(): void {
-    for (let attempt = 0; attempt < 20; attempt++) {
-      tick(50);
-      fixture.detectChanges();
-      if (qsIn(fixture, '.p-confirmdialog') === null) {
-        return;
-      }
-    }
-    throw new Error('access.spec: confirm-оверлей не закрылся');
-  }
-
   it('TS-313: шов «Доступ → Ведомость» — student31 без группы невидим в гридах; включение в ИК-222 добавляет его в ведомость с пустыми датами', fakeAsync(() => {
     // До включения: ИК-222 — 5 студентов, student31 не попадает ни в один грид.
     let grid222!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
     void submissionsService.getGrid({ groupId: ik222, semester: 1, page: 1 }).then((result) => (grid222 = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(grid222.total).toBe(5);
     expect(grid222.students.some((student) => student.fullName === 'Иванов Иван Иванович 31')).toBeFalse();
 
     // Включение student31 в ИК-222 селектором строки /access (страница 4).
     createAccessPage();
     clickPageButton('4');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31', 'Иванов Иван Иванович 32']);
     openSelect(fixture, rowSelect(0));
     pickOption(fixture, 'ИК-222');
-    settle(fixture, 1100); // setGroup (500) + перезагрузка страницы (500)
+    env.settle(fixture, 2); // setGroup + перезагрузка страницы
     fixture.destroy();
 
     // Ведомость ИК-222: total 6, student31 в гриде с пустыми датами.
@@ -220,23 +170,23 @@ describe('AccessPage — интеграция с реальным мок-сло�
     const selects = Array.from(root().querySelectorAll('p-select'));
     openSelect(fixture, selects[0]!);
     pickOption(fixture, 'ИК-222');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(qsIn(fixture, '[data-test="range-caption"]')?.textContent?.trim()).toBe(
       'Показать записи с 1 по 5 из 6',
     );
     clickPageButtonSubmissions('2');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31']);
     const submitInput = root().querySelector('tbody tr td:nth-child(2) input') as HTMLInputElement;
     expect(submitInput.value).withContext('записей сдач у него нет — ячейка пуста').toBe('');
 
-    // ИК-221 остаётся 25; записей сдач student31 в мок-БД нет.
+    // ИК-221 остаётся 25; записей сдач student31 в состоянии бэкенда нет.
     let grid221!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
     void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 1 }).then((result) => (grid221 = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(grid221.total).toBe(25);
     expect(
-      mockDbOf().read().submissions.some((candidate) => candidate.studentId === student31),
+      env.backend.read().submissions.some((candidate) => candidate.studentId === student31),
     ).withContext('записи сдач отсутствуют до проставления дат').toBeFalse();
   }));
 
@@ -262,18 +212,18 @@ describe('AccessPage — интеграция с реальным мок-сло�
     expect(caption()).toBe('Показать записи с 1 по 10 из 32');
 
     clickPageButton('2');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(expected.slice(10, 20));
 
     clickPageButton('3');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(expected.slice(20, 30));
     // Граница групп на странице 3: 21–25 ИК-221, 26–30 ИК-222.
     expect(rowSelectLabel(0)).toBe('ИК-221');
     expect(rowSelectLabel(5)).toBe('ИК-222');
 
     clickPageButton('4');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(expected.slice(30, 32));
     expect(rowSelectLabel(0)).withContext('student31 — «Без группы»').toBe('Без группы');
     expect(rowSelectLabel(1)).toBe('Без группы');
@@ -285,13 +235,13 @@ describe('AccessPage — интеграция с реальным мок-сло�
     createAccessPage();
 
     typeSearch('STUDENT31');
-    settle(fixture, 950); // дебаунс 300 + ответ мока 500
+    env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: 'STUDENT31', groupId: null, page: 1 });
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31']);
     expect(caption()).toBe('Показать записи с 1 по 1 из 1');
 
     typeSearch('иванов иванович 07');
-    settle(fixture, 950);
+    env.settle(fixture, 1);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: 'иванов иванович 07',
       groupId: null,
@@ -300,7 +250,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 07']);
 
     typeSearch('иванов student1');
-    settle(fixture, 950);
+    env.settle(fixture, 1);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: 'иванов student1',
       groupId: null,
@@ -322,7 +272,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     const pasted = 'я'.repeat(250);
     input.value = pasted.slice(0, input.maxLength);
     input.dispatchEvent(new Event('input'));
-    settle(fixture, 950);
+    env.settle(fixture, 1);
     expect(input.value.length).withContext('поле обрезано до 200').toBe(200);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: pasted.slice(0, 200),
@@ -339,15 +289,15 @@ describe('AccessPage — интеграция с реальным мок-сло�
 
     // Уводим список со страницы 1, чтобы проверить сброс.
     clickPageButton('2');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     clickNoGroupFilter();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: '', groupId: 'none', page: 1 });
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31', 'Иванов Иван Иванович 32']);
 
     typeSearch('student3');
-    settle(fixture, 950);
+    env.settle(fixture, 1);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: 'student3',
       groupId: 'none',
@@ -356,7 +306,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31', 'Иванов Иван Иванович 32']);
 
     clickNoGroupFilter();
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: 'student3',
       groupId: null,
@@ -366,7 +316,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     // кнопкой очистки (с сохранённым «student3» остались бы только 30–32,
     // CR-008) и проверяем страницу 1 полного списка.
     root().querySelector<HTMLButtonElement>('button[aria-label="Очистить поиск"]')!.click();
-    settle(fixture, 950); // дебаунс 300 + ответ мока 500
+    env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: '',
       groupId: null,
@@ -380,7 +330,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
     createAccessPage();
     clickPageButton('4');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     openSelect(fixture, rowSelect(0)); // student31, «Без группы»
     pickOption(fixture, 'ИК-221');
@@ -391,7 +341,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     expect(rowSelect(0).classList).toContain('p-disabled');
     expect(qsIn(fixture, '.access__spinner')).withContext('спиннер в подписи').not.toBeNull();
 
-    settle(fixture, 1100); // setGroup (500) + перезагрузка страницы списка (500)
+    env.settle(fixture, 2); // setGroup + перезагрузка страницы списка
 
     expect(rowSelect(0).classList).not.toContain('p-disabled');
     expect(qsIn(fixture, '.access__spinner')).toBeNull();
@@ -404,22 +354,19 @@ describe('AccessPage — интеграция с реальным мок-сло�
     // Счётчик ИК-221 = 26; студент появился в ведомости ИК-221.
     let list!: Awaited<ReturnType<GroupsService['getList']>>;
     void groupsService.getList().then((result) => (list = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(list.find((group) => group.id === ik221)?.studentCount).toBe(26);
 
     let grid!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
     void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 6 }).then((result) => (grid = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(grid.students.map((student) => student.fullName)).toEqual(['Иванов Иван Иванович 31']);
 
     // Его /my-submissions — таблица вместо предупреждения.
     fixture.destroy();
-    switchSession(student31);
-    void auth.loadMe();
-    fixture = TestBed.createComponent(MySubmissionsPage);
-    settle(fixture, 600);
-    fixture.detectChanges();
-    settle(fixture, 1100);
+    env.loginAs('student31');
+    fixture = env.mount(MySubmissionsPage);
+    env.settle(fixture, 2);
     const myRoot = fixture.nativeElement as HTMLElement;
     expect(myRoot.querySelector('.no-group')).withContext('предупреждения нет').toBeNull();
     expect(myRoot.querySelector('p-table')).withContext('таблица вместо предупреждения').not.toBeNull();
@@ -429,44 +376,44 @@ describe('AccessPage — интеграция с реальным мок-сло�
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
     createAccessPage();
     clickPageButton('3');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(tableRowFullNames()[5]).withContext('student26 на странице 3').toBe('Иванов Иван Иванович 26');
 
     openSelect(fixture, rowSelect(5));
     pickOption(fixture, 'ИК-221');
     expect(setGroupSpy).toHaveBeenCalledWith(student26, ik221);
-    settle(fixture, 1100);
+    env.settle(fixture, 2);
     expect(rowSelectLabel(5)).toBe('ИК-221');
 
     // Счётчики пересчитаны.
     let list!: Awaited<ReturnType<GroupsService['getList']>>;
     void groupsService.getList().then((result) => (list = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(list.find((group) => group.id === ik221)?.studentCount).toBe(26);
     expect(list.find((group) => group.id === ik222)?.studentCount).toBe(4);
 
     // Ведомости: студент в ИК-221 и отсутствует в ИК-222.
     let grid221!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
     void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 6 }).then((result) => (grid221 = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(grid221.total).toBe(26);
     expect(grid221.students.map((student) => student.fullName)).toContain('Иванов Иван Иванович 26');
 
     let grid222!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
     void submissionsService.getGrid({ groupId: ik222, semester: 1, page: 1 }).then((result) => (grid222 = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(grid222.total).toBe(4);
     expect(grid222.students.map((student) => student.fullName)).not.toContain('Иванов Иван Иванович 26');
 
     // Составы /groups/:id согласованы с ведомостью.
     let members221!: Awaited<ReturnType<GroupsService['getStudents']>>;
     void groupsService.getStudents(ik221, 3).then((result) => (members221 = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(members221.items.some((student) => student.login === 'student26')).toBeTrue();
 
     let members222!: Awaited<ReturnType<GroupsService['getStudents']>>;
     void groupsService.getStudents(ik222, 1).then((result) => (members222 = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(members222.items.some((student) => student.login === 'student26')).toBeFalse();
   }));
 
@@ -482,8 +429,8 @@ describe('AccessPage — интеграция с реальным мок-сло�
     expect(setGroupSpy).not.toHaveBeenCalled();
 
     rowConfirmButton('reject').click();
-    waitConfirmClosed();
-    flushNgModel(fixture);
+    env.waitConfirmClosed(fixture);
+    env.flushNgModel(fixture);
     expect(qsIn(fixture, '.p-confirmdialog')).withContext('диалог закрыт').toBeNull();
     expect(rowSelectLabel(0)).withContext('селектор вернулся на «ИК-221»').toBe('ИК-221');
     expect(setGroupSpy).not.toHaveBeenCalled();
@@ -493,24 +440,21 @@ describe('AccessPage — интеграция с реальным мок-сло�
     pickOption(fixture, 'Без группы');
     rowConfirmButton('accept').click();
     expect(setGroupSpy).toHaveBeenCalledWith(student01, null);
-    settle(fixture, 1100);
+    env.settle(fixture, 2);
     expect(rowSelectLabel(0)).toBe('Без группы');
 
     // Студент исчез из ведомости ИК-221 (total 24).
     let grid!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
     void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 1 }).then((result) => (grid = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(grid.total).toBe(24);
     expect(grid.students.map((student) => student.fullName)).not.toContain('Иванов Иван Иванович 01');
 
     // Его /my-submissions — предупреждение.
     fixture.destroy();
-    switchSession(userIdOf(hydrateSeed(), 'student01'));
-    void auth.loadMe();
-    fixture = TestBed.createComponent(MySubmissionsPage);
-    settle(fixture, 600);
-    fixture.detectChanges();
-    settle(fixture, 1100);
+    env.loginAs('student01');
+    fixture = env.mount(MySubmissionsPage);
+    env.settle(fixture, 2);
     expect((fixture.nativeElement as HTMLElement).querySelector('.no-group')?.textContent).toContain(
       TEXT_NO_GROUP,
     );
@@ -519,25 +463,25 @@ describe('AccessPage — интеграция с реальным мок-сло�
   it('TS-357: согласованность groupId из students.getList и groups.getStudents; селекторы используют groupId как значение опций (аменда 6)', fakeAsync(() => {
     createAccessPage();
     clickPageButton('3');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     // Перевод: student26 → ИК-221.
     openSelect(fixture, rowSelect(5));
     pickOption(fixture, 'ИК-221');
-    settle(fixture, 1100);
+    env.settle(fixture, 2);
 
     // Исключение: student01 → «Без группы» (Yes).
     clickPageButton('1');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     openSelect(fixture, rowSelect(0));
     pickOption(fixture, 'Без группы');
     rowConfirmButton('accept').click();
-    settle(fixture, 1100);
+    env.settle(fixture, 2);
 
     // Источник 1: students.getList того же студента.
     let fromList!: Awaited<ReturnType<StudentsService['getList']>>;
     void studentsService.getList({ search: 'student26', page: 1 }).then((result) => (fromList = result));
-    waitMock(600);
+    env.settleRequests(1);
     const transferred = fromList.items[0]!;
     expect(transferred.groupId).toBe(ik221);
     expect(transferred.groupName).toBe('ИК-221');
@@ -545,7 +489,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     // Источник 2: groups.getStudents той же группы — groupId совпадает с id.
     let fromGroup!: Awaited<ReturnType<GroupsService['getStudents']>>;
     void groupsService.getStudents(ik221, 3).then((result) => (fromGroup = result));
-    waitMock(600);
+    env.settleRequests(1);
     const inGroup = fromGroup.items.find((student) => student.login === 'student26')!;
     expect(inGroup.groupId).toBe(ik221);
     expect(inGroup.groupId).toBe(transferred.groupId);
@@ -557,20 +501,20 @@ describe('AccessPage — интеграция с реальным мок-сло�
     // Исключённый: null в обоих источниках (null = без группы).
     let excluded!: Awaited<ReturnType<StudentsService['getList']>>;
     void studentsService.getList({ search: 'student01', page: 1 }).then((result) => (excluded = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(excluded.items[0]!.groupId).toBeNull();
     expect(excluded.items[0]!.groupName).toBeNull();
     let group221Page1!: Awaited<ReturnType<GroupsService['getStudents']>>;
     void groupsService.getStudents(ik221, 1).then((result) => (group221Page1 = result));
-    waitMock(600);
+    env.settleRequests(1);
     expect(group221Page1.items.some((student) => student.login === 'student01')).toBeFalse();
 
     // Селекторы /access используют groupId как значение опций (не имя).
     typeSearch('student26');
-    settle(fixture, 950);
+    env.settle(fixture, 1);
     expect(rowModelValue(0)).withContext('значение селектора — uuid группы').toBe(ik221);
     typeSearch('student01');
-    settle(fixture, 950);
+    env.settle(fixture, 1);
     expect(rowModelValue(0)).withContext('без группы — null из DTO').toBeNull();
   }));
 
@@ -588,7 +532,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     tick(100);
     typeSearch('student0');
     expect(getListSpy.calls.count()).withContext('запроса ещё нет').toBe(1);
-    settle(fixture, 950); // 300 мс дебаунса + ответ мока
+    env.settle(fixture, 1); // 300 мс дебаунса + ответ бэкенда
 
     expect(getListSpy.calls.count()).withContext('ровно один отложенный запрос').toBe(2);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
@@ -602,7 +546,7 @@ describe('AccessPage — интеграция с реальным мок-сло�
     clickNoGroupFilter();
     clickNoGroupFilter();
     clickNoGroupFilter();
-    settle(fixture, 950);
+    env.settle(fixture, 1);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: 'student0',
       groupId: 'none',
@@ -620,30 +564,23 @@ describe('AccessPage — интеграция с реальным мок-сло�
 
     // Другой сеанс удаляет ИК-222 после загрузки справочника: в селекторах
     // остаётся устаревший id; члены группы теряют её (семантика groups.remove).
-    mutateMockDb((data) => {
-      data.groups = data.groups.filter((group) => group.id !== ik222);
-      for (const user of data.users) {
-        if (user.groupId === ik222) {
-          user.groupId = null;
-        }
-      }
-    });
+    env.backend.removeGroupDirect(ik222);
 
     // student31 (страница 4, «Без группы») выбирает устаревшую «ИК-222».
     clickPageButton('4');
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     openSelect(fixture, rowSelect(0));
     pickOption(fixture, 'ИК-222');
     expect(setGroupSpy).toHaveBeenCalledWith(student31, ik222);
 
-    settle(fixture, 600); // отказ setGroup
+    env.settle(fixture, 1); // отказ setGroup (404 от бэкенда по чужому id)
     expect(notifications.desktopMessage()).withContext('баннер якорем header').toEqual({
       severity: 'error',
       text: 'Группа не найдена',
     });
-    drainNotifications();
+    env.drainNotifications();
 
-    settle(fixture, 600); // перезагрузка страницы списка
+    env.settle(fixture, 1); // перезагрузка страницы списка
     expect(getListSpy.calls.count()).withContext('страница списка перезагружена').toBeGreaterThanOrEqual(2);
     expect(rowSelect(0).classList).not.toContain('p-disabled');
     expect(rowSelectLabel(0)).withContext('строка показывает фактическое состояние').toBe('Без группы');

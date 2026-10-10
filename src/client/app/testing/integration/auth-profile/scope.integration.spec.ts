@@ -1,23 +1,26 @@
 /**
  * Интеграционный тест границ области v1 (batch1, FR-4.1/FR-4.7, §4.1/§4.7):
  * TS-040 out-of-scope возможности отсутствуют — в UI нет выбора роли и шага
- * подтверждения email; переданное в auth.register поле role игнорируется
- * (создаётся только student); профиль не содержит редактируемых полей
- * роли/группы/логина (логин read-only).
+ * подтверждения email; DTO auth.register содержит ровно пять полей формы
+ * (поле role клиентом не передаётся — роль учётной записи назначает
+ * бэкенд); профиль не содержит редактируемых полей роли/группы/логина
+ * (логин read-only).
  *
  * Механизм уведомлений (FR-4.9) и адаптивность (FR-4.10) — зоны других
  * батчей и визуальных сценариев VS-*, здесь не проверяются.
  */
 import {
   AuthProfileEnv,
-  flushMock,
-  mockDbData,
+  ME_FIXTURES,
+  respond,
   required,
   restartApp,
   root,
-  sessionUserId,
+  settle,
+  setInput,
   startAuthProfileEnv,
   stopAuthProfileEnv,
+  submitButton,
 } from './auth-profile.env';
 
 describe('Интеграция: границы области v1 (FR-4.1/FR-4.7, batch1 TS-040)', () => {
@@ -49,29 +52,41 @@ describe('Интеграция: границы области v1 (FR-4.1/FR-4.7,
       .toBe(0);
     expect(root(env).textContent).not.toContain('Подтвердит');
 
-    // Прямой вызов auth.register с полем role='teacher': поле игнорируется.
-    const me = await env.client.call<{ role: string }>('auth.register', {
-      fullName: 'Скоуп Скоупов',
-      login: 'scopeuser',
-      email: 'scopeuser@test.ru',
-      password: 'Scope1234!',
-      repeatPassword: 'Scope1234!',
-      role: 'teacher',
-    });
-    expect(me.role).withContext('ответ — student').toBe('student');
-    expect(mockDbData().users.find((u) => u.login === 'scopeuser')!.role)
-      .withContext('создаётся только student')
-      .toBe('student');
+    // Отправка формы: DTO регистрации содержит ровно пять полей формы —
+    // роль клиентом не передаётся (создаётся только student — зона бэкенда).
+    setInput(env, '#full-name-input', 'Скоуп Скоупов');
+    setInput(env, '#login-input', 'scopeuser');
+    setInput(env, '#email-input', 'scopeuser@test.ru');
+    setInput(env, '#password-input', 'Scope1234!');
+    setInput(env, '#repeat-password-input', 'Scope1234!');
+    submitButton(env).click();
+    respond(env, 'POST', '/auth/register', { body: ME_FIXTURES.student01 });
+    await settle(env);
+    const registerCall = env.requests.find((r) => r.path === '/auth/register');
+    expect(Object.keys(registerCall!.body as Record<string, unknown>).sort()).toEqual([
+      'email',
+      'fullName',
+      'login',
+      'password',
+      'repeatPassword',
+    ]);
+    expect(env.auth.isAuthenticated()).withContext('автологин регистрации').toBeTrue();
 
     // /profile: редактируемы только ФИО и email; логин read-only; полей
-    // роли/группы к редактированию нет. «F5»: id созданного пользователя
-    // берётся из mock.db.v1 ДО рестарта (в статическом сиде его нет), сессия
-    // уже поставлена автологином регистрации — keepStorage: true.
-    const scopeUserId = mockDbData().users.find((u) => u.login === 'scopeuser')!.id;
-    env = await restartApp(env, { keepStorage: true });
-    expect(sessionUserId()).withContext('сессия autologin пережила рестарт').toBe(scopeUserId);
+    // роли/группы к редактированию нет. «F5»: сессия в памяти не переживает
+    // рестарт — восстанавливается валидным /auth/me (cookie-семантика).
+    env = await restartApp(env, { keepStorage: true, session: 'student01' });
     await env.harness.navigateByUrl('/profile');
-    await flushMock(env, 1);
+    respond(env, 'GET', '/me/profile', {
+      body: {
+        login: 'student01',
+        email: 'student01@example.com',
+        fullName: 'Иванов Иван Иванович 01',
+        role: 'student',
+        groupName: 'ИК-221',
+      },
+    });
+    await settle(env);
 
     // Ровно два редактируемых поля — в форме «Основные данные» (селектор
     // ограничен формой: поля «Смена пароля» — отдельная карточка, CR-011).
@@ -88,5 +103,6 @@ describe('Интеграция: границы области v1 (FR-4.1/FR-4.7,
     expect(root(env).querySelector('[data-test="role-field"] input, [data-test="group-field"] input'))
       .withContext('роль и группа — не поля ввода')
       .toBeNull();
+    expect(console.error).not.toHaveBeenCalled();
   }, 20000);
 });

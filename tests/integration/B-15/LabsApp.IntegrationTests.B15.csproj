@@ -1,0 +1,129 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-15 (профиль: PUT /api/v1/me/profile — FR-021,
+    наблюдаемость смены email — NFR-006: TS-089..TS-096, TS-193, TS-194).
+    Зона батча: tests/integration/B-15. Реализация (src/api) не изменяется:
+    LabsApp остаётся net8.0 (FR-001); зона ссылается на него ProjectReference
+    и не включается в solution src/api — батчи пишут зоны параллельно
+    (образец — зоны B-01..B-07; урок BL-001 BUG-001: собственный проект зоны
+    вместо правки общего LabsApp.Tests).
+
+    Формулировки кейсов переизданы арбитражем a-017/CR-001: предусловия НЕ
+    зависят от эндпоинтов авторизации — пользователи создаются прямым DI-сидом
+    в IUserRepository тестового хоста (методика NFR-001/FR-007/ADR-010), сессии
+    минтятся харнесом (access-JWT HS256 ключом Auth__JwtKey тестового хоста через
+    ITokenService, ADR-022), cookie access_token передаётся заголовком явно
+    (урок CR-002: CookieContainer не возвращает Secure-cookie для http).
+
+    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-07):
+    на хосте только SDK 10.0.112 и runtime 9/10, runtime .NET 8 отсутствует.
+    Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под net10.0: TestServer реализует
+    PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
+    Проверяемое поведение — HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Ремонт сборки зоны (батч B-15, кейсы восстановления/сброса пароля TS-083,
+    TS-084, TS-085, TS-190, TS-207): сценарии Ts093/Ts094/Ts095 прежней волны
+    зоны проверяли событие Security/email_changed и константу
+    DevEmailSender.EmailChangedSubject, УДАЛЕННЫЕ из реализации при реворке на
+    спеку v2.2 (src/api/LabsApp/Observability/SecurityEventLogger.cs: «Событие
+    email_changed и счётчик security_email_changed_total удалены — в v2.2 не
+    требуется») — файлы не компилируются (CS0117) и не могут быть исполнены
+    против текущей спеки. Суть чужих кейсов не переписывается (запрет на правку
+    чужих тестов): файлы сохранены на диске и ИСКЛЮЧЕНЫ из компиляции зоны,
+    дефект кейсов возвращён конвейеру через scenario_change_requests.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts093_EmailChangedSecurityEventDevTests.cs" />
+    <Compile Remove="Scenarios\Ts094_CiUnchangedEmailNoEventsTests.cs" />
+    <Compile Remove="Scenarios\Ts095_EmailChangedProductionNoNotificationTests.cs" />
+  </ItemGroup>
+
+  <!--
+    Ремонт сборки зоны (переизданный батч B-15, кейсы профиля/смены пароля
+    TS-079..TS-087 текущей нумерации): файлы recovery-волны ПРЕДЫДУЩЕЙ нумерации
+    батча (тогда TS-083/TS-084/TS-085 были кейсами reset-password — теперь это
+    кейсы me/password) ссылаются на типы, УДАЛЁННЫЕ из реализации реворком на
+    спеку v2.2 (консолидация токенных хранилищ в ISecurityTokenRepository,
+    ADR-035: IRefreshTokenRepository/IRecoveryCodeRepository/IResetTokenStore
+    удалены): Infrastructure/B15RecoveryApi.cs (IRefreshTokenRepository) и
+    Infrastructure/B15RecoveryCodeInspection.cs (IRecoveryCodeRepository) не
+    компилируются (CS0246), а вместе с ними и пять их потребителей-сценариев.
+    Суть чужих кейсов не переписывается (запрет на правку чужих тестов): файлы
+    сохранены на диске и ИСКЛЮЧЕНЫ из компиляции зоны (тот же механизм, что и
+    для Ts093/Ts094/Ts095 выше), дефект возвращён конвейеру через
+    scenario_change_requests. B15RecoveryWebAppFactory.cs и
+    B15RecoveryLogProbe.cs от удалённых типов не зависят и остаются в сборке.
+  -->
+  <ItemGroup>
+    <Compile Remove="Infrastructure\B15RecoveryApi.cs" />
+    <Compile Remove="Infrastructure\B15RecoveryCodeInspection.cs" />
+    <Compile Remove="Scenarios\Ts083_ResetPasswordTooLongPasswordTests.cs" />
+    <Compile Remove="Scenarios\Ts084_ResetPasswordUsedTokenTests.cs" />
+    <Compile Remove="Scenarios\Ts085_ResetPasswordOtherSessionsUntouchedTests.cs" />
+    <Compile Remove="Scenarios\Ts190_ProductionRecoveryCodeNeverInLogsTests.cs" />
+    <Compile Remove="Scenarios\Ts207_RecoveryConfirmTrimsEmailAndCodeTests.cs" />
+  </ItemGroup>
+
+  <!--
+    Дедупликация домена semesters (переизданный батч B-15, кейсы TS-101 и
+    TS-173, ревью R4d): семестры закреплены тай-брейком за справочной зоной
+    tests/integration/B-14 — канонические файлы Ts101_SemestersDistinctAscendingAuthTests.cs
+    (TS-101: distinct по возрастанию под student + анонимно 401 «Не авторизован»)
+    и Ts173_*.cs (TS-173: пустой массив при отсутствии работ, Production-хост).
+    Староволновые сценарии прежней нумерации батча Ts119/Ts120 дословно
+    повторяют оба AC FR-018 канонического Ts101 и после закрепления остаются
+    дубликатами (та же ситуация, что и объявленная дубликатом копия Ts101 в
+    B-13). Эквивалент пустого перечня Ts121_SemestersEmptyProduction.cs выведен
+    ранее и в зоне отсутствует (замещён Ts173 в B-14). Суть чужих кейсов не
+    переписывается и новые дубликаты в B-15 не создаются: файлы сохранены на
+    диске и ИСКЛЮЧЕНЫ из компиляции зоны (тот же механизм, что и для
+    Ts083/Ts084/Ts085/Ts190/Ts207 выше).
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts119_SemestersDistinctAscendingTests.cs" />
+    <Compile Remove="Scenarios\Ts120_SemestersAnonymousUnauthorizedTests.cs" />
+  </ItemGroup>
+
+  <!--
+    Поддерево Groups/ (переизданный батч B-15, кейсы групп TS-102..TS-106,
+    TS-160) собирается ОТДЕЛЬНЫМ тестовым проектом
+    Groups/LabsApp.IntegrationTests.B15.Groups.csproj (образец — подпроекты
+    B-14/Groups, B-17/Groups, B-08/Groups; урок BL-001 BUG-001: собственный
+    проект поддерева зоны). Без исключения глоббиновый Compile-шаринг втянул бы
+    те же .cs в корневой проект зоны — дублирующаяся компиляция одного исходника
+    в две сборки.
+  -->
+  <ItemGroup>
+    <Compile Remove="Groups\**\*.cs" />
+  </ItemGroup>
+
+</Project>

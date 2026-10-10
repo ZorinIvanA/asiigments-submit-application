@@ -1,165 +1,163 @@
 /**
- * Юнит-тесты ProfileService (C-106, IF-107): проксирование мок-методов
- * 'profile.get' / 'profile.update' / 'profile.changePassword' с параметрами
- * контракта, пробрасывание ApiError отказов мока как есть и сквозной прогон
- * с реальным реестром (регистрация обработчиков домена — защита от
- * расхождения имён методов сервиса и обработчиков).
+ * Юнит-тесты ProfileService (C-014, IF-013, FR-091) — все вызовы через
+ * HttpTestingController (конвенция URL — ADR-014: ожидаемые URL строятся из
+ * TestBed.inject(API_BASE_URL), литералы префикса запрещены).
+ * Производственная цепочка — реальный authInterceptor (нормализация отказов
+ * в ApiError, withCredentials):
+ *  - get() → GET /me/profile → ProfileDto;
+ *  - update() → PUT /me/profile {fullName, email} → обновлённый ProfileDto;
+ *  - changePassword() → PUT /me/password {currentPassword, password,
+ *    confirmPassword} → 204, void;
+ *  - возвращаемые типы идентичны прежним; отказы 400 {message, errors} /
+ *    409 {message} — реджект ApiError той же формы (баннеры body.message и
+ *    полевые errors работают без изменений).
  */
-import { fakeAsync, TestBed, tick } from '@angular/core/testing';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
-import { MockApiClient } from '../../mock/mock-api-client';
-import { emptyMockDbData } from '../../mock/mock-db';
-import { registerProfileHandlers } from '../../mock/profile/handlers';
-import { ApiError, ProfileDto, STORAGE_KEYS, User } from '../../shared/models';
+import { authInterceptor } from '../auth-interceptor';
+import { API_BASE_URL } from '../api-base-url';
+import { ProfileDto } from '../../shared/models';
 import { ProfileChangePasswordInput, ProfileService, ProfileUpdateInput } from './profile.service';
 
-const SESSION_KEY = STORAGE_KEYS.session;
-const DB_KEY = STORAGE_KEYS.mockDb;
+const STUDENT_PROFILE: ProfileDto = {
+  login: 'student01',
+  email: 'student01@example.com',
+  fullName: 'Иванов Иван Иванович 01',
+  role: 'student',
+  groupName: 'ИК-221',
+};
 
-let userSeq = 0;
+describe('ProfileService — профиль поверх HttpClient (IF-013, FR-091)', () => {
+  let httpMock: HttpTestingController;
+  let apiBase: string;
+  let service: ProfileService;
 
-function makeUser(overrides: Partial<User> = {}): User {
-  userSeq += 1;
-  return {
-    id: `0b0b0b0b-0b0b-4b0b-8b0b-${String(userSeq).padStart(12, '0')}`,
-    login: 'student01',
-    email: 'student01@example.com',
-    fullName: 'Иванов Иван Иванович 01',
-    role: 'student',
-    groupId: null,
-    password: 'Student#2026',
-    ...overrides,
-  };
-}
-
-describe('ProfileService (C-106, IF-107)', () => {
-  describe('проксирование мок-методов (подмена клиента spy)', () => {
-    let service: ProfileService;
-    let callSpy: jasmine.Spy;
-
-    beforeEach(() => {
-      callSpy = jasmine.createSpy('MockApiClient.call');
-      const client = { call: callSpy } as unknown as MockApiClient;
-      TestBed.configureTestingModule({ providers: [{ provide: MockApiClient, useValue: client }] });
-      service = TestBed.inject(ProfileService);
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
     });
+    httpMock = TestBed.inject(HttpTestingController);
+    apiBase = TestBed.inject(API_BASE_URL);
+    service = TestBed.inject(ProfileService);
+  });
 
-    it('get() вызывает profile.get без параметров и резолвит ProfileDto', async () => {
-      const dto: ProfileDto = {
-        login: 'student01',
-        email: 'student01@example.com',
-        fullName: 'Иванов Иван Иванович 01',
-        role: 'student',
-        groupName: 'ИК-221',
-      };
-      callSpy.and.resolveTo(dto);
+  afterEach(() => {
+    // Ни одного незакрытого/лишнего запроса.
+    httpMock.verify();
+  });
 
-      await expectAsync(service.get()).toBeResolvedTo(dto);
-      expect(callSpy).toHaveBeenCalledWith('profile.get', null);
-      expect(callSpy).toHaveBeenCalledTimes(1);
-    });
+  it('get(): GET /me/profile → ProfileDto', async () => {
+    const pending = service.get();
 
-    it('update() передаёт {fullName, email} как есть и резолвит обновлённый ProfileDto', async () => {
-      const input: ProfileUpdateInput = { fullName: 'Петров Пётр Петрович', email: 'petr@example.com' };
-      const dto: ProfileDto = {
-        login: 'student01',
-        email: input.email,
-        fullName: input.fullName,
-        role: 'student',
-        groupName: null,
-      };
-      callSpy.and.resolveTo(dto);
+    const request = httpMock.expectOne(`${apiBase}/me/profile`);
+    expect(request.request.method).toBe('GET');
+    expect(request.request.body).withContext('у GET тела нет').toBeNull();
+    expect(request.request.withCredentials)
+      .withContext('cookie-аутентификация — withCredentials (FR-091)')
+      .toBeTrue();
+    request.flush(STUDENT_PROFILE);
 
-      await expectAsync(service.update(input)).toBeResolvedTo(dto);
-      expect(callSpy).toHaveBeenCalledWith('profile.update', input);
-    });
+    await expectAsync(pending).toBeResolvedTo(STUDENT_PROFILE);
+  });
 
-    it('changePassword() передаёт {currentPassword, password, confirmPassword} и резолвит void', async () => {
-      const input: ProfileChangePasswordInput = {
-        currentPassword: 'Student#2026',
-        password: 'NewPass#2027',
-        confirmPassword: 'NewPass#2027',
-      };
-      callSpy.and.resolveTo(undefined);
+  it('update(): PUT /me/profile с телом {fullName, email} → обновлённый ProfileDto', async () => {
+    const input: ProfileUpdateInput = { fullName: 'Петров Пётр Петрович', email: 'petr@example.com' };
+    const updated: ProfileDto = {
+      login: 'student01',
+      email: input.email,
+      fullName: input.fullName,
+      role: 'student',
+      groupName: 'ИК-221',
+    };
+    const pending = service.update(input);
 
-      await expectAsync(service.changePassword(input)).toBeResolvedTo(undefined);
-      expect(callSpy).toHaveBeenCalledWith('profile.changePassword', input);
-    });
+    const request = httpMock.expectOne(`${apiBase}/me/profile`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(input);
+    request.flush(updated);
 
-    it('отказ мока пробрасывается как есть — ApiError {status, body} дословно', async () => {
-      const apiError: ApiError = {
-        status: 409,
-        body: { message: 'Пользователь с таким email уже существует' },
-      };
-      callSpy.and.rejectWith(apiError);
+    await expectAsync(pending).toBeResolvedTo(updated);
+  });
 
-      await expectAsync(service.get()).toBeRejectedWith(apiError);
+  it('changePassword(): PUT /me/password с телом {currentPassword, password, confirmPassword} → void (204)', async () => {
+    const input: ProfileChangePasswordInput = {
+      currentPassword: 'Student#2026',
+      password: 'NewPass#2027',
+      confirmPassword: 'NewPass#2027',
+    };
+    const pending = service.changePassword(input);
+
+    const request = httpMock.expectOne(`${apiBase}/me/password`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(input);
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    await expectAsync(pending).toBeResolved();
+  });
+
+  it('отказ 409 {message} → реджект ApiError {status: 409, body: {message}} (AC)', async () => {
+    const pending = service.update({ fullName: 'Иванов Иван Иванович 01', email: 'TEACHER@example.com' });
+    httpMock.expectOne(`${apiBase}/me/profile`).flush(
+      { message: 'Пользователь с таким email уже существует' },
+      { status: 409, statusText: 'Conflict' },
+    );
+
+    await expectAsync(pending).toBeRejectedWith({
+      status: 409,
+      body: { message: 'Пользователь с таким email уже существует' },
     });
   });
 
-  describe('сквозной прогон с реальным моком (методы сервиса совпадают с реестром)', () => {
-    beforeEach(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-      TestBed.configureTestingModule({});
-      registerProfileHandlers(TestBed.inject(MockApiClient));
+  it('отказ 400 «Неверный текущий пароль» (без errors) → ApiError с дословным message', async () => {
+    const pending = service.changePassword({
+      currentPassword: 'не-текущий',
+      password: 'NewPass#2027',
+      confirmPassword: 'NewPass#2027',
     });
+    httpMock.expectOne(`${apiBase}/me/password`).flush(
+      { message: 'Неверный текущий пароль' },
+      { status: 400, statusText: 'Bad Request' },
+    );
 
-    afterEach(() => {
-      localStorage.clear();
-      sessionStorage.clear();
+    await expectAsync(pending).toBeRejectedWith({
+      status: 400,
+      body: { message: 'Неверный текущий пароль' },
     });
+  });
 
-    it('get() возвращает профиль пользователя сессии', fakeAsync(() => {
-      const teacher = makeUser({
-        login: 'teacher',
-        email: 'teacher@example.com',
-        fullName: 'Сидоров Семён Семёнович',
-        role: 'teacher',
-        password: 'Teacher#2026',
-      });
-      localStorage.setItem(DB_KEY, JSON.stringify({ ...emptyMockDbData(), users: [teacher] }));
-      localStorage.setItem(SESSION_KEY, teacher.id);
-      const service = TestBed.inject(ProfileService);
-
-      let resolved: ProfileDto | undefined;
-      service.get().then((value) => {
-        resolved = value;
-      });
-      tick(500);
-
-      expect(resolved).toEqual({
-        login: 'teacher',
-        email: 'teacher@example.com',
-        fullName: 'Сидоров Семён Семёнович',
-        role: 'teacher',
-        groupName: null,
-      });
-    }));
-
-    it('update() с занятым email получает отказ ApiError 409 с дословным текстом', fakeAsync(() => {
-      const teacher = makeUser({
-        login: 'teacher',
-        email: 'teacher@example.com',
-        role: 'teacher',
-        password: 'Teacher#2026',
-      });
-      const student = makeUser();
-      localStorage.setItem(DB_KEY, JSON.stringify({ ...emptyMockDbData(), users: [teacher, student] }));
-      localStorage.setItem(SESSION_KEY, student.id);
-      const service = TestBed.inject(ProfileService);
-
-      let error: ApiError | undefined;
-      service.update({ fullName: student.fullName, email: 'TEACHER@example.com' }).then(
-        () => fail('ожидался отказ 409'),
-        (rejected: unknown) => {
-          error = rejected as ApiError;
+  it('отказ 400 «Данные заполнены неверно» с errors → ApiError переносит errors по полям', async () => {
+    const pending = service.changePassword({
+      currentPassword: 'Student#2026',
+      password: 'abcdefgh',
+      confirmPassword: 'другой',
+    });
+    httpMock.expectOne(`${apiBase}/me/password`).flush(
+      {
+        message: 'Данные заполнены неверно',
+        errors: {
+          password: ['Пароль должен содержать хотя бы одну цифру'],
+          confirmPassword: ['Пароли не совпадают'],
         },
-      );
-      tick(500);
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
 
-      expect(error?.status).toBe(409);
-      expect(error?.body.message).toBe('Пользователь с таким email уже существует');
-    }));
+    await expectAsync(pending).toBeRejectedWith({
+      status: 400,
+      body: {
+        message: 'Данные заполнены неверно',
+        errors: {
+          password: ['Пароль должен содержать хотя бы одну цифру'],
+          confirmPassword: ['Пароли не совпадают'],
+        },
+      },
+    });
   });
 });

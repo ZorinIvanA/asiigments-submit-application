@@ -1,8 +1,11 @@
 /**
  * Интеграционные спеки «Сдача работ» студента /my-submissions (батч 3, FR-4.4
  * US-11 + FR-4.10/NFR-4.10, SCR-010): реальные MySubmissionsPage + core-
- * сервисы + мок-слой поверх сида seedFixtures; признак «в группе» — через
- * настоящий кэш профиля AuthService (аменда 3: loadMe, как это делают guards).
+ * сервисы на реальном HTTP-ядре (HttpClient + authInterceptor) поверх
+ * программируемого HttpTestingController-бэкенда GridBackendStub с сидом
+ * зоны; признак «в группе» — через настоящий кэш профиля AuthService
+ * (аменда 3: loadMe, как это делают guards), серверная личность —
+ * backend.sessionLogin.
  *
  * Сценарии (automation: automated): TS-320 (десктоп-таблица read-only),
  * TS-321 (изоляция чужих сдач), TS-322 (предупреждение без группы дословно),
@@ -12,12 +15,8 @@
  * сеансом), TS-380 (граница 768px: карточки/таблица, предупреждение в обеих
  * вёрстках — NFR-4.10, MockBreakpointObserver).
  */
-import { BreakpointObserver } from '@angular/cdk/layout';
-import { ComponentFixture, fakeAsync, TestBed } from '@angular/core/testing';
-import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { ComponentFixture, fakeAsync } from '@angular/core/testing';
 
-import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
-import { AuthService } from '../../../core/services/auth.service';
 import { SubmissionsService } from '../../../core/services/submissions.service';
 import { NotificationService } from '../../../shared/notifications/notification-service';
 import {
@@ -25,55 +24,29 @@ import {
   TEXT_NO_GROUP,
   TEXT_NO_SEMESTERS,
 } from '../../../features/my-submissions/pages/my-submissions-page';
-import {
-  drainNotifications,
-  groupIdOf,
-  hydrateSeed,
-  installMockLayer,
-  labIdOf,
-  mutateMockDb,
-  resetZoneEnvAfterSpec,
-  settle,
-  switchSession,
-  userIdOf,
-} from './integration-env';
+import { GridAccessEnv } from './integration-env';
 
-describe('MySubmissionsPage — интеграция с реальным мок-слоем (батч 3, FR-4.4/FR-4.10)', () => {
-  let breakpoints: MockBreakpointObserver;
+describe('MySubmissionsPage — интеграция с реальным HTTP-ядром (батч 3, FR-4.4/FR-4.10)', () => {
+  let env: GridAccessEnv;
   let notifications: NotificationService;
-  let auth: AuthService;
   let submissions: SubmissionsService;
   let fixture: ComponentFixture<MySubmissionsPage>;
 
-  let teacherId: string;
   let ik221: string;
   let lab1: string;
 
   beforeEach(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    breakpoints = new MockBreakpointObserver();
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: BreakpointObserver, useValue: breakpoints },
-        provideNoopAnimations(),
-      ],
-    });
-    notifications = TestBed.inject(NotificationService);
-    auth = TestBed.inject(AuthService);
-    submissions = TestBed.inject(SubmissionsService);
-    installMockLayer();
-
-    const db = hydrateSeed();
-    teacherId = userIdOf(db, 'teacher');
-    ik221 = groupIdOf(db, 'ИК-221');
-    lab1 = labIdOf(db, 1, 1);
+    env = GridAccessEnv.setup();
+    notifications = env.notifications;
+    submissions = env.inject(SubmissionsService);
+    ik221 = env.backend.groupIdByName('ИК-221');
+    lab1 = env.backend.labId(1, 1);
   });
 
   afterEach(() => {
     notifications.dismissMobile();
     fixture?.destroy();
-    resetZoneEnvAfterSpec();
+    env.stop();
   });
 
   function root(): HTMLElement {
@@ -82,16 +55,13 @@ describe('MySubmissionsPage — интеграция с реальным мок-
 
   /**
    * Открывает экран под сессией студента, как это делает реальный переход:
-   * guard догружает профиль (loadMe → auth.me, один мок-вызов), затем
-   * страница — getSemesters + getMy (по 500 мс).
+   * настоящая загрузка профиля (loginAs → GET /auth/me → кэш AuthService),
+   * затем страница — getSemesters (волна 1) + getMy (волна 2).
    */
   function openMySubmissions(login: string): void {
-    switchSession(userIdOf(hydrateSeed(), login));
-    void auth.loadMe();
-    fixture = TestBed.createComponent(MySubmissionsPage);
-    settle(fixture, 600); // loadMe (500)
-    fixture.detectChanges();
-    settle(fixture, 1100); // getSemesters (500) + getMy (500)
+    env.loginAs(login);
+    fixture = env.mount(MySubmissionsPage);
+    env.settle(fixture, 2);
   }
 
   /** Нативный select семестра страницы. */
@@ -130,7 +100,7 @@ describe('MySubmissionsPage — интеграция с реальным мок-
     expect(root().querySelector('p-datepicker')).withContext('нет календарей').toBeNull();
     expect(root().querySelector('input')).withContext('нет input-контролов').toBeNull();
     root().querySelectorAll('tbody td')[1]?.dispatchEvent(new Event('click'));
-    flushMicrotasks();
+    env.flushNgModel(fixture);
     expect(updateSpy).not.toHaveBeenCalled();
 
     // Чужих строк и данных нет.
@@ -158,7 +128,7 @@ describe('MySubmissionsPage — интеграция с реальным мок-
     expect(getMySpy.calls.mostRecent().args[0]).toBe(1);
     let response!: Awaited<ReturnType<SubmissionsService['getMy']>>;
     void submissions.getMy(1).then((result) => (response = result));
-    settle(fixture, 600);
+    env.settleRequests(1);
     expect(response.submissions.length).toBe(1);
     expect(response.submissions[0]?.labId).toBe(lab1);
   }));
@@ -179,7 +149,7 @@ describe('MySubmissionsPage — интеграция с реальным мок-
     expect(getMySpy).toHaveBeenCalledTimes(1);
     let response!: Awaited<ReturnType<SubmissionsService['getMy']>>;
     void submissions.getMy(1).then((result) => (response = result));
-    settle(fixture, 600);
+    env.settleRequests(1);
     expect(response).toEqual({ hasGroup: false, labs: [], submissions: [] });
   }));
 
@@ -188,7 +158,7 @@ describe('MySubmissionsPage — интеграция с реальным мок-
 
     semesterSelect().value = '2';
     semesterSelect().dispatchEvent(new Event('change'));
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     // Семестр 2: те же номера работ 1..3, все пары пустые (сид-сдач нет).
     expect(cellText(0, 1, 'submit')).toBe('');
@@ -198,7 +168,7 @@ describe('MySubmissionsPage — интеграция с реальным мок-
 
     semesterSelect().value = '1';
     semesterSelect().dispatchEvent(new Event('change'));
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     expect(cellText(0, 1, 'submit')).toBe('01.09.2026');
     expect(cellText(0, 2, 'submit')).toBe('02.09.2026');
@@ -207,9 +177,9 @@ describe('MySubmissionsPage — интеграция с реальным мок-
 
   it('TS-324: студент в группе, работы удалены — getMy не вызван ни разу, селектор пуст/disabled, «Нет семестров с работами», без баннеров (аменда 3)', fakeAsync(() => {
     const getMySpy = spyOn(submissions, 'getMy').and.callThrough();
-    mutateMockDb((data) => {
-      data.labs = [];
-      data.submissions = [];
+    env.backend.mutate((state) => {
+      state.labs = [];
+      state.submissions = [];
     });
 
     openMySubmissions('student01');
@@ -222,9 +192,9 @@ describe('MySubmissionsPage — интеграция с реальным мок-
   }));
 
   it('TS-325: без группы И без семестров — только предупреждение, «Нет семестров с работами» не дублируется (аменда 3)', fakeAsync(() => {
-    mutateMockDb((data) => {
-      data.labs = [];
-      data.submissions = [];
+    env.backend.mutate((state) => {
+      state.labs = [];
+      state.submissions = [];
     });
 
     openMySubmissions('student31');
@@ -237,27 +207,27 @@ describe('MySubmissionsPage — интеграция с реальным мок-
     openMySubmissions('student01');
 
     // Каскадное удаление работ семестра 2 между запросами (другой сеанс).
-    mutateMockDb((data) => {
-      data.labs = data.labs.filter((lab) => lab.semester !== 2);
-      data.submissions = data.submissions.filter(
-        (candidate) => data.labs.some((lab) => lab.id === candidate.labId),
+    env.backend.mutate((state) => {
+      state.labs = state.labs.filter((lab) => lab.semester !== 2);
+      state.submissions = state.submissions.filter(
+        (candidate) => state.labs.some((lab) => lab.id === candidate.labId),
       );
     });
 
     semesterSelect().value = '2';
     semesterSelect().dispatchEvent(new Event('change'));
-    settle(fixture, 600);
+    env.settle(fixture, 1);
 
     expect(root().textContent).withContext('текст пустого состояния').toContain(TEXT_NO_SEMESTERS);
     expect(semesterSelect().disabled).withContext('селектор активен').toBeFalse();
     expect(root().querySelector('p-table')).withContext('вместо таблицы — текст').toBeNull();
     expect(notifications.desktopMessage()).withContext('ошибочного баннера нет').toBeNull();
-    drainNotifications();
+    env.drainNotifications();
 
     // Переключение на семестр 1 перезагружает экран с данными.
     semesterSelect().value = '1';
     semesterSelect().dispatchEvent(new Event('change'));
-    settle(fixture, 600);
+    env.settle(fixture, 1);
     expect(cellText(0, 1, 'submit')).toBe('01.09.2026');
   }));
 
@@ -265,9 +235,9 @@ describe('MySubmissionsPage — интеграция с реальным мок-
     openMySubmissions('student02');
     expect(root().querySelector('p-table')).withContext('до исключения — таблица').not.toBeNull();
 
-    // Другой сеанс исключает студента из группы прямой правкой mock.db.v1.
-    mutateMockDb((data) => {
-      const student = data.users.find((user) => user.login === 'student02');
+    // Другой сеанс исключает студента из группы прямой мутацией бэкенда.
+    env.backend.mutate((state) => {
+      const student = state.users.find((user) => user.login === 'student02');
       if (student !== undefined) {
         student.groupId = null;
       }
@@ -279,20 +249,19 @@ describe('MySubmissionsPage — интеграция с реальным мок-
     expect(root().querySelector('p-table')).not.toBeNull();
 
     // Перезагрузка приложения: свежий auth.me обновляет кэш профиля.
-    void auth.loadMe();
-    settle(fixture, 600);
+    env.loginAs('student02');
     fixture.detectChanges();
 
     expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
     expect(root().querySelector('p-table')).withContext('предупреждение вместо таблицы').toBeNull();
 
     // Ведомость ИК-221: total 24, студента 02 нет ни на одной странице.
-    switchSession(teacherId);
+    env.serverSession('teacher');
     const seen: string[] = [];
     for (let page = 1; page <= 5; page++) {
       let grid!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
       void submissions.getGrid({ groupId: ik221, semester: 1, page }).then((result) => (grid = result));
-      settle(fixture, 600);
+      env.settleRequests(1);
       expect(grid.total).toBe(24);
       seen.push(...grid.students.map((student) => student.fullName));
     }
@@ -302,7 +271,7 @@ describe('MySubmissionsPage — интеграция с реальным мок-
 
   it('TS-380 (NFR-4.10): 767px — карточки «Лаб N» без таблицы; 768px — десктопная таблица; предупреждение student31 корректно в обеих вёрстках', fakeAsync(() => {
     // Мобильная ширина (767px) до создания страницы.
-    breakpoints.simulate(true);
+    env.breakpoints.simulate(true);
     openMySubmissions('student01');
 
     // Карточки «Лаб N» со строками «Сдача»/«Защита», даты дд.мм.гггг.
@@ -331,7 +300,7 @@ describe('MySubmissionsPage — интеграция с реальным мок-
     expect(root().querySelector('p-table')).withContext('таблицы нет').toBeNull();
 
     // 768px — десктопная таблица одной строкой.
-    breakpoints.simulate(false);
+    env.breakpoints.simulate(false);
     fixture.detectChanges();
     expect(root().querySelector('p-table')).not.toBeNull();
     expect(root().querySelectorAll('tbody tr').length).toBe(1);
@@ -340,19 +309,14 @@ describe('MySubmissionsPage — интеграция с реальным мок-
 
     // student31: предупреждение корректно в обеих вёрстках.
     fixture.destroy();
-    breakpoints.simulate(true);
+    env.breakpoints.simulate(true);
     openMySubmissions('student31');
     expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
     expect(root().querySelector('.card')).toBeNull();
 
-    breakpoints.simulate(false);
+    env.breakpoints.simulate(false);
     fixture.detectChanges();
     expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
     expect(root().querySelector('p-table')).withContext('таблицы у студента без группы нет').toBeNull();
   }));
-
-  /** Прогон микрозадач без CD (вспомогательный для кликов вне потока данных). */
-  function flushMicrotasks(): void {
-    settle(fixture, 0);
-  }
 });
