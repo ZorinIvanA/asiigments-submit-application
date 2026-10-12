@@ -89,29 +89,43 @@ public static class DotNetCli
             startInfo.ArgumentList.Add(argument);
         }
 
-        startInfo.EnvironmentVariables["DOTNET_ROLL_FORWARD"] = "LatestMajor";
+        startInfo.EnvironmentVariables["DOTNET_ROLL_FORWARD"] = null;
         startInfo.EnvironmentVariables["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
         startInfo.EnvironmentVariables["DOTNET_NOLOGO"] = "1";
         startInfo.EnvironmentVariables["DOTNET_USE_POLLING_FILE_WATCHER"] = "true";
-        // Утечка окружения SDK родителя: тест-хост зоны запущен SDK 10, который
-        // прописывает MSBUILD_EXE_PATH/MSBuildSDKsPath/DOTNET_HOST_PATH в процесс.
-        // Дочерний dotnet с этими переменными берёт ЗАДАЧИ SDK 10 при рантайме 8
-        // (или наоборот) — MSB4062 «не удалось загрузить задачу». Переменные
-        // снимаются: дочерний muxer резолвит SDK по собственному корню.
-        startInfo.EnvironmentVariables["MSBUILD_EXE_PATH"] = null;
-        startInfo.EnvironmentVariables["MSBuildSDKsPath"] = null;
-        startInfo.EnvironmentVariables["MSBuildExtensionsPath"] = null;
-        startInfo.EnvironmentVariables["DOTNET_HOST_PATH"] = null;
-        // Рантайм net8.0 на хосте прогона есть только в пользовательской установке
-        // (~/.dotnet): системный muxer содержит лишь 9.x/10.x, и LatestMajor-прокат
-        // net8→net10 ломает WebApplicationFactory-тесты (AspNetCore.App 8→10).
-        // Дочерним dotnet-процессам явно задаётся корень установки с 8.x
-        // (DOTNET_ROOT_X64 имеет приоритет над DOTNET_ROOT — перекрываем оба).
+        // Дочерним dotnet-процессам явно задаётся корень установки с рантаймом 8.x,
+        // если такой есть (пользовательская установка ~/.dotnet или системный
+        // /usr/lib/dotnet): DOTNET_ROOT_X64 имеет приоритет над DOTNET_ROOT —
+        // перекрываем оба. Найден корень с 8.x — дети идут на нём без проката:
+        // LatestMajor внутри корня, где есть и 9.x/10.x, прыгнул бы на старший
+        // мажор (AspNetCore.App 8→10 ломает WebApplicationFactory-тесты).
         var dotnetRoot = ResolveDotNetRootWithNet8Runtime();
         if (dotnetRoot is not null)
         {
             startInfo.EnvironmentVariables["DOTNET_ROOT"] = dotnetRoot;
             startInfo.EnvironmentVariables["DOTNET_ROOT_X64"] = dotnetRoot;
+
+            // MSBuild-переменные родителя (MSBUILD_EXE_PATH/MSBuildSDKsPath/
+            // MSBuildExtensionsPath/DOTNET_HOST_PATH) снимаются только если они
+            // указывают на установку, ОТЛИЧНУЮ от выбранного корня (задачи чужого
+            // SDK — MSB4062). Значения, согласованные с корнем, оставляются:
+            // дочерние MSBuild-процессы полагаются на них при резолве SDK, а
+            // безусловное снятие «правильных» значений ломает сборку (MSB4236
+            // «Could not resolve SDK» — воспроизведено на системной установке
+            // /usr/lib/dotnet с SDK 8/9/10).
+            RemoveForeignMsBuildEnvironment(startInfo.Environment, dotnetRoot);
+        }
+        else
+        {
+            // Рантайма 8.x нет ни в одной установке — единственный способ запустить
+            // net8-детей: прокат на старший доступный мажор; сопровождающие
+            // MSBuild-переменные родителя снимаются (прежнее поведение —
+            // тест-хост зоны и дети разъезжаются по SDK/рантаймам).
+            startInfo.EnvironmentVariables["DOTNET_ROLL_FORWARD"] = "LatestMajor";
+            startInfo.EnvironmentVariables["MSBUILD_EXE_PATH"] = null;
+            startInfo.EnvironmentVariables["MSBuildSDKsPath"] = null;
+            startInfo.EnvironmentVariables["MSBuildExtensionsPath"] = null;
+            startInfo.EnvironmentVariables["DOTNET_HOST_PATH"] = null;
         }
         startInfo.EnvironmentVariables["MSBUILDDISABLENODEREUSE"] = "1";
 
@@ -161,6 +175,24 @@ public static class DotNetCli
         // у Faulted/Canceled задач доступ к Result бросает исключение, а
         // незавершённая (но не ошибшаяся) задача заблокировала бы вызов.
         return readTask.Status == TaskStatus.RanToCompletion ? readTask.Result : string.Empty;
+    }
+
+    /// <summary>
+    /// Снятие MSBuild-переменных окружения, указывающих на установку .NET,
+    /// отличную от <paramref name="dotnetRoot"/>: задачи чужого SDK ломают
+    /// дочернюю сборку (MSB4062). Согласованные с корнем значения не трогаются.
+    /// </summary>
+    private static void RemoveForeignMsBuildEnvironment(IDictionary<string, string?> environment, string dotnetRoot)
+    {
+        foreach (var name in new[] { "MSBUILD_EXE_PATH", "MSBuildSDKsPath", "MSBuildExtensionsPath", "DOTNET_HOST_PATH" })
+        {
+            if (environment.TryGetValue(name, out var value)
+                && !string.IsNullOrEmpty(value)
+                && !value.StartsWith(dotnetRoot, StringComparison.Ordinal))
+            {
+                environment[name] = null;
+            }
+        }
     }
 
     /// <summary>

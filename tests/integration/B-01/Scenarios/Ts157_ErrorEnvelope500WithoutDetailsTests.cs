@@ -35,11 +35,13 @@ public sealed class Ts157_ErrorEnvelope500WithoutDetailsTests
         using var client = MintedSession.CreateTeacherClient(factory);
         ((ArmedLabRepository)factory.Services.GetRequiredService<ILabRepository>()).Arm();
 
-        // when: POST /api/v1/labs с валидным телом — валидация проходит, вызов
-        // доходит до заменённого репозитория (_labs.Add) и падает исключением.
+        // when: POST /api/v1/labs с валидным телом — валидация проходит (в том
+        // числе обязательный для POST boolean defenseRequired — строгий контракт
+        // TS-114), вызов доходит до заменённого репозитория (_labs.Add) и
+        // падает исключением.
         using var response = await client.PostAsJsonAsync(
             "/api/v1/labs",
-            new { semester = 1, number = 1, content = "Лабораторная работа" });
+            new { semester = 1, number = 1, content = "Лабораторная работа", defenseRequired = false });
 
         // then: 500; {'message':'Внутренняя ошибка сервера'} — литерал словаря
         // замороженной спеки (FR-023), не прод-константа (иначе дрейф словаря

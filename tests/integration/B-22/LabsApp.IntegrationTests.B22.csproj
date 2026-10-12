@@ -16,9 +16,9 @@
       Тестовый проект целится в runtime, фактически установленный на хосте прогона
       (SDK 10.x, рантаймы 9/10; как в зонах B-01/B-03/B-19). Само приложение остаётся
       net8.0 (FR-001); для дочернего прогона `dotnet build`/`dotnet test` над src/api
-      (TS-185) выставляется DOTNET_ROLL_FORWARD=LatestMajor.
+      (TS-185) выставляется DOTNET_ROLL_FORWARD=LatestMajor — только если рантайм 8.x не найден ни в одной установке.
     -->
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -26,7 +26,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.*" />
     <!-- TS-187 (NFR-004): FakeTimeProvider — «инжектируемые часы» кейса
          (перевод тестового времени на 60 с без реального ожидания; ADR-002). -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />

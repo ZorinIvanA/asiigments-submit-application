@@ -50,10 +50,12 @@ public sealed class Ts173_ErrorEnvelope500WithoutDetailsTests
 
         ((ArmedLabRepository)factory.Services.GetRequiredService<ILabRepository>()).Arm();
 
-        // when: POST /api/v1/labs с валидным телом — исключение заменённого сервиса.
+        // when: POST /api/v1/labs с валидным телом — валидация проходит (в том
+        // числе обязательный для POST boolean defenseRequired — строгий контракт
+        // TS-114), исключение заменённого сервиса.
         using var response = await client.PostAsJsonAsync(
             "/api/v1/labs",
-            new { semester = 1, number = 1, content = "Лабораторная работа (TS-173)" });
+            new { semester = 1, number = 1, content = "Лабораторная работа (TS-173)", defenseRequired = false });
 
         // then: 500 с конвертом {'message':'Внутренняя ошибка сервера'}.
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);

@@ -103,24 +103,6 @@
         }
       }
     },
-    "integration-b06": {
-      "projectType": "application",
-      "root": "tests/integration/B-06",
-      "sourceRoot": "tests/integration/B-06",
-      "prefix": "app",
-      "architect": {
-        "test": {
-          "builder": "@angular/build:karma",
-          "options": {
-            "tsConfig": "tests/integration/B-06/tsconfig.spec.json",
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ]
-          }
-        }
-      }
-    },
     "integration-b17": {
       "projectType": "application",
       "root": "tests/integration/B-17",

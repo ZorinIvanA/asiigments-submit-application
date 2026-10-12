@@ -13,12 +13,11 @@
 
   <PropertyGroup>
     <!--
-      Тестовый проект целится в runtime, фактически установленный на хосте прогона
-      (ASP.NET Core 10): TestHost-пакет 8.0.x несовместим с runtime 10 (как в зоне
-      B-01). Само приложение остаётся net8.0; для дочернего прогона
+      Тестовый проект — net8.0, как и приложение (стек .NET 8 по ТЗ; на исходном хосте прогона runtime 8 отсутствовал, и зона временно целилась в фактически установленный ASP.NET Core 10 — TestHost-пакет 8.0.x несовместим с runtime 10 (как в зоне
+      B-01). Само приложение — net8.0; для дочернего прогона
       `dotnet test` над src/api (TS-182) тест выставляет DOTNET_ROLL_FORWARD=LatestMajor.
     -->
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -26,7 +25,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.*" />
     <!-- TS-031 (NFR-004): FakeTimeProvider — «инжектируемые часы» кейса
          (перевод тестового времени на 60 с без реального ожидания). -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />

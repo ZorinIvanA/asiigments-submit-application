@@ -32,8 +32,9 @@ namespace LabsApp.IntegrationTests.B21.Scenarios;
 /// then:  dotnet test, ng build, ng test — exit 0 (NFR-002); dotnet build —
 ///        0 предупреждений — гейт TS-191.
 ///
-/// Замечания по запуску: на хосте прогона нет runtime net8.0 (только 9.x/10.x),
-/// поэтому дочерним dotnet-командам выставляется DOTNET_ROLL_FORWARD=LatestMajor;
+/// Замечания по запуску: дочерним dotnet-командам выставляется
+/// DOTNET_ROLL_FORWARD=LatestMajor, только если рантайм 8.x не найден ни в одной
+/// установке (найдена установка с 8.x — DOTNET_ROOT на неё, без проката);
 /// ng test — дословно «ng test --watch=false --browsers=ChromeHeadless» (watch и
 /// реальный браузер несовместимы с CI-прогоном; CHROME_BIN выставляется только
 /// если не задан). Зона тестов батча (tests/integration/B-21) в проверяемые

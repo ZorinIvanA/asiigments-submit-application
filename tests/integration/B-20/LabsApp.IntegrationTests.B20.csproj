@@ -9,14 +9,14 @@
     (образец — зоны B-01..B-07; урок BL-001 BUG-001: собственный проект зоны
     вместо правки общего LabsApp.Tests).
 
-    Тестовый проект — net10.0 (адаптация окружения прогона, как у зон B-01..B-07):
-    на хосте только SDK 10.0.x и runtime 9/10, runtime .NET 8 отсутствует.
+    Тестовый проект — net8.0 (ранее net10.0 — адаптация окружения прогона без runtime 8, как у зон B-01..B-07):
+    на исходном хосте прогона не было runtime .NET 8 (только SDK 10 и runtime 9/10); с рантаймом 8.x зона возвращена на net8.0 и Mvc.Testing 8.0.*.
     Проверяемое поведение TS-183 — статическое содержание src/api/README.md,
     от TFM тестового хоста не зависит.
   -->
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -26,13 +26,13 @@
   <ItemGroup>
     <!--
       Сценарии TS-030/TS-148 используют WebApplicationFactory над бэкендом
-      (ProjectReference ниже): Microsoft.AspNetCore.Mvc.Testing 10.0.12 — под
+      (ProjectReference ниже): Microsoft.AspNetCore.Mvc.Testing 10.0.12 (историческое обоснование прежнего net10.0) — под
       net10.0 хоста прогона (TestServer реализует PipeWriter.UnflushedBytes);
       Microsoft.Extensions.TimeProvider.Testing 8.10.0 — FakeTimeProvider
       инжектируемых часов TS-030 (ADR-002: 60-секундный лог KDF-счётчика
       построен на TimeProvider.CreateTimer).
     -->
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.*" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />

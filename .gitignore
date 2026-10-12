@@ -431,6 +431,11 @@ FodyWeavers.xsd
 /.pipeline
 /.vscode
 
+# Вложенные каталоги состояния конвейера и скрэтч-локи NuGet в тестовых зонах
+# (ранее попадали в индекс как NuGetScratch*/lock/*)
+.pipeline/
+._tmp_dir/
+
 # Межпроцессные замки тестовых зон (dotnet build/test над src/api; ng build/test)
 /.dotnet-srcapi-build.lock
 /.ng-cli-process.lock

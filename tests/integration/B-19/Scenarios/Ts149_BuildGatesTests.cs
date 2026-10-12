@@ -16,8 +16,7 @@ namespace LabsApp.IntegrationTests.B19.Scenarios;
 ///        csproj); dotnet test, ng build, ng test — exit 0 (NFR-002, методика
 ///        verification: CI-команды локально).
 ///
-/// Замечания по запуску: на хосте прогона нет runtime net8.0 (только 9.x/10.x),
-/// поэтому дочерним dotnet-командам выставляется DOTNET_ROLL_FORWARD=LatestMajor.
+/// Замечания по запуску: дочерним dotnet-командам выставляется DOTNET_ROLL_FORWARD=LatestMajor, только если рантайм 8.x не найден ни в одной установке (найдена установка с 8.x — DOTNET_ROOT на неё, без проката) только если рантайм 8.x не найден ни в одной установке (иначе — DOTNET_ROOT на установку с 8.x, без проката).
 /// Все четыре прогона включены в SerialNgProcessCollection зоны: они конкурируют
 /// за .angular-кэш/dist и за obj/bin src/api с ng serve+Kestrel (TS-180) и
 /// бенчмарком TS-148 — параллельность порождает ложные падения и шум латентности.

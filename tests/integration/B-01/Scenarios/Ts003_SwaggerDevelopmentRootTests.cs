@@ -4,12 +4,14 @@ using Microsoft.Extensions.Hosting;
 namespace LabsApp.IntegrationTests.B01.Scenarios;
 
 /// <summary>
-/// Кейс TS-003 «Голый GET /swagger в Development отдаёт 200 от Swagger UI»
+/// Кейс TS-003 «Голый GET /swagger в Development приходит в Swagger UI»
 /// (FR-002, FR-001, P0).
 /// given: Environment=Development; wwwroot/index.html существует.
 /// when: GET /swagger (без /index.html).
-/// then: 200 от Swagger UI — не 3xx-редирект, не 404, и тело НЕ является
-/// содержимым wwwroot/index.html (по букве AC FR-002: «в Development те же
+/// then: конечная точка — Swagger UI с 200; редирект-цепочка допущена
+/// (аменда оракула арбитражей a-148/a-152: Swashbuckle 9.x отвечает
+/// 301 → /swagger/index.html), и тело НЕ является содержимым
+/// wwwroot/index.html (по букве AC FR-002: «в Development те же
 /// маршруты — 200 от Swagger UI»).
 ///
 /// Второй тест файла — глубинная проверка тела /swagger/index.html в Development
@@ -26,21 +28,42 @@ public sealed class Ts003_SwaggerDevelopmentRootTests
     private const string SwaggerUiMarker = "swagger-ui";
 
     [Fact]
-    public async Task GetSwaggerRoot_InDevelopment_Returns200FromSwaggerUiWithoutRedirect()
+    public async Task GetSwaggerRoot_InDevelopment_EndsAtSwaggerUi200()
     {
         // given: Environment=Development; wwwroot/index.html существует (TestAssets
         // копируется csproj-целью в content root тестового хоста). Клиент — без
-        // авто-редиректов: любой 3xx остаётся виден в статусе ответа.
+        // авто-редиректов: любая цепочка 3xx проходится явно, по шагам.
         using var factory = new B01WebAppFactory(Environments.Development, null);
         using var client = HostClients.Create(factory);
 
         // when: GET /swagger (без /index.html).
-        using var response = await client.GetAsync("/swagger");
+        using var redirectable = await client.GetAsync("/swagger");
 
-        // then: 200 от Swagger UI — не 3xx-редирект, не 404.
+        // then: сразу 200 ИЛИ 3xx-редирект внутри /swagger (аменда a-148/a-152:
+        // Swashbuckle 9.x отдаёт 301 → /swagger/index.html; конечная точка —
+        // Swagger UI). Чужой адрес или отсутствие Location — ошибка маршрута.
+        HttpResponseMessage response = redirectable;
+        if (!response.IsSuccessStatusCode)
+        {
+            Assert.True(
+                (int)response.StatusCode >= 300 && (int)response.StatusCode < 400,
+                $"Ожидался 200 или 3xx-редирект от GET /swagger в Development, фактически: "
+                + $"{(int)response.StatusCode} ({response.ReasonPhrase}).");
+            var location = response.Headers.Location?.ToString();
+            Assert.False(string.IsNullOrEmpty(location), "3xx от /swagger без заголовка Location.");
+            // Location может быть и абсолютным (/swagger/index.html), и относительным
+            // (swagger/index.html) — проверка пути по нормализованному виду.
+            Assert.True(
+                location.TrimStart('/').StartsWith("swagger", StringComparison.Ordinal),
+                $"Редирект /swagger ведёт вне зоны Swagger: {location}.");
+
+            response = await client.GetAsync(location);
+        }
+
+        // then: конечная точка — 200 от Swagger UI.
         Assert.True(
             response.StatusCode == HttpStatusCode.OK,
-            $"Ожидался 200 от Swagger UI на голый GET /swagger в Development, фактически: "
+            $"Конечная точка редирект-цепочки /swagger — ожидался 200, фактически: "
             + $"{(int)response.StatusCode} ({response.ReasonPhrase}).");
 
         // then: тело — страница Swagger UI.
@@ -53,8 +76,12 @@ public sealed class Ts003_SwaggerDevelopmentRootTests
         var actual = await response.Content.ReadAsByteArrayAsync();
         Assert.False(
             expectedIndex.AsSpan().SequenceEqual(actual),
-            "Тело GET /swagger совпадает с wwwroot/index.html — маршрут перехвачен SPA fallback'ом.");
+            "Тело конечной точки /swagger совпадает с wwwroot/index.html — маршрут перехвачен SPA fallback'ом.");
         Assert.DoesNotContain(IndexMarker, body, StringComparison.Ordinal);
+        if (!ReferenceEquals(response, redirectable))
+        {
+            response.Dispose();
+        }
     }
 
     [Fact]

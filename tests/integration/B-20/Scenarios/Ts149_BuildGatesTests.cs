@@ -16,8 +16,9 @@ namespace LabsApp.IntegrationTests.B20.Scenarios;
 ///        csproj); dotnet test, ng build, ng test — exit 0 (NFR-002, методика
 ///        verification: CI-команды локально).
 ///
-/// Замечания по запуску: на хосте прогона нет runtime net8.0 (только 9.x/10.x),
-/// поэтому дочерним dotnet-командам выставляется DOTNET_ROLL_FORWARD=LatestMajor
+/// Замечания по запуску: дочерним dotnet-командам выставляется
+/// DOTNET_ROLL_FORWARD=LatestMajor, только если рантайм 8.x не найден ни в одной
+/// установке (найдена установка с 8.x — DOTNET_ROOT на неё, без проката)
 /// (хелпер DotNetCli зоны B-20 — тот же, что у метатестов TS-181/TS-182, с
 /// межпроцессным замком <see cref="SrcApiBuildLock"/> над obj/bin src/api).
 /// ng-прогоны аналогично сериализуются межпроцессным замком

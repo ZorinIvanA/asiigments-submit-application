@@ -31,7 +31,7 @@
     Сценарии TS-030/TS-148 используют WebApplicationFactory над бэкендом:
     ProjectReference на src/api/LabsApp (копия механики зон B-10/B-21; сам проект
     по-прежнему не включается в src/api/LabsApp.sln). Microsoft.AspNetCore.Mvc.Testing
-    10.0.12 — под net10.0 хоста прогона (TestServer реализует PipeWriter.UnflushedBytes);
+    10.0.12 (историческое обоснование прежнего net10.0) — под net10.0 хоста прогона (TestServer реализует PipeWriter.UnflushedBytes);
     Microsoft.Extensions.TimeProvider.Testing 8.10.0 — FakeTimeProvider инжектируемых
     часов (ADR-002: 60-секундный лог KDF-счётчика построен на TimeProvider.CreateTimer).
   -->
@@ -42,7 +42,7 @@
       прогона (SDK 10.x, как в B-01/B-18); проверяемый клиент — Angular/node, версия
       .NET на проверяемое поведение не влияет.
     -->
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -50,7 +50,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.*" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="8.10.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />

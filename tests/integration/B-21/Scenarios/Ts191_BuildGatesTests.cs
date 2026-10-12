@@ -20,7 +20,7 @@ namespace LabsApp.IntegrationTests.B21.Scenarios;
 /// НЕ считаются (нет кода) — опознание вынесено в общий помощник зоны
 /// <see cref="B21BuildGateWarnings"/> (REWORK CR-002: без приватных копий).
 /// Дочерним dotnet-командам выставляется
-/// DOTNET_ROLL_FORWARD=LatestMajor (на хосте прогона нет runtime net8.0 —
+/// DOTNET_ROLL_FORWARD=LatestMajor, только если рантайм net8.0 не найден ни в одной установке (иначе DOTNET_ROOT на установку с 8.x —
 /// <see cref="B21ProcessRunner.ApplyCommonEnvironment"/>).
 /// </summary>
 public sealed class Ts191_BuildGatesTests

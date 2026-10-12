@@ -43,8 +43,10 @@ public sealed class AppProcess : IDisposable
 
     /// <summary>
     /// Запускает «dotnet run --no-launch-profile --project src/api/LabsApp».
-    /// DOTNET_ROLL_FORWARD=LatestMajor — адаптация окружения прогона (на хосте нет
-    /// runtime .NET 8); не влияет на проверяемое поведение кейсов (FR-023/FR-025).
+    /// Приложение — net8.0: если на хосте есть установка с рантаймом 8.x, дочернему
+    /// процессу задаётся DOTNET_ROOT на неё; рантайма 8.x нет ни в одной установке —
+    /// DOTNET_ROLL_FORWARD=LatestMajor (прежняя адаптация окружения прогона).
+    /// Не влияет на проверяемое поведение кейсов (FR-023/FR-025).
     /// Переменная со значением null удаляется из окружения (гарантия «не задана»).
     /// </summary>
     public static AppProcess Start(string environment, int port, IReadOnlyDictionary<string, string?> variables)
@@ -61,7 +63,7 @@ public sealed class AppProcess : IDisposable
         startInfo.ArgumentList.Add("--no-launch-profile");
         startInfo.ArgumentList.Add("--project");
         startInfo.ArgumentList.Add(RepoPaths.LabsAppProjectPath);
-        // Адаптация окружения прогона (как DOTNET_ROLL_FORWARD выше): отключает
+        // Адаптация окружения прогона (как DOTNET_ROOT/ROLL_FORWARD ниже): отключает
         // inotify-watcher провайдеров конфигурации в дочернем приложении. Значения
         // конфигурации читаются как обычно — проверяемое поведение кейса (guard
         // сид-пароля, FR-025) не меняется; на хосте прогона исчерпан
@@ -73,7 +75,22 @@ public sealed class AppProcess : IDisposable
         startInfo.ArgumentList.Add("hostBuilder:reloadConfigOnChange=false");
         startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = environment;
         startInfo.Environment["ASPNETCORE_URLS"] = $"http://127.0.0.1:{port}";
-        startInfo.Environment["DOTNET_ROLL_FORWARD"] = "LatestMajor";
+        startInfo.Environment["DOTNET_ROLL_FORWARD"] = null;
+        var dotnetRoot = ResolveDotNetRootWithNet8Runtime();
+        if (dotnetRoot is not null)
+        {
+            // Найдена установка с рантаймом 8.x — приложение идёт на ней без проката:
+            // LatestMajor прыгнул бы на старший мажор (AspNetCore.App 8→10 меняет
+            // поведение эндпойнтов).
+            startInfo.Environment["DOTNET_ROOT"] = dotnetRoot;
+            startInfo.Environment["DOTNET_ROOT_X64"] = dotnetRoot;
+        }
+        else
+        {
+            // Рантайма 8.x нет ни в одной установке — единственный способ запустить
+            // net8-приложение: прокат на старший доступный мажор.
+            startInfo.Environment["DOTNET_ROLL_FORWARD"] = "LatestMajor";
+        }
 
         foreach (var (name, value) in variables)
         {
@@ -107,6 +124,40 @@ public sealed class AppProcess : IDisposable
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Корень установки .NET, содержащей рантайм Microsoft.NETCore.App 8.x:
+    /// заданный DOTNET_ROOT, затем ~/.dotnet, системные расположения. null — если
+    /// нигде не найден (тогда запуск идёт на механизмах разрешения по умолчанию).
+    /// </summary>
+    private static string? ResolveDotNetRootWithNet8Runtime()
+    {
+        var home = Environment.GetEnvironmentVariable("HOME");
+        var candidates = new[]
+        {
+            Environment.GetEnvironmentVariable("DOTNET_ROOT"),
+            string.IsNullOrEmpty(home) ? null : Path.Combine(home, ".dotnet"),
+            "/usr/lib/dotnet",
+            "/usr/local/dotnet",
+        };
+
+        foreach (var root in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            {
+                continue;
+            }
+
+            var coreAppDirectory = Path.Combine(root, "shared", "Microsoft.NETCore.App");
+            if (Directory.Exists(coreAppDirectory)
+                && Directory.GetDirectories(coreAppDirectory, "8.*", SearchOption.TopDirectoryOnly).Length > 0)
+            {
+                return root;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

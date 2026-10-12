@@ -13,8 +13,9 @@ namespace LabsApp.IntegrationTests.B22.Scenarios;
 /// then:  dotnet build — 0 предупреждений (TreatWarningsAsErrors=true не ломает
 ///        сборку); dotnet test, ng build, ng test — exit 0 (NFR-002).
 ///
-/// Замечания по запуску: на хосте прогона нет runtime net8.0 (только 9.x/10.x),
-/// поэтому дочерним dotnet-командам выставляется DOTNET_ROLL_FORWARD=LatestMajor
+/// Замечания по запуску: дочерним dotnet-командам выставляется
+/// DOTNET_ROLL_FORWARD=LatestMajor, только если рантайм 8.x не найден ни в одной
+/// установке (найдена установка с 8.x — DOTNET_ROOT на неё, без проката),
 /// и вся сборка src/api идёт под единым межпроцессным замком
 /// <see cref="B22SrcApiBuildLock"/> (конвенция зоны B-18 — параллельные зоны не
 /// пересекаются на obj/); ng test — дословно «ng test --watch=false

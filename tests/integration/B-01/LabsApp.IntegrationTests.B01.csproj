@@ -9,13 +9,12 @@
 
   <PropertyGroup>
     <!--
-      Тестовый проект целится в runtime, фактически установленный на хосте прогона
-      (ASP.NET Core 10): TestHost-пакет 8.0.x несовместим с runtime 10 (PipeWriter
-      UnflushedBytes — 500 на любых JSON-ответах). Само приложение остаётся net8.0 —
+      Тестовый проект — net8.0, как и приложение (стек .NET 8 по ТЗ; на исходном хосте прогона runtime 8 отсутствовал, и зона временно целилась в фактически установленный ASP.NET Core 10 — TestHost-пакет 8.0.x несовместим с runtime 10 (PipeWriter
+      UnflushedBytes — 500 на любых JSON-ответах). Само приложение — net8.0 —
       это проверяется статикой кейса TS-004 (FR-001/FR-024) и не влияет на
       проверяемые поведение конфигурации и хостинга (FR-001/FR-002/FR-008).
     -->
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -23,7 +22,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
