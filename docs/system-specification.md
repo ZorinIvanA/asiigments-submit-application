@@ -50,6 +50,7 @@
 - SPA fallback: все не-`/api` маршруты отдают `index.html` (deep-link и refresh работают).
 - Dev-режим: Angular dev-server с прокси `/api` на Kestrel; Swagger UI только в dev.
 - Развёртывание: один процесс приложения + PostgreSQL (docker-compose либо Kestrel за reverse-proxy). Конфигурация через переменные окружения (см. §10).
+- **Структура репозитория**: `src/client` — код Angular-клиента (SPA), `src/api` — серверное приложение ASP.NET Core (REST API `/api/v1` и раздача статики собранного клиента из `wwwroot`).
 - **UI-компоненты — PrimeNG** (тема `@primeuix/themes`, пресет Aura, кастомизация через design-tokens):
   - `Table` (`p-table`) — список лабораторных и ведомость сдач: пагинация («записи с 1 по 10 из 200»), сортировка/фильтрация по семестру (US-5, US-6, US-10, US-11);
   - `Dialog` — формы создания/редактирования лабораторной и профиля (US-7, US-18); `ConfirmDialog` — подтверждение удаления (US-8);

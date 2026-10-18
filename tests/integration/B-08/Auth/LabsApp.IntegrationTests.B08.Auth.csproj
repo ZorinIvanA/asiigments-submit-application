@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-08 (вход/KDF/cookie: POST /auth/login,
+    POST /auth/register, POST /auth/refresh, POST /auth/logout, ядро Auth.Core
+    (IPasswordHasher/IKdfCounter), матрица Set-Cookie — FR-004, FR-005, FR-007,
+    FR-008, FR-009, FR-010, NFR-004, NFR-006, NFR-007, NFR-008, ASM-013;
+    кейсы TS-026..TS-029, TS-048..TS-052, TS-151..TS-153, TS-157).
+    Зона батча: tests/integration/B-08/Auth — обособленный тестовый проект
+    внутри зоны B-08 (образец — вложенный проект Groups/ той же зоны и
+    собственные проекты зон B-01..B-21; урок BL-001 BUG-001: собственный
+    проект вместо правки чужих файлов). Файлы предыдущих волн зоны B-08
+    (Scenarios/Ts061..Ts075, Infrastructure/B08*) не изменяются и не
+    используются: этот проект собирает ТОЛЬКО собственное поддерево Auth/.
+
+    Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона
+    ссылается на него ProjectReference. Тестовый проект — net10.0 (адаптация
+    окружения прогона, как у зон B-01..B-21): на хосте только SDK 10.0.112 и
+    runtime 9/10, runtime .NET 8 отсутствует. Microsoft.AspNetCore.Mvc.Testing
+    10.0.12 — под net10.0: TestServer реализует PipeWriter.UnflushedBytes,
+    требуемый System.Text.Json фреймворка 9/10. Проверяемое поведение —
+    HTTP-контракты /api/v1 и DI-швы ядра Auth.Core (IKdfCounter.Snapshot,
+    IPasswordHasher — контракт IF-002/FR-027), не зависящие от TFM тестового
+    хоста.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--
+    FrameworkReference — явный: инфраструктура зоны пользуется типами shared
+    framework (WebEncoders для декодирования JWT-payload, ILoggerProvider
+    log-sink, WebApplicationFactory), которые с ProjectReference на Sdk.Web-
+    проект транзитивно доступны, но явная ссылка фиксирует это независимо от
+    формы зависимостей LabsApp.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!--
+    Глобальные using этого проекта — ТОЛЬКО через MSBuild-элемент Using (не
+    файлом GlobalUsings.cs): файл зоны tests/integration/B-08/GlobalUsings.cs
+    предыдущей волны остаётся вне этого проекта, а повторные global using
+    в корневом проекте зоны (TreatWarningsAsErrors) недопустимы.
+  -->
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="System.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+</Project>

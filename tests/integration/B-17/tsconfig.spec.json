@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../../out-tsc/spec-b17",
+    "types": ["jasmine"],
+    "resolveJsonModule": true
+  },
+  "include": [
+    "helpers/**/*.ts",
+    "*.spec.ts",
+    "../../../src/client/**/*.ts"
+  ],
+  "exclude": [
+    "../../../src/client/**/*.spec.ts"
+  ]
+}

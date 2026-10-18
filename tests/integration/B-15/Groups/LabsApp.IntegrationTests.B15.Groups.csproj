@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Интеграционные тесты батча B-15 (группы: список/CRUD/состав — FR-019, FR-020;
+    кейсы TS-102, TS-103, TS-104, TS-105, TS-106, TS-160). Зона батча:
+    tests/integration/B-15 — обособленный тестовый проект в поддереве Groups/
+    (образец — подпроекты B-14/Groups, B-17/Groups и B-08/Groups; урок BL-001
+    BUG-001: собственный проект поддерева зоны вместо встройки в проект чужой
+    волны). Файлы предыдущей волны зоны B-15 (Scenarios/Ts079..Ts207 —
+    профиль/пароль/семестры, Infrastructure/B15*.cs,
+    LabsApp.IntegrationTests.B15.csproj) НЕ изменяются и НЕ используются этим
+    проектом: он собирает ТОЛЬКО поддерево Groups/ (в корневом csproj зоны
+    поддерево исключено из компиляции — <Compile Remove="Groups\**\*.cs">).
+
+    Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона
+    ссылается на него ProjectReference. Тестовый проект — net10.0 (адаптация
+    окружения прогона, как у зон B-01..B-22): на хосте только SDK 10.0.112 и
+    runtime 9/10, runtime .NET 8 отсутствует. Microsoft.AspNetCore.Mvc.Testing
+    10.0.12 — под net10.0: TestServer реализует PipeWriter.UnflushedBytes,
+    требуемый System.Text.Json фреймворка 9/10. Проверяемое поведение —
+    HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
+
+    Сессии — минт access-JWT через ITokenService тестового хоста (ADR-015:
+    DI-сид + минт вместо POST /auth/login, доменные кейсы групп не зависят от
+    auth-эндпоинтов); данные given кейсов — демо-сид Seed__DemoData=true
+    (воспроизводит src/client/app/mock/seed.ts: ИК-221 (25 студентов),
+    ИК-222 (5), ИК-223 (0), student01..student32).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!--
+    Глобальные using этого проекта — ТОЛЬКО через MSBuild-элемент Using (не
+    файлом GlobalUsings.cs): файл зоны tests/integration/B-15/GlobalUsings.cs
+    предыдущей волны остаётся вне этого проекта, а повторные global using
+    (TreatWarningsAsErrors) недопустимы.
+  -->
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="System.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+  <!--
+    Перенумерация кейсов групп (переизданный батч B-15, кейсы TS-117..TS-125
+    текущей нумерации): сценарии предыдущей нумерации батча Ts102, Ts103, Ts104,
+    Ts105, Ts106, Ts160 дословно покрывают те же AC FR-019 (given/when/then
+    совпадают с точностью до переформулировок) и после переиздания кейсов под
+    новыми ID остаются дубликатами канонических сценариев Ts117_*.cs..Ts125_*.cs
+    (тот же механизм, что и для Ts119/Ts120 semesters в корневом csproj зоны).
+    Суть кейсов не переписывается: файлы сохранены на диске и ИСКЛЮЧЕНЫ из
+    компиляции проекта. Инфраструктура (B15GroupsWebAppFactory,
+    B15GroupsSession, B15GroupsApi) переиспользуется новыми сценариями как есть.
+  -->
+  <ItemGroup>
+    <Compile Remove="Scenarios\Ts102_GroupListStudentCountRuSortTests.cs" />
+    <Compile Remove="Scenarios\Ts103_GroupCreateTrimDuplicateLengthBoundaryTests.cs" />
+    <Compile Remove="Scenarios\Ts104_GroupRenameSelfConflictNotFoundTests.cs" />
+    <Compile Remove="Scenarios\Ts105_GroupDeleteDetachesStudentsTests.cs" />
+    <Compile Remove="Scenarios\Ts106_GroupRosterPaginationAndUnknownTests.cs" />
+    <Compile Remove="Scenarios\Ts160_GroupRosterPageNormalizationTests.cs" />
+  </ItemGroup>
+
+</Project>
