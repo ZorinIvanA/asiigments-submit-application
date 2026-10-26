@@ -56,7 +56,7 @@ public sealed class Ts069_RecoveryConfirmSuccessTests(B13RecoveryTimedHost facto
         // then: создан PasswordResetToken со сроком 15 минут (поиск по SHA-256
         // значения resetToken — как в прод-потоке, IF-003).
         var resetHash = B13RecoverySeed.Sha256Hex(resetToken);
-        var resetRecord = securityTokens.FindLiveResetByHash(resetHash);
+        var resetRecord = await securityTokens.FindLiveResetByHashAsync(resetHash);
         Assert.NotNull(resetRecord);
         Assert.Null(resetRecord.UsedAt);
         Assert.Equal(confirmedAt.AddMinutes(15).UtcDateTime, resetRecord.ExpiresAt);

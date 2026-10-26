@@ -32,7 +32,7 @@ public sealed class Ts169_GroupBlankAndEmptyNameValidationTests : IClassFixture<
     {
         // given: сессия teacher; снимок перечня групп до запросов (чистое
         // хранилище фикстуры — групп с пробельными именами не существует).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         using var before = await B16GroupsApi.GetGroupsAsync(client);
         using var beforeBody = await B16GroupsApi.ParseWithStatusAsync(
             before, HttpStatusCode.OK, "GET /api/v1/groups (снимок до POST)");

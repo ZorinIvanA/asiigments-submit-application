@@ -21,7 +21,7 @@ public sealed class Ts201_DeleteUnknownLabTests : IClassFixture<B06SubmissionsWe
     public async Task DeleteLabByUnknownId_Returns404LabNotFound()
     {
         // given: сессия teacher; uuid, которого нет в хранилище.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: DELETE /labs/<произвольный-uuid>.
         using var response = await B06SubmissionsApi.DeleteLabByIdAsync(client, Guid.NewGuid().ToString());

@@ -21,10 +21,10 @@ public static class B15GroupsSession
     /// Клиент с сессией сид-преподавателя (заголовок Cookie access_token выставлен
     /// во всех запросах клиента).
     /// </summary>
-    public static HttpClient CreateTeacher(WebApplicationFactory<Program> factory)
+    public static async Task<HttpClient> CreateTeacherAsync(WebApplicationFactory<Program> factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>()
-            .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+            .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сид-преподаватель не найден в DI-хранилище тестового хоста (шаг given «сессия teacher» неисполним).");
 

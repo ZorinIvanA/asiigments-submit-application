@@ -16,7 +16,7 @@ public sealed class Ts116_PutLabUnknownIdTests(B10NoDemoWebAppFactory factory) :
     public async Task TS116_PutUnknownLabId_Returns404NotFoundMessage()
     {
         // given: случайный uuid, не совпадающий ни с одной лабой; сессия teacher.
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClient(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: PUT с валидным телом.

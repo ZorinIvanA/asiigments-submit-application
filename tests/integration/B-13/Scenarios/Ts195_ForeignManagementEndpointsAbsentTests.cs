@@ -99,7 +99,7 @@ public sealed class Ts195_ForeignManagementEndpointsAbsentTests
     /// </summary>
     private static async Task AssertStudentIntactAsync(B13ScopeWebAppFactory factory, Guid studentId)
     {
-        using (var teacherClient = B13ScopeHost.CreateTeacherClient(factory))
+        using (var teacherClient = await B13ScopeHost.CreateTeacherClientAsync(factory))
         {
             using var students = await teacherClient.GetAsync(B13ScopeHost.StudentsEndpoint);
             var body = await ApiAssert.ReadOkJsonAsync(students);

@@ -20,7 +20,7 @@ public sealed class Ts149_SubmissionsPageZeroNormalizedTests(B13WebAppFactory fa
         var first = B13Seed.AddStudent(_factory, "ts149-s1", "Алексеев", group.Id);
         var second = B13Seed.AddStudent(_factory, "ts149-s2", "Борисов", group.Id);
         var third = B13Seed.AddStudent(_factory, "ts149-s3", "Васильев", group.Id);
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /submissions?groupId=X&semester=1&page=0.
         using var response = await client.GetAsync(

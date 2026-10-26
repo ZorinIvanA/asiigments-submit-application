@@ -49,8 +49,8 @@ public sealed class Ts048_AccessTokenClaimsTests : IClassFixture<B10NoDemoWebApp
         var claims = DecodePayload(accessToken);
 
         // then: sub=uuid пользователя (сеяный учитель).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сеяный учитель не найден в IUserRepository — шаг then «sub=uuid пользователя» неисполним.");
         var sub = claims.GetProperty("sub").GetString();

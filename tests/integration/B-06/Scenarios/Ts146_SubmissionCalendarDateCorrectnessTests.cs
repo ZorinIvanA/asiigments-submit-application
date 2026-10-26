@@ -16,29 +16,35 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        200 (FR-021: «не null и не строка 'YYYY-MM-DD' (строгий формат,
 ///        календарная корректность) → 400»).
 /// </summary>
-public sealed class Ts146_SubmissionCalendarDateCorrectnessTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts146_SubmissionCalendarDateCorrectnessTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _student05Id;
-    private readonly Guid _student06Id;
-    private readonly Guid _labId;
+    private Guid _student05Id;
+    private Guid _student06Id;
+    private Guid _labId;
 
     public Ts146_SubmissionCalendarDateCorrectnessTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _student05Id = B06SubmissionsSessions.RequireUser(factory, "student05").Id;
-        _student06Id = B06SubmissionsSessions.RequireUser(factory, "student06").Id;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 1).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _student05Id = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student05")).Id;
+        _student06Id = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student06")).Id;
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 1)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionWithFebruary30_IsRejectedAndLeapYearDateIsAccepted()
     {
         // given: teacher-сессия; обе пары (student05×1.1, student06×1.1) свободны.
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        Assert.Null(submissions.GetByStudentAndLab(_student05Id, _labId));
-        Assert.Null(submissions.GetByStudentAndLab(_student06Id, _labId));
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        Assert.Null(await submissions.GetByStudentAndLabAsync(_student05Id, _labId));
+        Assert.Null(await submissions.GetByStudentAndLabAsync(_student06Id, _labId));
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT на первую свободную пару с несуществующей датой '2026-02-30'.
         using var impossible = await B06SubmissionsApi.PutSubmissionAsync(

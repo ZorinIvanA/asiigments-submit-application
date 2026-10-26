@@ -26,7 +26,7 @@ public sealed class Ts209_LabPutInvalidBodyBefore404Tests : IClassFixture<B07Web
     public async Task PutWithInvalidBodyAndUnknownId_Returns400Before404()
     {
         // given: сессия teacher (минт, ADR-015); записи с uuid не существует.
-        using var client = B07MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B07MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT /labs/<произвольный-uuid> с невалидным телом (semester=0).
         using var response = await client.PutAsJsonAsync($"/api/v1/labs/{Guid.NewGuid()}", new

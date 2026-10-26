@@ -39,9 +39,9 @@ public sealed class Ts177_LabContentBoundaryTests : IClassFixture<B06Submissions
         // given: сессия teacher; пары (semester=1, number=211) и (semester=1,
         // number=212) свободны.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        Assert.Null(labs.TryGetByPair(semester: 1, number: 211));
-        Assert.Null(labs.TryGetByPair(semester: 1, number: 212));
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        Assert.Null(await labs.TryGetByPairAsync(semester: 1, number: 211));
+        Assert.Null(await labs.TryGetByPairAsync(semester: 1, number: 212));
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: POST /labs {number:211, semester:1, content:'x'×500,
         // assignmentUrl:null, defenseRequired:false}.
@@ -56,7 +56,7 @@ public sealed class Ts177_LabContentBoundaryTests : IClassFixture<B06Submissions
 
         // then: 201 — ровно 500 символов валидно; запись (1,211) создана.
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        Assert.NotNull(labs.TryGetByPair(semester: 1, number: 211));
+        Assert.NotNull(await labs.TryGetByPairAsync(semester: 1, number: 211));
 
         // when: отдельный POST /labs {number:212, semester:1, content:'x'×501,
         // assignmentUrl:null, defenseRequired:false}.
@@ -75,6 +75,6 @@ public sealed class Ts177_LabContentBoundaryTests : IClassFixture<B06Submissions
         var body = await BodyAssertions.ReadRootObjectAsync(tooLong);
         BodyAssertions.MessageIs(body, "Данные заполнены неверно");
         BodyAssertions.ErrorFieldIsExactly(body, "content", "Содержание — от 1 до 500 символов");
-        Assert.Null(labs.TryGetByPair(semester: 1, number: 212));
+        Assert.Null(await labs.TryGetByPairAsync(semester: 1, number: 212));
     }
 }

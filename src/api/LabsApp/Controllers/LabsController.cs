@@ -64,7 +64,7 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
 
     /// <summary>GET /api/v1/labs — страница списка (FR-017).</summary>
     [HttpGet]
-    public IActionResult List(
+    public async Task<IActionResult> List(
         [FromQuery(Name = "semester")] string? semester,
         [FromQuery(Name = "page")] string? page,
         [FromQuery(Name = "sortField")] string? sortField,
@@ -89,9 +89,10 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
         var byNumber = string.Equals(sortField, "number", StringComparison.Ordinal);
         var descending = string.Equals(sortDir, "desc", StringComparison.Ordinal);
 
+        var all = await _labs.GetAllAsync();
         var filtered = semesterFilter is null
-            ? _labs.GetAll()
-            : _labs.GetAll().Where(lab => lab.Semester == semesterFilter.Value).ToList();
+            ? all
+            : all.Where(lab => lab.Semester == semesterFilter.Value).ToList();
 
         IOrderedEnumerable<Lab> ordered = (byNumber, descending) switch
         {
@@ -128,14 +129,14 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
 
     /// <summary>GET /api/v1/labs/{id} — одна работа либо 404 NOT_FOUND_LAB.</summary>
     [HttpGet("{id}")]
-    public IActionResult GetById(string id)
+    public async Task<IActionResult> GetById(string id)
     {
         if (DenyIfNotTeacher() is { } denial)
         {
             return denial;
         }
 
-        return _labs.GetById(ParseLabId(id)) is { } lab ? Ok(ToDto(lab)) : LabNotFound();
+        return await _labs.GetByIdAsync(ParseLabId(id)) is { } lab ? Ok(ToDto(lab)) : LabNotFound();
     }
 
     /// <summary>POST /api/v1/labs — создание: 400 → 409 → 201 (FR-017).</summary>
@@ -175,7 +176,7 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
         try
         {
             // Атомарная проверка пары + вставка (IF-015): дубликат → 409.
-            _labs.Add(lab);
+            await _labs.AddAsync(lab);
         }
         catch (StorageConflictException)
         {
@@ -208,7 +209,7 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
             return ValidationFailed(errors);
         }
 
-        if (_labs.GetById(ParseLabId(id)) is not { } existing)
+        if (await _labs.GetByIdAsync(ParseLabId(id)) is not { } existing)
         {
             return LabNotFound();
         }
@@ -229,8 +230,8 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
         try
         {
             // Репозиторий проставляет UpdatedAt; конфликт пары с ДРУГОЙ записью → 409
-            // (собственная пара конфликтом не считается — StorageLock-атомарно, IF-015).
-            _labs.Update(updated);
+            // (собственная пара конфликтом не считается — атомарно, IF-015).
+            await _labs.UpdateAsync(updated);
         }
         catch (StorageConflictException)
         {
@@ -242,7 +243,7 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
 
     /// <summary>DELETE /api/v1/labs/{id} — 204 + каскад сдач (FR-017).</summary>
     [HttpDelete("{id}")]
-    public IActionResult Delete(string id)
+    public async Task<IActionResult> Delete(string id)
     {
         if (DenyIfNotTeacher() is { } denial)
         {
@@ -250,13 +251,13 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
         }
 
         var labId = ParseLabId(id);
-        if (_labs.GetById(labId) is null)
+        if (await _labs.GetByIdAsync(labId) is null)
         {
             return LabNotFound();
         }
 
-        // Каскадное удаление сдач работы — в критической секции репозитория (IF-015).
-        _labs.Delete(labId);
+        // Каскадное удаление сдач работы — атомарная операция репозитория (IF-015).
+        await _labs.DeleteAsync(labId);
         return NoContent();
     }
 

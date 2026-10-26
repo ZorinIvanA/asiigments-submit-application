@@ -22,8 +22,8 @@ public sealed class Ts144_SubmissionsGridSemesterRangeTests : IClassFixture<B05W
     public async Task SemesterBelowOneAndAboveMax_AreBothRejectedWithFieldError()
     {
         // given: валидная группа; teacher авторизован; MaxSemester=10.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: semester=0 и semester=99.
         using var belowRange = await client.GetAsync(

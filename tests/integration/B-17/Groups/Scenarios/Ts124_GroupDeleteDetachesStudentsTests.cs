@@ -30,8 +30,8 @@ public sealed class Ts124_GroupDeleteDetachesStudentsTests : IClassFixture<B17Gr
     public async Task DeleteGroup_KeepsStudentsWithoutGroup()
     {
         // given: демо-сид (student26..student30 в ИК-222); сессии teacher и student26.
-        using var teacher = B17GroupsSession.CreateTeacher(_factory);
-        using var student = B17GroupsSession.CreateStudent(_factory, "student26");
+        using var teacher = await B17GroupsSession.CreateTeacherAsync(_factory);
+        using var student = await B17GroupsSession.CreateStudentAsync(_factory, "student26");
 
         var ik222Id = await B17GroupsApi.GetGroupIdByNameAsync(teacher, "ИК-222");
 

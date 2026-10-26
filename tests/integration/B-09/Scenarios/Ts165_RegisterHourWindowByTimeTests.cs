@@ -77,7 +77,7 @@ public sealed class Ts165_RegisterHourWindowByTimeTests(B09TimedWebAppFactory fa
         // окно 3600 с доказано временем; при окне 600 с или 86400 с исход
         // отличался бы).
         _ = await B09Assertions.ParseObjectAsync(seventh, HttpStatusCode.Created, "7-я регистрация после T0+3600001 мс (TS-165)");
-        Assert.NotNull(_factory.Services.GetRequiredService<IUserRepository>().GetByLogin("reg07"));
+        Assert.NotNull(await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("reg07"));
     }
 
     /// <summary>POST /auth/register с телом кейса (значения экранирования не требуют).</summary>

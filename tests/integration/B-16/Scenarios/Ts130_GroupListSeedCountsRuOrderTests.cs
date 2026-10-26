@@ -32,7 +32,7 @@ public sealed class Ts130_GroupListSeedCountsRuOrderTests : IClassFixture<B16Gro
     public async Task GetGroups_ReturnsThreeSeedGroupsWithCountsInRuNameOrder()
     {
         // given: сессия teacher; демо-сид ИК-221 (25), ИК-222 (5), ИК-223 (0).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
 
         // when: GET /api/v1/groups.
         using var response = await B16GroupsApi.GetGroupsAsync(client);

@@ -30,9 +30,9 @@ public static class B11AuthSessions
     /// HTTP-клиент с access-cookie пользователя login (минт по записи из
     /// DI-хранилища: сид-учётка teacher или DI-сид-студент SeedStudent).
     /// </summary>
-    public static HttpClient CreateSessionClient(WebApplicationFactory<Program> factory, string login)
+    public static async Task<HttpClient> CreateSessionClientAsync(WebApplicationFactory<Program> factory, string login)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login)
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login)
             ?? throw new InvalidOperationException(
                 $"DI-сид: пользователь «{login}» не найден в хранилище хоста — given кейса неисполним.");
         var token = factory.Services.GetRequiredService<ITokenService>()
@@ -67,7 +67,7 @@ public static class B11AuthSessions
                 Name = groupName,
                 CreatedAt = now,
             };
-            services.GetRequiredService<IGroupRepository>().Add(group);
+            services.GetRequiredService<IGroupRepository>().AddAsync(group);
             groupId = group.Id;
         }
 
@@ -83,7 +83,7 @@ public static class B11AuthSessions
             GroupId = groupId,
             CreatedAt = now,
         };
-        services.GetRequiredService<IUserRepository>().Add(student);
+        services.GetRequiredService<IUserRepository>().AddAsync(student);
         return student;
     }
 

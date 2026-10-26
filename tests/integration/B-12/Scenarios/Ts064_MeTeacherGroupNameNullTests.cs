@@ -18,7 +18,7 @@ public sealed class Ts064_MeTeacherGroupNameNullTests(B12WebAppFactory factory)
     public async Task Me_ForTeacher_ReturnsNullGroupName()
     {
         // given: валидная сессия преподавателя (сид развёрнут при построении хоста).
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /auth/me с access учителя.
         using var response = await client.GetAsync(B12AuthEndpoints.Me);

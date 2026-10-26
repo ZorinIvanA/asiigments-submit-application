@@ -24,7 +24,7 @@ public sealed class Ts039_NonStringFieldsAsEmptyTests : IClassFixture<B03HostFac
     {
         var kdf = B03Kdf.Resolve(_factory.Services);
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.147.0.1");
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
 
         // when: login — JSON-число 123, прочие поля валидны.
         var before = kdf.Snapshot();
@@ -42,7 +42,7 @@ public sealed class Ts039_NonStringFieldsAsEmptyTests : IClassFixture<B03HostFac
         ResponseAssert.FieldErrorsExactly(body.RootElement, "login", "Заполните поле");
 
         // then: попытка не создаёт пользователя и не дериваций (Δkdf=0, FR-004(б)).
-        Assert.Equal(studentsBefore, B03UserSeed.CountStudents(_factory));
+        Assert.Equal(studentsBefore, await B03UserSeed.CountStudentsAsync(_factory));
         Assert.Equal(0, B03Kdf.TotalDelta(before, after));
     }
 
@@ -51,7 +51,7 @@ public sealed class Ts039_NonStringFieldsAsEmptyTests : IClassFixture<B03HostFac
     {
         var kdf = B03Kdf.Resolve(_factory.Services);
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.147.0.2");
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
 
         // when: password и repeatPassword — JSON-числа 456 (значения совпадают:
         // 456 → ''), прочие поля валидны.
@@ -76,7 +76,7 @@ public sealed class Ts039_NonStringFieldsAsEmptyTests : IClassFixture<B03HostFac
             $"Ожидался errors.password, содержащий 'Пароль должен содержать не менее 8 символов', фактически: {body.RootElement.GetRawText()}");
 
         // then: попытка не создаёт пользователя и не дериваций (Δkdf=0, FR-004(б)).
-        Assert.Equal(studentsBefore, B03UserSeed.CountStudents(_factory));
+        Assert.Equal(studentsBefore, await B03UserSeed.CountStudentsAsync(_factory));
         Assert.Equal(0, B03Kdf.TotalDelta(before, after));
     }
 }

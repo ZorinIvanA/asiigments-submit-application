@@ -16,36 +16,42 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        строки, элементы {labId, submitDate, defenseDate} без поля studentId
 ///        и без чужих записей} (FR-021 AC «Свои сдачи в группе»).
 /// </summary>
-public sealed class Ts165_MeSubmissionsOwnOnlyWithoutStudentIdTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts165_MeSubmissionsOwnOnlyWithoutStudentIdTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _groupId;
-    private readonly Guid _lab11;
-    private readonly Guid _lab12;
-    private readonly Guid _lab13;
+    private Guid _groupId;
+    private Guid _lab11;
+    private Guid _lab12;
+    private Guid _lab13;
 
     public Ts165_MeSubmissionsOwnOnlyWithoutStudentIdTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _groupId = B06SubmissionsSessions.RequireGroup(factory, "ИК-221").Id;
-        _lab11 = B06SubmissionsSessions.RequireLab(factory, 1, 1).Id;
-        _lab12 = B06SubmissionsSessions.RequireLab(factory, 1, 2).Id;
-        _lab13 = B06SubmissionsSessions.RequireLab(factory, 1, 3).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id;
+        _lab11 = (await B06SubmissionsSessions.RequireLabAsync(_factory, 1, 1)).Id;
+        _lab12 = (await B06SubmissionsSessions.RequireLabAsync(_factory, 1, 2)).Id;
+        _lab13 = (await B06SubmissionsSessions.RequireLabAsync(_factory, 1, 3)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task GetMeSubmissionsInGroup_ReturnsOnlyOwnSubmissionsWithoutStudentId()
     {
         // given: student01 состоит в ИК-221; 3 сид-сдачи student01; есть чужая сдача student02.
-        var student01 = B06SubmissionsSessions.RequireUser(_factory, "student01");
+        var student01 = await B06SubmissionsSessions.RequireUserAsync(_factory, "student01");
         Assert.Equal(_groupId, student01.GroupId);
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        Assert.Equal(3, submissions.ListByStudent(student01.Id).Count);
+        Assert.Equal(3, (await submissions.ListByStudentAsync(student01.Id)).Count);
         Assert.True(
-            submissions.ListByStudent(B06SubmissionsSessions.RequireUser(_factory, "student02").Id).Count > 0,
+            (await submissions.ListByStudentAsync((await B06SubmissionsSessions.RequireUserAsync(_factory, "student02")).Id)).Count > 0,
             "Шаг given «есть чужие записи» нарушен: сид-сдач student02 в хранилище нет.");
 
-        using var client = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
 
         // when: GET /me/submissions?semester=1 (student01).
         using var response = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "1");

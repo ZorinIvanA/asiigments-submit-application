@@ -111,13 +111,13 @@ public sealed class SeedLoginEndpointTests(SeedLoginHost host) : IClassFixture<S
     }
 
     [Fact]
-    public void Host_DemoSeed_TeacherPasswordHashInStorage_HasIf002Format()
+    public async Task Host_DemoSeed_TeacherPasswordHashInStorage_HasIf002Format()
     {
         // given/when: старт приложения с демо-сидом; инспекция passwordHash
         // преподавателя в хранилище хоста.
         var users = _host.Factory.Services.GetRequiredService<IUserRepository>();
         var hasher = _host.Factory.Services.GetRequiredService<IPasswordHasher>();
-        var hash = users.GetByLogin("teacher")!.PasswordHash;
+        var hash = (await users.GetByLoginAsync("teacher"))!.PasswordHash;
 
         // then: «pbkdf2-sha256$…», ровно 4 сегмента, строка разбирается
         // Pbkdf2PasswordHasher (Verify проходит ровно по сид-паролю).

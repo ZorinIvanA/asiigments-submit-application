@@ -23,12 +23,12 @@ public sealed class Ts157_ForbiddenBeforeNotFoundAndValidationTests(B12WebAppFac
     public async Task StudentPutUnknownLabWithInvalidBody_Forbidden()
     {
         // given: сессия student (DI-сид); валидного id не существует; тело невалидно.
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12-ts157-student",
             fullName: "Порядок Отказов Тестович",
             email: "b12-ts157@t.local");
-        using var client = HostClients.CreateStudentClient(_factory, "b12-ts157-student");
+        using var client = await HostClients.CreateStudentClientAsync(_factory, "b12-ts157-student");
 
         // when: PUT /labs/<несуществующий-id> под student с телом {number:0}.
         using var request = new HttpRequestMessage(HttpMethod.Put, $"{B12AuthEndpoints.Labs}/{UnknownLabId}")

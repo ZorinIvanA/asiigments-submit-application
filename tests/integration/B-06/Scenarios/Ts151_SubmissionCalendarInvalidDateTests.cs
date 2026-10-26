@@ -11,24 +11,30 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// then:  400; errors.submitDate=['Дата должна быть строкой в формате ГГГГ-ММ-ДД']
 ///        (строгий формат, календарная корректность; ASM-014).
 /// </summary>
-public sealed class Ts151_SubmissionCalendarInvalidDateTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts151_SubmissionCalendarInvalidDateTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _studentId;
-    private readonly Guid _labId;
+    private Guid _studentId;
+    private Guid _labId;
 
     public Ts151_SubmissionCalendarInvalidDateTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _studentId = B06SubmissionsSessions.RequireUser(factory, "student05").Id;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 1).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _studentId = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student05")).Id;
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 1)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionWithCalendarImpossibleDate_Returns400WithDateError()
     {
         // given: сессия teacher; сущности существуют.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /submissions с датой '2026-02-30'.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

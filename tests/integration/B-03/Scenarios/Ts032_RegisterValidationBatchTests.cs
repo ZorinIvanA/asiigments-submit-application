@@ -25,7 +25,7 @@ public sealed class Ts032_RegisterValidationBatchTests : IClassFixture<B03HostFa
     {
         var kdf = B03Kdf.Resolve(_factory.Services);
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.32.0.1");
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
 
         // when: все поля невалидны одновременно (кириллица в логине, формат email,
         // короткий пароль без цифры и спецзнака, несовпадающий повтор).
@@ -60,7 +60,7 @@ public sealed class Ts032_RegisterValidationBatchTests : IClassFixture<B03HostFa
         Assert.Equal(0, B03Kdf.TotalDelta(before, after));
 
         // then: пользователь не создан (состав хранилища не изменился).
-        Assert.Equal(studentsBefore, B03UserSeed.CountStudents(_factory));
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "иван"));
+        Assert.Equal(studentsBefore, await B03UserSeed.CountStudentsAsync(_factory));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "иван"));
     }
 }

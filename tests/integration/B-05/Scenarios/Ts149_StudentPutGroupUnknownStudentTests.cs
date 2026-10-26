@@ -19,8 +19,8 @@ public sealed class Ts149_StudentPutGroupUnknownStudentTests : IClassFixture<B05
     {
         // given: случайный uuid студента; существующая группа ИК-223; teacher авторизован.
         var unknownStudentId = Guid.NewGuid();
-        var ik223 = B05SeedLookup.GroupByName(_factory, "ИК-223");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var ik223 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-223");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение группы несуществующему студенту.
         using var put = await client.PutAsJsonAsync(

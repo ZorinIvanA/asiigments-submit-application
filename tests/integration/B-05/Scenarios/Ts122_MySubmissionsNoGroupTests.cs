@@ -23,7 +23,7 @@ public sealed class Ts122_MySubmissionsNoGroupTests : IClassFixture<B05WebAppFac
     public async Task StudentWithoutGroup_GetsEmptyAnswerWithHasGroupFalse()
     {
         // given: student31 существует и не включён ни в одну группу.
-        var student31 = B05SeedLookup.StudentByLogin(_factory, "student31");
+        var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
         Assert.Null(student31.GroupId);
 
         using var client = B05MintedSessions.Create(_factory);

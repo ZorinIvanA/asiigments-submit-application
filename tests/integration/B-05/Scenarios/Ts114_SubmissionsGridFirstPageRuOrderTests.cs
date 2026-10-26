@@ -35,7 +35,7 @@ public sealed class Ts114_SubmissionsGridFirstPageRuOrderTests : IClassFixture<B
     public async Task FirstPage_ReturnsRuOrderedStudentsSemesterLabsAndSeedSubmissions()
     {
         // given: ИК-221; 20 работ семестра 1; teacher.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
         var users = _factory.Services.GetRequiredService<IUserRepository>();
         var labsRepo = _factory.Services.GetRequiredService<ILabRepository>();
 
@@ -43,7 +43,7 @@ public sealed class Ts114_SubmissionsGridFirstPageRuOrderTests : IClassFixture<B
         // и включены в ИК-221 (PUT /students/{id}/group); итого в группе 27 студентов.
         var avrorov = await RegisterStudentAsync("Авроров Иван", "avrorov", "avrorov@example.com");
         var elkin = await RegisterStudentAsync("Ёлкин Пётр", "elkin", "elkin@example.com");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
         foreach (var student in new[] { avrorov, elkin })
         {
             using var put = await client.PutAsJsonAsync(
@@ -52,21 +52,20 @@ public sealed class Ts114_SubmissionsGridFirstPageRuOrderTests : IClassFixture<B
             Assert.Equal(HttpStatusCode.NoContent, put.StatusCode);
         }
 
-        Assert.Equal(27, users.ListStudents().Count(user => user.GroupId == ik221.Id));
+        Assert.Equal(27, (await users.ListStudentsAsync()).Count(user => user.GroupId == ik221.Id));
 
         // Идентификаторы работ семестра 1 и ожидаемые сид-сдачи student01/02
         // (student01: работы 1, 2, 3; student02: работа 1).
-        string LabId(int number) =>
-            labsRepo.GetAll().Single(lab => lab.Semester == 1 && lab.Number == number).Id.ToString();
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
-        var student02 = B05SeedLookup.StudentByLogin(_factory, "student02");
-        var expectedSubmissions = new HashSet<(string StudentId, string LabId)>
-        {
-            (student01.Id.ToString(), LabId(1)),
-            (student01.Id.ToString(), LabId(2)),
-            (student01.Id.ToString(), LabId(3)),
-            (student02.Id.ToString(), LabId(1)),
-        };
+        async Task<string> LabId(int number) =>
+            (await labsRepo.GetAllAsync()).Single(lab => lab.Semester == 1 && lab.Number == number).Id.ToString();
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        var student02 = await B05SeedLookup.StudentByLoginAsync(_factory, "student02");
+        var expectedSubmissions = new HashSet<(string StudentId, string LabId)>();
+expectedSubmissions.Add((student01.Id.ToString(), await LabId(1)));
+expectedSubmissions.Add((student01.Id.ToString(), await LabId(2)));
+expectedSubmissions.Add((student01.Id.ToString(), await LabId(3)));
+expectedSubmissions.Add((student02.Id.ToString(), await LabId(1)));
+        
 
         // when: первая страница ведомости ИК-221 по семестру 1.
         using var response = await client.GetAsync(
@@ -99,7 +98,7 @@ public sealed class Ts114_SubmissionsGridFirstPageRuOrderTests : IClassFixture<B
         }
 
         // then: labs — 20 строк {id, number, defenseRequired}, number↑ — работы семестра 1.
-        var semesterLabIds = labsRepo.GetAll()
+        var semesterLabIds = (await labsRepo.GetAllAsync())
             .Where(lab => lab.Semester == 1)
             .Select(lab => lab.Id.ToString())
             .ToHashSet();
@@ -157,7 +156,7 @@ public sealed class Ts114_SubmissionsGridFirstPageRuOrderTests : IClassFixture<B
             repeatPassword = "Passw0rd!",
         });
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        return _factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login)
+        return await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login)
             ?? throw new InvalidOperationException(
                 $"POST /auth/register вернул 201, но учётка {login} не найдена в хранилище.");
     }

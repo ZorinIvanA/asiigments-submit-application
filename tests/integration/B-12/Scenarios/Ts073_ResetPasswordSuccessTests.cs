@@ -37,7 +37,7 @@ public sealed class Ts073_ResetPasswordSuccessTests(B12RecoveryDevSpyHost factor
         var services = _factory.Services;
         var securityTokens = services.GetRequiredService<ISecurityTokenRepository>();
 
-        var secondDeviceValue = B12AuthSessions.CreateLiveRefreshToken(_factory, user.Id);
+        var secondDeviceValue = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, user.Id);
         var extraResetHash = B12RecoveryStore.AddResetToken(_factory, user.Id, "ts073-extra-reset-token");
         B12RecoveryStore.AddRecoveryCode(_factory, user.Id, "444444");
 
@@ -71,8 +71,8 @@ public sealed class Ts073_ResetPasswordSuccessTests(B12RecoveryDevSpyHost factor
         Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
 
         // then: ВСЕ reset-токены пользователя погашены (и применённый, и дополнительный).
-        Assert.Null(securityTokens.FindLiveResetByHash(B12RecoveryStore.Sha256Hex(resetToken!)));
-        Assert.Null(securityTokens.FindLiveResetByHash(extraResetHash));
+        Assert.Null( await securityTokens.FindLiveResetByHashAsync(B12RecoveryStore.Sha256Hex(resetToken!)) );
+        Assert.Null( await securityTokens.FindLiveResetByHashAsync(extraResetHash) );
 
         // then: ВСЕ refresh-токены отозваны — refresh второго устройства даёт 401.
         using var secondDeviceRefresh = await B12RecoveryHttp.RefreshWithCookieAsync(client, secondDeviceValue);

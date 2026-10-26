@@ -81,8 +81,8 @@ public sealed class Ts126_RoleMatrixTests(B11WebAppFactory factory)
         // given: сессии student и teacher и анонимные запросы.
         B11AuthSessions.SeedStudent(_factory, "b11ts126.a.student", "Матрица Класс А");
         using var anonymous = HostClients.Create(_factory);
-        using var student = B11AuthSessions.CreateSessionClient(_factory, "b11ts126.a.student");
-        using var teacher = B11AuthSessions.CreateSessionClient(
+        using var student = await B11AuthSessions.CreateSessionClientAsync(_factory, "b11ts126.a.student");
+        using var teacher = await B11AuthSessions.CreateSessionClientAsync(
             _factory, SeedOptions.DefaultTeacherLogin);
 
         // when: для каждой операции класса (а) — анонимно и обеими ролями.
@@ -107,8 +107,8 @@ public sealed class Ts126_RoleMatrixTests(B11WebAppFactory factory)
         // given: сессии student и teacher и анонимные запросы.
         B11AuthSessions.SeedStudent(_factory, "b11ts126.b.student", "Матрица Класс Б");
         using var anonymous = HostClients.Create(_factory);
-        using var student = B11AuthSessions.CreateSessionClient(_factory, "b11ts126.b.student");
-        using var teacher = B11AuthSessions.CreateSessionClient(
+        using var student = await B11AuthSessions.CreateSessionClientAsync(_factory, "b11ts126.b.student");
+        using var teacher = await B11AuthSessions.CreateSessionClientAsync(
             _factory, SeedOptions.DefaultTeacherLogin);
 
         // when: для каждой операции класса (б) — анонимно, под student и под teacher.
@@ -134,8 +134,8 @@ public sealed class Ts126_RoleMatrixTests(B11WebAppFactory factory)
         // given: сессии student и teacher и анонимные запросы.
         B11AuthSessions.SeedStudent(_factory, "b11ts126.c.student", "Матрица Класс В");
         using var anonymous = HostClients.Create(_factory);
-        using var student = B11AuthSessions.CreateSessionClient(_factory, "b11ts126.c.student");
-        using var teacher = B11AuthSessions.CreateSessionClient(
+        using var student = await B11AuthSessions.CreateSessionClientAsync(_factory, "b11ts126.c.student");
+        using var teacher = await B11AuthSessions.CreateSessionClientAsync(
             _factory, SeedOptions.DefaultTeacherLogin);
 
         // when: для каждой операции класса (в) — анонимно, под teacher и под student.

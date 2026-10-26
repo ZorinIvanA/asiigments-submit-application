@@ -31,11 +31,11 @@ public sealed class Ts162_LabPair799ParallelUniquenessTests : IClassFixture<B07W
         // given: пара (7,99) свободна; teacher (сид-преподаватель фикстуры,
         // ADR-015); два параллельных клиента со стартовым барьером.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        Assert.Empty(labs.GetAll());
-        Assert.Null(labs.TryGetByPair(Semester, Number));
+        Assert.Empty( await labs.GetAllAsync() );
+        Assert.Null( await labs.TryGetByPairAsync(Semester, Number) );
 
-        using var firstClient = B07MintedSessions.CreateTeacherClient(_factory);
-        using var secondClient = B07MintedSessions.CreateTeacherClient(_factory);
+        using var firstClient = await B07MintedSessions.CreateTeacherClient(_factory);
+        using var secondClient = await B07MintedSessions.CreateTeacherClient(_factory);
 
         // when: два одновременных POST /labs с одной парой (7,99).
         using var startGate = new ManualResetEventSlim();
@@ -72,9 +72,9 @@ public sealed class Ts162_LabPair799ParallelUniquenessTests : IClassFixture<B07W
         var createdId = created.GetProperty("id").GetString();
         Assert.False(string.IsNullOrEmpty(createdId), "Ожидался непустой id созданной работы в теле 201.");
 
-        var stored = labs.TryGetByPair(Semester, Number);
+        var stored = await labs.TryGetByPairAsync(Semester, Number);
         Assert.NotNull(stored);
-        Assert.Single(labs.GetAll());
+        Assert.Single( await labs.GetAllAsync() );
         Assert.Equal(createdId, stored!.Id.ToString());
         Assert.Equal(Number, stored.Number);
         Assert.Equal(Semester, stored.Semester);

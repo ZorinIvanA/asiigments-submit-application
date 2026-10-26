@@ -65,9 +65,9 @@ public sealed class Ts080_MeProfilePutKeepsLoginRecalcsGroupTests : IClassFixtur
         // given (продолжение): после обновления группа пользователя переименована
         // в 'ИК-999' — DI-правка состояния групп (запись заменяется целиком).
         var groups = _factory.Services.GetRequiredService<IGroupRepository>();
-        var stored = groups.GetById(group.Id);
+        var stored = await groups.GetByIdAsync(group.Id);
         Assert.NotNull(stored);
-        groups.Update(new Group { Id = stored.Id, Name = RenamedGroupName, CreatedAt = stored.CreatedAt });
+        await groups.UpdateAsync(new Group { Id = stored.Id, Name = RenamedGroupName, CreatedAt = stored.CreatedAt });
 
         // when (продолжение): GET профиля после переименования.
         using var getResponse = await client.GetAsync(B15Harness.ProfileEndpoint);

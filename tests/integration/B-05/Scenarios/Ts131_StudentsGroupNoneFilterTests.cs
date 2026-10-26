@@ -24,10 +24,10 @@ public sealed class Ts131_StudentsGroupNoneFilterTests : IClassFixture<B05WebApp
         var expectedLogins = new[] { "student31", "student32" };
         foreach (var login in expectedLogins)
         {
-            Assert.Null(B05SeedLookup.StudentByLogin(_factory, login).GroupId);
+            Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);
         }
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: фильтр по отсутствию группы.
         using var response = await client.GetAsync("/api/v1/students?groupId=none");

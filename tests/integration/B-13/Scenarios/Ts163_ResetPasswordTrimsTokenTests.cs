@@ -29,11 +29,11 @@ public sealed class Ts163_ResetPasswordTrimsTokenTests(B13RecoveryWebAppFactory 
     public async Task ResetPassword_WithWhitespaceFramedToken_NoContent_PasswordSwapped_OneKdf()
     {
         // given: студент student01 со СТАРЫМ паролем (реальный хэш IPasswordHasher, IF-002).
-        var student = B13RecoveryHarness.SeedStudentWithPassword(
+        var student = await B13RecoveryHarness.SeedStudentWithPasswordAsync(
             _factory, LoginName, FullName, Email, B13RecoveryHarness.TestUserPassword);
 
         // given: живой resetToken T, значение известно тесту (DI-минт, ADR-010).
-        var resetToken = B13RecoveryHarness.SeedLiveResetToken(_factory, student.Id);
+        var resetToken = await B13RecoveryHarness.SeedLiveResetTokenAsync(_factory, student.Id);
 
         // given: счётчик KDF сброшен — точка отсчёта ПОСЛЕ сида (дельты, IF-002).
         var kdfBefore = B13RecoveryHarness.KdfSnapshot(_factory);

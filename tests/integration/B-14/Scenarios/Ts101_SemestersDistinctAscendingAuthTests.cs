@@ -101,6 +101,6 @@ public sealed class Ts101_SemestersDistinctAscendingAuthTests : IClassFixture<B1
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
-        _factory.Services.GetRequiredService<ILabRepository>().Add(lab);
+        _factory.Services.GetRequiredService<ILabRepository>().AddAsync(lab);
     }
 }

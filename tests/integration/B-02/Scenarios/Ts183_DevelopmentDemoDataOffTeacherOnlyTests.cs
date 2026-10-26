@@ -21,7 +21,7 @@ public sealed class Ts183_DevelopmentDemoDataOffTeacherOnlyTests
     private const string OwnTeacherPassword = "b02-Own#Teacher2026";
 
     [Fact]
-    public void DevelopmentWithDemoDataFalse_SeedsTeacherOnly_EmptyGroupsAndLabs()
+    public async Task DevelopmentWithDemoDataFalse_SeedsTeacherOnly_EmptyGroupsAndLabs()
     {
         // given: Development-хост; Seed__DemoData=false и Seed__TeacherPassword заданы
         // (useHarnessDefaults:false — проверяется именно явная конфигурация кейса).
@@ -41,9 +41,9 @@ public sealed class Ts183_DevelopmentDemoDataOffTeacherOnlyTests
         var labs = factory.Services.GetRequiredService<ILabRepository>();
 
         // then: создан только преподаватель; списки групп/работ пусты.
-        Assert.NotNull(users.GetByLogin(SeedOptions.DefaultTeacherLogin));
-        Assert.Empty(users.ListStudents());
-        Assert.Empty(groups.GetAll());
-        Assert.Empty(labs.GetAll());
+        Assert.NotNull( await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin) );
+        Assert.Empty( await users.ListStudentsAsync() );
+        Assert.Empty( await groups.GetAllAsync() );
+        Assert.Empty( await labs.GetAllAsync() );
     }
 }

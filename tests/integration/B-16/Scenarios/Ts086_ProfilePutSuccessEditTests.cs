@@ -64,7 +64,7 @@ public sealed class Ts086_ProfilePutSuccessEditTests : IClassFixture<B16WebAppFa
         B16Assertions.StringPropertyIs(root, "groupName", GroupName);
 
         // then: в хранилище — новые fullName/email; login/роль/группа прежние.
-        var stored = B16Harness.StoredUser(_factory, user.Id);
+        var stored = await B16Harness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.FullName, NewFullName, StringComparison.Ordinal),
             $"Ожидался обновлённый fullName «{NewFullName}», фактически «{stored.FullName}».");

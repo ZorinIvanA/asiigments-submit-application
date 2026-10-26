@@ -19,7 +19,7 @@ public sealed class Ts033_DuplicateLoginFirstTests : IClassFixture<B03HostFactor
     public async Task Register_DuplicateLoginCaseInsensitive_ReturnsLoginConflictWithoutEmailCheck()
     {
         // given: существуют пользователь с login 'stu' и email 'stu@example.com'.
-        B03UserSeed.AddStudent(_factory, login: "stu", email: "stu@example.com");
+        await B03UserSeed.AddStudentAsync(_factory, login: "stu", email: "stu@example.com");
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.33.0.1");
 
         // when: регистрация с тем же логином в другом регистре и тем же email.

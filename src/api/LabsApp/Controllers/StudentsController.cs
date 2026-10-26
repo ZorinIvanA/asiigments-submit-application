@@ -27,10 +27,10 @@ namespace LabsApp.Controllers;
 /// Три состояния поля groupId тела (ADR-014) НЕ схлопываются: JSON-строка —
 /// включение/перевод, литерал null — снятие группы (204), отсутствующее/
 /// нестроковое значение/битый JSON — 404 «Группа не найдена» без изменения
-/// записи. Запись группы — УЗКАЯ атомарная мутация <see cref="IUserRepository.SetGroup"/>
-/// (SEC-001): проверка студента и группы + смена ТОЛЬКО GroupId в одной
-/// критической секции StorageLock — полный снимок записи не перезаписывается,
-/// конкурентная смена пароля/профиля студента не откатывается. Фильтр groupId
+/// записи. Запись группы — УЗКАЯ атомарная мутация <see cref="IUserRepository.SetGroupAsync"/>
+/// (SEC-001): проверка студента и группы + смена ТОЛЬКО GroupId одной операцией
+/// мутации — полный снимок записи не перезаписывается, конкурентная смена
+/// пароля/профиля студента не откатывается. Фильтр groupId
 /// перечня: отсутствует — без фильтра, «none» — только студенты без группы,
 /// uuid — точное равенство; НЕИЗВЕСТНЫЙ uuid даёт пустую выборку, а НЕ 404.
 /// Сортировка fullName↑ затем login↑ по правилам русской
@@ -53,7 +53,7 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
 
     /// <summary>GET /api/v1/students — страница перечня (FR-020).</summary>
     [HttpGet]
-    public IActionResult List(
+    public async Task<IActionResult> List(
         [FromQuery(Name = "search")] string? search,
         [FromQuery(Name = "groupId")] string? groupId,
         [FromQuery(Name = "page")] string? page)
@@ -73,8 +73,7 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
         // Фильтрация — репозиторий (IF-015): только role=student, многословный
         // одно-полевой ci-поиск и три-режимный фильтр группы («none»/uuid/нет).
         // Сортировка — обязанность сервиса ДО нарезки страницы (FR-020, AR-005).
-        var students = _users
-            .ListStudents(search, groupId)
+        var students = (await _users.ListStudentsAsync(search, groupId))
             .OrderBy(student => student.FullName, Collation.SortComparer)
             .ThenBy(student => student.Login, Collation.SortComparer)
             .ToList();
@@ -91,9 +90,11 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
         IEnumerable<User> slice = skip >= students.Count
             ? Enumerable.Empty<User>()
             : students.Skip((int)skip).Take(PageSize);
-        var items = slice
-            .Select(ToDto)
-            .ToArray();
+        var items = new List<StudentDto>();
+        foreach (var student in slice)
+        {
+            items.Add(await ToDtoAsync(student));
+        }
 
         return Ok(new PagedResult<StudentDto>
         {
@@ -116,7 +117,7 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
         // Сущность маршрута раньше тела (IF-001): id не существует ИЛИ роль ≠
         // student (включая uuid преподавателя) → единый 404 «Студент не найден».
         var userId = ParseUserId(id);
-        if (_users.GetById(userId) is not { Role: UserRoles.Student })
+        if (await _users.GetByIdAsync(userId) is not { Role: UserRoles.Student })
         {
             return StudentNotFound();
         }
@@ -130,16 +131,16 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
             case { Kind: LenientFieldKind.String } field:
                 // Любая строка, не равная id существующей группы (в т.ч. не-uuid),
                 // — 404 «Группа не найдена», запись не меняется (IF-011). Проверка
-                // группы и смена — одна критическая секция (SEC-001): делегат
-                // проверяет группу под блокировкой мутации.
-                return ToActionResult(_users.SetGroup(
+                // группы и смена — атомарная операция мутации (SEC-001): делегат
+                // проверяет группу внутри самой мутации.
+                return ToActionResult(await _users.SetGroupAsync(
                     userId,
                     ParseGroupId(field.Value),
-                    GroupExists));
+                    GroupExistsAsync));
 
             case { Kind: LenientFieldKind.JsonNull }:
                 // Литерал null — снятие группы: groupId=null, ответ 204 (FR-020).
-                return ToActionResult(_users.SetGroup(userId, null, null));
+                return ToActionResult(await _users.SetGroupAsync(userId, null, null));
 
             default:
                 // Invalid: поле отсутствует, нестроковое либо тело не разобрано.
@@ -196,11 +197,12 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
         Guid.TryParse(raw, out var id) ? id : Guid.Empty;
 
     /// <summary>
-    /// Проверка существования группы для узкой мутации <see cref="IUserRepository.SetGroup"/>
-    /// (SEC-001): вызывается внутри критической секции — единый замок хранилища
-    /// реентерабелен, поэтому чтение группы из-под мутации атомарно с ней.
+    /// Проверка существования группы для узкой мутации
+    /// <see cref="IUserRepository.SetGroupAsync"/> (SEC-001): вызывается внутри
+    /// мутации — чтение группы атомарно с ней.
     /// </summary>
-    private bool GroupExists(Guid groupId) => _groups.GetById(groupId) is not null;
+    private async Task<bool> GroupExistsAsync(Guid groupId) =>
+        await _groups.GetByIdAsync(groupId) is not null;
 
     /// <summary>Итог узкой мутации группы → статусы ответа (IF-011).</summary>
     private IActionResult ToActionResult(SetGroupResult result) => result switch
@@ -214,9 +216,9 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
     /// StudentDto строки перечня (IF-011): groupId/groupName — текущая группа
     /// студента либо null (каскад удаления группы не оставляет висячих ссылок).
     /// </summary>
-    private StudentDto ToDto(User student)
+    private async Task<StudentDto> ToDtoAsync(User student)
     {
-        var group = student.GroupId is { } groupId ? _groups.GetById(groupId) : null;
+        var group = student.GroupId is { } groupId ? await _groups.GetByIdAsync(groupId) : null;
         return new StudentDto
         {
             Id = student.Id.ToString(),

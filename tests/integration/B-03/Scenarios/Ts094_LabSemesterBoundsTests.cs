@@ -24,7 +24,7 @@ public sealed class Ts094_LabSemesterBoundsTests : IClassFixture<B03HostFactory>
     public async Task CreateLab_SemesterBoundaries_InRangeCreatedOutOfRangeRejected()
     {
         // given: сессия teacher; граница конфигурации ровно 10 (умолчание хоста).
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
         Assert.Equal(
             LabsOptions.DefaultMaxSemester,
             _factory.Services.GetRequiredService<IOptions<LabsOptions>>().Value.MaxSemester);

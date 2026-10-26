@@ -46,7 +46,7 @@ public sealed class Ts071_RecoveryRequestProductionNoCodeTests : IClassFixture<B
     {
         // given: Production-хост; пользователь с email a@b.ru.
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
         _factory.LogSink.Clear();
 
         // when: POST /auth/recovery/request.

@@ -82,7 +82,7 @@ public sealed class Ts178_Nfr005ParallelLoad8x200Tests : IClassFixture<B08Reposi
             + string.Join("\n", _failures.OrderBy(entry => entry, StringComparer.Ordinal)));
 
         // then: инвариант (semester, number) у lab.
-        var labs = _factory.Services.GetRequiredService<ILabRepository>().ListByFilter(null);
+        var labs = await _factory.Services.GetRequiredService<ILabRepository>().ListByFilterAsync(null);
         var duplicateLabPairs = labs
             .GroupBy(lab => (lab.Semester, lab.Number))
             .Where(group => group.Count() > 1)
@@ -93,8 +93,8 @@ public sealed class Ts178_Nfr005ParallelLoad8x200Tests : IClassFixture<B08Reposi
             "NFR-005 нарушен: дубликаты пары (semester, number) у lab:\n" + string.Join("\n", duplicateLabPairs));
 
         // then: инвариант (studentId, labId) у submission.
-        var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>()
-            .ListByLabIds(labs.Select(lab => lab.Id).ToArray());
+        var submissions = await _factory.Services.GetRequiredService<ISubmissionRepository>()
+            .ListByLabIdsAsync(labs.Select(lab => lab.Id).ToArray());
         var duplicateSubmissions = submissions
             .GroupBy(submission => (submission.StudentId, submission.LabId))
             .Where(group => group.Count() > 1)
@@ -106,14 +106,14 @@ public sealed class Ts178_Nfr005ParallelLoad8x200Tests : IClassFixture<B08Reposi
             + string.Join("\n", duplicateSubmissions));
 
         // then: инварианты lower(login)/lower(email) у пользователей.
-        var students = _factory.Services.GetRequiredService<IUserRepository>().ListStudents(null, null);
+        var students = await _factory.Services.GetRequiredService<IUserRepository>().ListStudentsAsync(null, null);
         AssertNoDuplicates(
             students, student => student.Login.Trim().ToLowerInvariant(), "lower(login) у пользователя");
         AssertNoDuplicates(
             students, student => student.Email.Trim().ToLowerInvariant(), "lower(email) у пользователя");
 
         // then: инвариант lower(name) у групп (ci-правило коллации ADR-013).
-        var groups = _factory.Services.GetRequiredService<IGroupRepository>().List();
+        var groups = await _factory.Services.GetRequiredService<IGroupRepository>().ListAsync();
         AssertNoDuplicates(
             groups, group => group.Name.Trim().ToLowerInvariant(), "lower(name) у группы");
     }
@@ -176,7 +176,7 @@ public sealed class Ts178_Nfr005ParallelLoad8x200Tests : IClassFixture<B08Reposi
                 var studentId = Guid.NewGuid();
                 var failure = RecordUnless(
                     $"поток {thread}, итерация {iteration}, op6 DI-сид студента loadstu-t{thread}-{iteration}",
-                    () => users.Add(new User
+                    () => users.AddAsync(new User
                     {
                         Id = studentId,
                         Login = $"loadstu-t{thread}-{iteration}",

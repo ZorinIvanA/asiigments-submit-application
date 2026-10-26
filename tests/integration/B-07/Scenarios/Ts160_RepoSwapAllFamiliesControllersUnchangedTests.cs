@@ -54,7 +54,7 @@ public sealed class Ts160_RepoSwapAllFamiliesControllersUnchangedTests : IClassF
 
         // Сид-преподаватель осел в подмене IUserRepository (SeedRunner резолвит
         // только интерфейсы — правок кода сида не потребовалось).
-        Assert.NotNull(_factory.Users.GetByLogin(SeedOptions.DefaultTeacherLogin));
+        Assert.NotNull( await _factory.Users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin) );
 
         // when/then (1): POST /auth/register — 201, запись в подмене IUserRepository.
         using var registerClient = HostClients.Create(_factory);
@@ -67,7 +67,7 @@ public sealed class Ts160_RepoSwapAllFamiliesControllersUnchangedTests : IClassF
             repeatPassword = HostClients.TestUserPassword,
         });
         Assert.Equal(HttpStatusCode.Created, Track(registerResponse));
-        var studentId = _factory.Users.GetByLogin(Login)?.Id
+        var studentId = (await _factory.Users.GetByLoginAsync(Login))?.Id
             ?? throw new InvalidOperationException("Студент не осел в подмене IUserRepository.");
 
         // when/then (2): POST /auth/login — 200 по бизнес-правилу; неверный
@@ -99,7 +99,7 @@ public sealed class Ts160_RepoSwapAllFamiliesControllersUnchangedTests : IClassF
 
         // when/then (4): GET /labs (teacher) — 200; POST /labs — 201; битое
         // тело POST /labs — 400 (ветка валидации того же семейства).
-        using var teacherClient = B07MintedSessions.CreateTeacherClient(_factory);
+        using var teacherClient = await B07MintedSessions.CreateTeacherClient(_factory);
         using var labsListResponse = await teacherClient.GetAsync("/api/v1/labs");
         Assert.Equal(HttpStatusCode.OK, Track(labsListResponse));
 
@@ -151,16 +151,16 @@ public sealed class Ts160_RepoSwapAllFamiliesControllersUnchangedTests : IClassF
 
         // then: данные осели ровно в подменах (контроллеры работали на тестовых
         // двойниках, а не на in-memory реализациях приложения).
-        var storedStudent = _factory.Users.GetById(studentId);
+        var storedStudent = await _factory.Users.GetByIdAsync(studentId);
         Assert.NotNull(storedStudent);
         Assert.Equal(Guid.Parse(groupId!), storedStudent!.GroupId);
 
-        var storedSubmissions = _factory.Submissions.ListByStudent(studentId);
+        var storedSubmissions = await _factory.Submissions.ListByStudentAsync(studentId);
         var submission = Assert.Single(storedSubmissions);
         Assert.Equal(Guid.Parse(labId!), submission.LabId);
         Assert.Equal(new DateOnly(2026, 10, 1), submission.SubmitDate);
-        Assert.Single(_factory.Labs.GetAll(), lab => lab.Semester == LabSemester && lab.Number == LabNumber);
-        Assert.Single(_factory.Groups.GetAll(), group => group.Name == GroupName);
+        Assert.Single( await _factory.Labs.GetAllAsync(), lab => lab.Semester == LabSemester && lab.Number == LabNumber );
+        Assert.Single( await _factory.Groups.GetAllAsync(), group => group.Name == GroupName );
     }
 
     /// <summary>Фиксирует статус ответа в список наблюдения и возвращает его.</summary>

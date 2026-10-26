@@ -35,7 +35,7 @@ public sealed class Ts064_RecoveryRequestExistingEmailTests(B12RecoveryDevSpyHos
         var services = _factory.Services;
         var tokens = services.GetRequiredService<ITokenService>();
         var securityTokens = services.GetRequiredService<ISecurityTokenRepository>();
-        Assert.Null(securityTokens.FindLiveForUser(user.Id));
+        Assert.Null( await securityTokens.FindLiveForUserAsync(user.Id) );
         var kdfBefore = B12RecoveryHarness.KdfSnapshot(_factory);
         using var client = B12RecoveryHttp.CreateClient(_factory);
 
@@ -47,7 +47,7 @@ public sealed class Ts064_RecoveryRequestExistingEmailTests(B12RecoveryDevSpyHos
         await B12RecoveryHttp.AssertEmptyBodyOkAsync(response);
 
         // then: создан РОВНО ОДИН живой RecoveryCode: expiresAt=now+10мин, attempts=0.
-        var live = securityTokens.FindLiveForUser(user.Id);
+        var live = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Equal(0, live.Attempts);
         Assert.Null(live.UsedAt);
@@ -111,7 +111,7 @@ public sealed class Ts064_RecoveryRequestFailingEmailSenderTests(B12RecoveryDevT
         Assert.Equal(1, _factory.EmailSpy.Calls);
         var captured = Assert.Single(_factory.EmailSpy.Captured);
         Assert.Equal(StudentEmail, captured[0]);
-        var live = securityTokens.FindLiveForUser(user.Id);
+        var live = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         var code = B12RecoveryLogs.VerifiedCode(
             new B12LogRecord(B12RecoveryLogs.EmailDevCategory, LogLevel.Information, captured[2]),

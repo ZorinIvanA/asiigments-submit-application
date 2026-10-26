@@ -25,7 +25,7 @@ public sealed class Ts132_GroupNameLengthBoundaryTests : IClassFixture<B16Groups
     public async Task PostGroup_NameOf100CharsCreated_NameOf101Rejected()
     {
         // given: сессия teacher; уникальные имена длиной ровно 100 и 101.
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var name100 = new string('Д', 100);
         var name101 = new string('Д', 101);
         Assert.Equal(100, name100.Length);

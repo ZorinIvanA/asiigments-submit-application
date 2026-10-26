@@ -79,58 +79,58 @@ public sealed class Ts173_ErrorEnvelope500WithoutDetailsTests
 
         public void Arm() => _armed = true;
 
-        public void Add(Lab lab)
+        public async Task AddAsync(Lab lab)
         {
             ThrowIfArmed();
-            inner.Add(lab);
+            await inner.AddAsync(lab);
         }
 
-        public Lab? GetById(Guid id)
+        public async Task<Lab?> GetByIdAsync(Guid id)
         {
             ThrowIfArmed();
-            return inner.GetById(id);
+            return await inner.GetByIdAsync(id);
         }
 
-        public IReadOnlyList<Lab> GetAll()
+        public async Task<IReadOnlyList<Lab>> GetAllAsync()
         {
             ThrowIfArmed();
-            return inner.GetAll();
+            return await inner.GetAllAsync();
         }
 
-        public IReadOnlyList<Lab> ListByFilter(int? semester)
+        public async Task<IReadOnlyList<Lab>> ListByFilterAsync(int? semester)
         {
             ThrowIfArmed();
-            return inner.ListByFilter(semester);
+            return await inner.ListByFilterAsync(semester);
         }
 
-        public IReadOnlyList<int> Semesters()
+        public async Task<IReadOnlyList<int>> SemestersAsync()
         {
             ThrowIfArmed();
-            return inner.Semesters();
+            return await inner.SemestersAsync();
         }
 
-        public Lab? TryGetByPair(int semester, int number)
+        public async Task<Lab?> TryGetByPairAsync(int semester, int number)
         {
             ThrowIfArmed();
-            return inner.TryGetByPair(semester, number);
+            return await inner.TryGetByPairAsync(semester, number);
         }
 
-        public bool ExistsPair(int semester, int number, Guid? exceptId = null)
+        public async Task<bool> ExistsPairAsync(int semester, int number, Guid? exceptId = null)
         {
             ThrowIfArmed();
-            return inner.ExistsPair(semester, number, exceptId);
+            return await inner.ExistsPairAsync(semester, number, exceptId);
         }
 
-        public void Update(Lab lab)
+        public async Task UpdateAsync(Lab lab)
         {
             ThrowIfArmed();
-            inner.Update(lab);
+            await inner.UpdateAsync(lab);
         }
 
-        public void Delete(Guid id)
+        public async Task DeleteAsync(Guid id)
         {
             ThrowIfArmed();
-            inner.Delete(id);
+            await inner.DeleteAsync(id);
         }
 
         private void ThrowIfArmed()

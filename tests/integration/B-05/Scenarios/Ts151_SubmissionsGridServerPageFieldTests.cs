@@ -20,8 +20,8 @@ public sealed class Ts151_SubmissionsGridServerPageFieldTests : IClassFixture<B0
     public async Task SecondPage_BodyContainsClientFieldsAndPage2()
     {
         // given: ИК-221; teacher авторизован.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: вторая страница ведомости.
         using var response = await client.GetAsync(

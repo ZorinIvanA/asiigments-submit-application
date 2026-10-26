@@ -29,10 +29,10 @@ public sealed class Ts066_MeStudentInGroupTests : IClassFixture<B08WebAppFactory
     public async Task Me_StudentInGroup_ReturnsGroupNameByCurrentState()
     {
         // given: студент включён в группу ИК-221 (DI-сид); сессия студента.
-        var group = B08Host.SeedGroup(_factory, GroupName);
+        var group = await B08Host.SeedGroupAsync(_factory, GroupName);
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName, groupId: group.Id);
-        B08Host.EstablishSession(_factory, client, user.Id, UserRoles.Student);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName, groupId: group.Id);
+        await B08Host.EstablishSessionAsync(_factory, client, user.Id, UserRoles.Student);
 
         // when: GET /api/v1/auth/me.
         using var me = await client.GetAsync(B08Host.MeEndpoint);

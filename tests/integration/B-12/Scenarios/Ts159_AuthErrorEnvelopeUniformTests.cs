@@ -25,12 +25,12 @@ public sealed class Ts159_AuthErrorEnvelopeUniformTests(B12WebAppFactory factory
         var unauthorizedRaw = await unauthorized.Content.ReadAsStringAsync();
 
         // given: отказ 403 — GET /labs под student.
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12-ts159-student",
             fullName: "Конверт Ошибок Тестович",
             email: "b12-ts159@t.local");
-        using var student = HostClients.CreateStudentClient(_factory, "b12-ts159-student");
+        using var student = await HostClients.CreateStudentClientAsync(_factory, "b12-ts159-student");
         using var forbidden = await student.GetAsync(B12AuthEndpoints.Labs);
         var forbiddenRaw = await forbidden.Content.ReadAsStringAsync();
 

@@ -51,7 +51,7 @@ public static class B11RecoverySeed
             GroupId = null,
             CreatedAt = now,
         };
-        services.GetRequiredService<IUserRepository>().Add(user);
+        services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -79,7 +79,7 @@ public static class B11RecoverySeed
             UsedAt = null,
             CreatedAt = now,
         };
-        services.GetRequiredService<ISecurityTokenRepository>().AddLive(record);
+        services.GetRequiredService<ISecurityTokenRepository>().AddLiveAsync(record);
         return record;
     }
 
@@ -97,7 +97,7 @@ public static class B11RecoverySeed
         var services = factory.Services;
         var now = services.GetRequiredService<TimeProvider>().GetUtcNow().UtcDateTime;
         var hash = Sha256Hex(value);
-        services.GetRequiredService<ISecurityTokenRepository>().Add(new PasswordResetToken
+        services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new PasswordResetToken
         {
             TokenHash = hash,
             UserId = userId,

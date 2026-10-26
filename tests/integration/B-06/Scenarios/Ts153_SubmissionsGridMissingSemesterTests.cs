@@ -23,8 +23,8 @@ public sealed class Ts153_SubmissionsGridMissingSemesterTests : IClassFixture<B0
     public async Task GetGridWithoutSemester_Returns400WithStrictSemesterError()
     {
         // given: groupId — существующая группа; сессия teacher.
-        var groupId = B06SubmissionsSessions.RequireGroup(_factory, "ИК-221").Id.ToString();
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        var groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: GET /submissions?groupId=<валидный>&page=1 — без semester.
         using var response = await B06SubmissionsApi.GetGridAsync(

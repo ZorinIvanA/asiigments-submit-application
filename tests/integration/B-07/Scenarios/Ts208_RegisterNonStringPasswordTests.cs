@@ -63,8 +63,8 @@ public sealed class Ts208_RegisterNonStringPasswordTests : IClassFixture<B07Auth
 
         // then: пользователь не создан — ни по логину, ни по email (ci-поиск).
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(users.GetByLogin("nsuser"));
-        Assert.Null(users.GetByEmail("ns@example.com"));
+        Assert.Null( await users.GetByLoginAsync("nsuser") );
+        Assert.Null( await users.GetByEmailAsync("ns@example.com") );
 
         // then: Δkdf=0 — валидация отвечает отказом до любых операций KDF.
         Assert.Equal(0, kdf.OperationsCount);

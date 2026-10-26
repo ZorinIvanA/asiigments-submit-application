@@ -20,7 +20,7 @@ public sealed class Ts095_AssignmentUrlBoundaryAndPrefixTests(B04LabsWebAppFacto
     [Fact]
     public async Task TS095_PostLabUrlBoundaries_1000Created_1001AndNonHttpRejected()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: assignmentUrl ровно 1000 символов после трима (префикс https://).
         var url1000 = "https://" + new string('a', 1000 - "https://".Length);

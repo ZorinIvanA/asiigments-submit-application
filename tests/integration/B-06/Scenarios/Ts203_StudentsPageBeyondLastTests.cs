@@ -22,7 +22,7 @@ public sealed class Ts203_StudentsPageBeyondLastTests : IClassFixture<B06Submiss
     public async Task GetStudentsPageBeyondLast_ReturnsEmptyItemsWithCorrectTotal()
     {
         // given: сессия teacher; демо-набор с 32 студентами.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: GET /students?page=99.
         using var response = await B06SubmissionsApi.GetStudentsPageAsync(client, page: "99");

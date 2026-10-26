@@ -51,7 +51,7 @@ public sealed class Ts120_SubmissionsDateValidationOrderTests : IClassFixture<B0
         // given: неизвестные studentId/labId; teacher.
         var unknownStudent = Guid.NewGuid();
         var unknownLab = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: неконтрактный формат '20.09.2026' при обеих неизвестных сущностях.
         using var wrongFormat = await client.PutAsync(
@@ -72,7 +72,7 @@ public sealed class Ts120_SubmissionsDateValidationOrderTests : IClassFixture<B0
         // given: неизвестные studentId/labId; teacher.
         var unknownStudent = Guid.NewGuid();
         var unknownLab = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: календарно некорректная дата '2026-02-30' в контрактном формате.
         using var nonCalendar = await client.PutAsync(
@@ -94,7 +94,7 @@ public sealed class Ts120_SubmissionsDateValidationOrderTests : IClassFixture<B0
         //        раньше разрешения сущностей); teacher.
         var unknownStudent = Guid.NewGuid();
         var unknownLab = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: валидный submitDate и defenseDate в неконтрактном формате
         //       '21.09.2026' (точки вместо дефисов).
@@ -121,7 +121,7 @@ public sealed class Ts120_SubmissionsDateValidationOrderTests : IClassFixture<B0
         // given: неизвестные studentId/labId; teacher.
         var unknownStudent = Guid.NewGuid();
         var unknownLab = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: валидный submitDate и defenseDate '2026-02-30' — формат
         //       YYYY-MM-DD, но календарно некорректная дата.
@@ -146,10 +146,10 @@ public sealed class Ts120_SubmissionsDateValidationOrderTests : IClassFixture<B0
     {
         // given: неизвестный studentId; существующая работа 1:1; валидные даты.
         var unknownStudent = Guid.NewGuid();
-        var lab = _factory.Services.GetRequiredService<ILabRepository>().TryGetByPair(1, 1)
+        var lab = await _factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(1, 1)
             ?? throw new InvalidOperationException(
                 "Работа 1:1 не найдена в демо-сиде — given кейса неисполним.");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT с валидными датами и неизвестным студентом.
         using var response = await client.PutAsync(
@@ -166,9 +166,9 @@ public sealed class Ts120_SubmissionsDateValidationOrderTests : IClassFixture<B0
     public async Task ValidDates_UnknownLab_Returns404LabNotFound()
     {
         // given: существующий студент student05; неизвестный labId; валидные даты.
-        var student05 = B05SeedLookup.StudentByLogin(_factory, "student05");
+        var student05 = await B05SeedLookup.StudentByLoginAsync(_factory, "student05");
         var unknownLab = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT с валидными датами и неизвестной работой.
         using var response = await client.PutAsync(

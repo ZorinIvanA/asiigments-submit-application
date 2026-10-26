@@ -18,8 +18,27 @@ var builder = WebApplication.CreateBuilder(args);
 // Якоря вставки для последующих подзадач (сохранять расположение и порядок).
 // ============================================================================
 
-// T-003 (FR-024): in-memory репозитории IF-015 (singleton) + SeedRunner.
-builder.Services.AddInMemoryStorage();
+// Итерация «БД»: выбор провайдера хранилища по Storage__Provider —
+// postgres (EF Core + Npgsql, умолчание) либо inmemory (тестовый двой).
+// Схема PostgreSQL создаётся SQL-скриптами src/api/db (без миграций EF).
+var storageOptions = builder.Configuration
+    .GetSection(StorageOptions.SectionName)
+    .Get<StorageOptions>() ?? new StorageOptions();
+if (storageOptions.IsInMemory)
+{
+    // T-003 (FR-024): in-memory репозитории IF-015 (singleton) + SeedRunner.
+    builder.Services.AddInMemoryStorage();
+}
+else
+{
+    builder.Services.AddPostgresStorage(storageOptions.ConnectionString);
+}
+
+builder.Services.AddOptions<StorageOptions>()
+    .BindConfiguration(StorageOptions.SectionName)
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<StorageOptions>>(
+    new StorageOptionsValidator(builder.Environment.EnvironmentName));
 
 // C-004/T-101 (FR-005): Api.Auth.Core — PBKDF2-хэширование (IF-002),
 // токены (IF-003), cookie (IF-004), ReferenceHashes и собственная схема
@@ -83,10 +102,10 @@ if (builder.Environment.IsDevelopment())
 
 var app = builder.Build();
 
-// T-003 (FR-025): сид выполняется синхронно при построении приложения,
-// до начала обслуживания запросов; guard Seed__TeacherPassword в Production —
+// T-003 (FR-025): сид выполняется при построении приложения, до начала
+// обслуживания запросов; guard Seed__TeacherPassword в Production —
 // в SeedOptionsValidator (отказ старта до сида).
-app.SeedDatabase();
+await app.SeedDatabaseAsync();
 
 // ============================================================================
 // ЗОНА КОНВЕЙЕРА (порядок v2.2, C-001/ADR-006)

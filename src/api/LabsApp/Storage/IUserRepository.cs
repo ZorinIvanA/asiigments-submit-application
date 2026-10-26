@@ -3,19 +3,19 @@ using LabsApp.Domain.Entities;
 namespace LabsApp.Storage;
 
 /// <summary>
-/// Репозиторий пользователей (IF-015, FR-024). Контроллеры и сервисы зависят
-/// только от интерфейса; конкретная in-memory реализация регистрируется в
+/// Репозиторий пользователей (IF-015, FR-024). Контракт асинхронный: реализации
+/// могут выполнять ввод-вывод (EF Core/PostgreSQL); контроллеры и сервисы
+/// зависят только от интерфейса, конкретный класс регистрируется в
 /// композиция-корне (Program.cs).
 ///
-/// Договорённости in-memory реализации:
+/// Договорённости реализаций:
 /// - ci-уникальность login и email — по правилу коллации <see cref="Domain.Collation"/>
-///   (нижний регистр + ordinal); проверка и занятие индексов атомарны в одной
-///   критической секции с вставкой/заменой (IF-015);
+///   (нижний регистр + ordinal); проверка и вставка атомарны (IF-015);
 /// - операции чтения возвращают копии-снимки: изменение полученной сущности не
-///   влияет на хранилище и ci-индексы, мутации — только через узкие атомарные
-///   мутаторы <see cref="SetGroup"/> (группа, SEC-001), <see cref="SetPassword"/>
-///   (пароль) и <see cref="UpdateProfile"/> (профиль) — каждый меняет ТОЛЬКО свои
-///   поля и не откатывает конкурентные мутации соседних полей (CR-001).
+///   влияет на хранилище, мутации — только через узкие атомарные мутаторы
+///   <see cref="SetGroupAsync"/> (группа, SEC-001), <see cref="SetPasswordAsync"/>
+///   (пароль) и <see cref="UpdateProfileAsync"/> (профиль) — каждый меняет ТОЛЬКО
+///   свои поля и не откатывает конкурентные мутации соседних полей (CR-001).
 /// </summary>
 public interface IUserRepository
 {
@@ -23,16 +23,16 @@ public interface IUserRepository
     /// Атомарно проверяет ci-уникальность Login и Email и вставляет запись.
     /// Конфликт — <see cref="StorageConflictException"/> (запись не вставляется).
     /// </summary>
-    void Add(User user);
+    Task AddAsync(User user);
 
     /// <summary>Пользователь по uuid либо null.</summary>
-    User? GetById(Guid id);
+    Task<User?> GetByIdAsync(Guid id);
 
     /// <summary>Пользователь по логину без учёта регистра либо null.</summary>
-    User? GetByLogin(string login);
+    Task<User?> GetByLoginAsync(string login);
 
     /// <summary>Пользователь по email без учёта регистра либо null.</summary>
-    User? GetByEmail(string email);
+    Task<User?> GetByEmailAsync(string email);
 
     /// <summary>
     /// ПОЛНАЯ замена записи по <see cref="User.Id"/> (запись обязана существовать —
@@ -41,65 +41,64 @@ public interface IUserRepository
     /// <para>
     /// Контракт СУЖЕН (аменда CR-001/SEC-001, OQ-002): полная замена записи
     /// устаревшим снимком откатывает конкурентные изменения соседних полей, поэтому
-    /// метод НЕ применяется для смены пароля (<see cref="SetPassword"/>), профиля
-    /// (<see cref="UpdateProfile"/>) и группы студента (<see cref="SetGroup"/>).
-    /// Прод-контроллеры его не вызывают (гейт QG-006: 0 call-сайтов в Controllers/);
-    /// легитимные применения — тестовые фикстуры (сборка/исправление записей) и
-    /// паритет с будущей EF Core-итерацией, где метод будет удалён.
+    /// метод НЕ применяется для смены пароля (<see cref="SetPasswordAsync"/>), профиля
+    /// (<see cref="UpdateProfileAsync"/>) и группы студента (<see cref="SetGroupAsync"/>).
+    /// Прод-контроллеры его не вызывают; легитимные применения — тестовые фикстуры
+    /// (сборка/исправление записей).
     /// </para>
     /// </summary>
-    void Update(User user);
+    Task UpdateAsync(User user);
 
     /// <summary>
-    /// Узкая атомарная мутация группы студента (SEC-001, IF-015): в ОДНОЙ критической
-    /// секции проверяет существование пользователя и его роль (= student), затем для
-    /// ненулевой цели — существование группы вызовом <paramref name="groupExists"/>,
+    /// Узкая атомарная мутация группы студента (SEC-001, IF-015): проверяет
+    /// существование пользователя и его роль (= student), затем для ненулевой
+    /// цели — существование группы вызовом <paramref name="groupExists"/>,
     /// и меняет ТОЛЬКО <see cref="User.GroupId"/>. Остальные поля хранимой записи
     /// (PasswordHash, Login, Email, FullName) не перечитываются и не перезаписываются,
     /// поэтому конкурентная смена пароля/профиля студента не откатывается, а группа,
     /// удалённая между проверкой и записью, не оставляет висячего GroupId.
     /// <para>
-    /// <paramref name="groupExists"/> вызывается внутри критической секции: реализациям
-    /// с единой блокировкой хранилища повторный вход реентерабельного монитора не
-    /// мешает. Для <paramref name="groupId"/> = null проверка группы не выполняется,
-    /// делегат может быть null; ненулевая цель с null-делегатом — ArgumentNullException.
+    /// <paramref name="groupExists"/> — асинхронный делегат (реализации хранилищ
+    /// асинхронны); для <paramref name="groupId"/> = null проверка группы не
+    /// выполняется, делегат может быть null; ненулевая цель с null-делегатом —
+    /// ArgumentNullException.
     /// </para>
     /// </summary>
-    SetGroupResult SetGroup(Guid userId, Guid? groupId, Func<Guid, bool>? groupExists);
+    Task<SetGroupResult> SetGroupAsync(Guid userId, Guid? groupId, Func<Guid, Task<bool>>? groupExists);
 
     /// <summary>
-    /// Узкая атомарная мутация пароля (CR-001/SEC-001, IF-015): в ОДНОЙ критической
-    /// секции проверяет существование записи и меняет ТОЛЬКО
-    /// <see cref="User.PasswordHash"/>. Остальные поля хранимой записи (Login, Email,
-    /// FullName, Role, GroupId, CreatedAt) не перечитываются и не перезаписываются,
-    /// поэтому конкурентные смена профиля и назначение группы студента не откатываются
-    /// устаревшим снимком; ci-индексы не затрагиваются.
+    /// Узкая атомарная мутация пароля (CR-001/SEC-001, IF-015): проверяет
+    /// существование записи и меняет ТОЛЬКО <see cref="User.PasswordHash"/>.
+    /// Остальные поля хранимой записи (Login, Email, FullName, Role, GroupId,
+    /// CreatedAt) не перечитываются и не перезаписываются, поэтому конкурентные
+    /// смена профиля и назначение группы студента не откатываются устаревшим
+    /// снимком; ci-индексы не затрагиваются.
     /// <para>
     /// Запись отсутствует — false без исключения (вызывающая сторона отдаёт
     /// 401 «Не авторизован», IF-015 NOT_FOUND). <paramref name="passwordHash"/> null
-    /// либо пустой — <see cref="ArgumentNullException"/> (валидация вне секции).
+    /// либо пустой — <see cref="ArgumentNullException"/> (валидация до вызова).
     /// </para>
     /// </summary>
-    bool SetPassword(Guid userId, string passwordHash);
+    Task<bool> SetPasswordAsync(Guid userId, string passwordHash);
 
     /// <summary>
-    /// Узкая атомарная мутация профиля (CR-001/SEC-001, IF-015): в ОДНОЙ критической
-    /// секции проверяет существование записи, ci-занятость lower(email) ДРУГИМ
-    /// пользователем (<see cref="Domain.Collation.Key"/>; совпадение с собственной
-    /// записью — не конфликт) и меняет ТОЛЬКО <see cref="User.FullName"/> и
-    /// <see cref="User.Email"/> с перепривязкой ci-индекса byEmail. Остальные поля
-    /// (Login, Role, GroupId, PasswordHash, CreatedAt) не перечитываются и не
-    /// перезаписываются, поэтому конкурентная смена пароля и группы не откатываются;
-    /// гонка двух UpdateProfile на один email — ровно один Success (EMAIL_CONFLICT).
+    /// Узкая атомарная мутация профиля (CR-001/SEC-001, IF-015): проверяет
+    /// существование записи, ci-занятость lower(email) ДРУГИМ пользователем
+    /// (<see cref="Domain.Collation.Key"/>; совпадение с собственной записью — не
+    /// конфликт) и меняет ТОЛЬКО <see cref="User.FullName"/> и <see cref="User.Email"/>
+    /// с перепривязкой ci-индекса byEmail. Остальные поля (Login, Role, GroupId,
+    /// PasswordHash, CreatedAt) не перечитываются и не перезаписываются, поэтому
+    /// конкурентные смена пароля и группы не откатываются; гонка двух
+    /// UpdateProfile на один email — ровно один Success (EMAIL_CONFLICT).
     /// <para>
     /// Запись отсутствует — <see cref="UpdateProfileResult.UserNotFound"/>;
     /// email занят другим — <see cref="UpdateProfileResult.EmailConflict"/> (запись
     /// не изменяется); <paramref name="fullName"/>/<paramref name="email"/> null —
-    /// <see cref="ArgumentNullException"/> (валидация вне секции). Полевые правила
+    /// <see cref="ArgumentNullException"/> (валидация до вызова). Полевые правила
     /// длины/формата — зона контроллера (FR-006).
     /// </para>
     /// </summary>
-    UpdateProfileResult UpdateProfile(Guid userId, string fullName, string email);
+    Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email);
 
     /// <summary>
     /// Студенты с поиском и фильтром группы (FR-020): все пользователи с ролью
@@ -118,11 +117,11 @@ public interface IUserRepository
     /// выборка, НЕ 404, FR-020); иная нечитаемая строка — также пустая выборка.
     /// </para>
     /// </summary>
-    IReadOnlyList<User> ListStudents(string? search = null, string? groupIdFilter = null);
+    Task<IReadOnlyList<User>> ListStudentsAsync(string? search = null, string? groupIdFilter = null);
 
     /// <summary>Студенты группы (порядок не определён; сортировка — в сервисе, FR-019).</summary>
-    IReadOnlyList<User> ListByGroup(Guid groupId);
+    Task<IReadOnlyList<User>> ListByGroupAsync(Guid groupId);
 
     /// <summary>Число студентов группы (studentCount GroupDto вычисляется подсчётом, data_design).</summary>
-    int CountByGroup(Guid groupId);
+    Task<int> CountByGroupAsync(Guid groupId);
 }

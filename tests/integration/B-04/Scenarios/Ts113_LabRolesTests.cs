@@ -20,7 +20,7 @@ public sealed class Ts113_LabRolesTests(B04LabsWebAppFactory factory) : IClassFi
     {
         // given: валидная сессия student (DI-сид записи + минт access-JWT).
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var student = B04DomainSeed.AddStudent(users, "b04-ts113-student");
+        var student = await B04DomainSeed.AddStudentAsync(users, "b04-ts113-student");
         using var studentClient = MintedSessions.CreateStudentClient(_factory, student);
 
         // when/then: GET /labs под student → 403 «Доступ запрещён», тело — JSON-конверт.

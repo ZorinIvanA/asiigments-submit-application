@@ -11,22 +11,29 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// then — 200 total=23; порядок эквивалентен дефолтному (semester↑, number↑);
 /// без ошибки (не 400 и не исключение).
 /// </summary>
-public sealed class Ts108_LabsSortNormalizationTests : IClassFixture<B03HostFactory>
+public sealed class Ts108_LabsSortNormalizationTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts108_LabsSortNormalizationTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task GetLabsWithOutOfDictionarySortParams_MatchesDefaultOrderWithoutError()
     {
         // given: сид с 23 работами (20 семестра 1 + 3 семестра 2); сессия teacher.
-        Assert.Equal(23, _factory.Services.GetRequiredService<ILabRepository>().GetAll().Count);
-        var (client, _) = B03TeacherSession.Create(_factory);
+        Assert.Equal(23, (await _factory.Services.GetRequiredService<ILabRepository>().GetAllAsync()).Count);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: sortField=foo, sortDir=bar — вне словаря; и дефолтный список.
         using var garbageSort = await B03LabsApi.GetLabsAsync(client, "sortField=foo&sortDir=bar");

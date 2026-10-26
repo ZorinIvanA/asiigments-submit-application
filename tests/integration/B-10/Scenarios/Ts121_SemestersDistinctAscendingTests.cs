@@ -17,11 +17,11 @@ public sealed class Ts121_SemestersDistinctAscendingTests(B10NoDemoWebAppFactory
     public async Task TS121_GetSemesters_AsStudent_ReturnsDistinctAscending()
     {
         // given: DI-сид лаб семестров 2,1,2 и студента; сессия student (минт, ADR-022).
-        B10Seed.AddLab(_factory, semester: 2, number: 1);
-        B10Seed.AddLab(_factory, semester: 1, number: 1);
-        B10Seed.AddLab(_factory, semester: 2, number: 2);
-        B10Seed.AddStudent(_factory, B10Seed.StudentLogin);
-        using var client = HostClients.CreateStudentClient(_factory, B10Seed.StudentLogin);
+        await B10Seed.AddLabAsync(_factory, semester: 2, number: 1);
+        await B10Seed.AddLabAsync(_factory, semester: 1, number: 1);
+        await B10Seed.AddLabAsync(_factory, semester: 2, number: 2);
+        await B10Seed.AddStudentAsync(_factory, B10Seed.StudentLogin);
+        using var client = await HostClients.CreateStudentClient(_factory, B10Seed.StudentLogin);
 
         // when: GET /api/v1/semesters.
         using var response = await client.GetAsync("/api/v1/semesters");

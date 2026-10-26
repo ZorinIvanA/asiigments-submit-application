@@ -24,7 +24,7 @@ public sealed class Ts032_RegisterSuccessMeDtoTests : IClassFixture<B03HostFacto
     public async Task Register_NewUser_Returns201MeDtoCookiesAndSingleRegisterKdf()
     {
         // given: пользователя 'newuser' нет; счётчик KDF зафиксирован снимком.
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "newuser"));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "newuser"));
         var kdf = B03Kdf.Resolve(_factory.Services);
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.140.0.1");
 

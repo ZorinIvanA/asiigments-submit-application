@@ -34,10 +34,10 @@ public static class HostClients
     }
 
     /// <summary>Клиент с сессией сид-преподавателя (учётка создаётся сидом из Seed__* независимо от демо-набора).</summary>
-    public static HttpClient CreateTeacherClient(B10HostFactory factory)
+    public static async Task<HttpClient> CreateTeacherClient(B10HostFactory factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сид-преподаватель не найден — шаг given «сессия teacher» неисполним.");
         var client = Create(factory);
@@ -46,9 +46,9 @@ public static class HostClients
     }
 
     /// <summary>Клиент с сессией студента (DI-сид либо демо-набор) — шаг given «сессия student».</summary>
-    public static HttpClient CreateStudentClient(B10HostFactory factory, string login)
+    public static async Task<HttpClient> CreateStudentClient(B10HostFactory factory, string login)
     {
-        var student = factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login)
+        var student = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login)
             ?? throw new InvalidOperationException(
                 $"Студент «{login}» не найден — шаг given «сессия student» неисполним.");
         var client = Create(factory);

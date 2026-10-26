@@ -37,7 +37,7 @@ public sealed class Ts023_KdfIterationsFromStoredHashTests : IClassFixture<B09We
         B09KdfSeams.SetPbkdf2Iterations(_factory, 1000);
         await B09HostClients.RegisterStudentAsync(
             _factory, "Двадцать Третий", Login, Email, ip: RegistrationIp);
-        Assert.NotNull(_factory.Services.GetRequiredService<IUserRepository>().GetByLogin(Login));
+        Assert.NotNull(await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(Login));
 
         // given: ...затем конфигурация изменена на 2000 (хранилище не пересоздано —
         // тот же хост/процесс).
@@ -60,7 +60,7 @@ public sealed class Ts023_KdfIterationsFromStoredHashTests : IClassFixture<B09We
             "вход со старым правильным паролем (хэш 1000, конфигурация 2000)");
 
         // then: новый хэш создаётся с 2000 итераций — префикс 'pbkdf2-sha256$2000$'.
-        var newHash = B09HostClients.ResolveUserByEmail(_factory, NewEmail).PasswordHash;
+        var newHash = (await B09HostClients.ResolveUserByEmailAsync(_factory, NewEmail)).PasswordHash;
         Assert.True(
             newHash.StartsWith("pbkdf2-sha256$2000$", StringComparison.Ordinal),
             "Новый хэш должен создаваться с итерациями текущей конфигурации (2000): " +

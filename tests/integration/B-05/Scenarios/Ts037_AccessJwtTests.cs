@@ -38,7 +38,7 @@ public sealed class Ts037_AccessJwtTests(B05AccessTtlWebAppFactory factory)
     {
         // given: успешный вход teacher (сид-преподаватель харнеса).
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var teacher = users.GetByLogin(SeedOptions.DefaultTeacherLogin);
+        var teacher = await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin);
         Assert.True(
             teacher is not null && teacher.Role == "teacher",
             "Предусловие кейса: сид-преподаватель с ролью teacher обязан существовать в харнесе.");

@@ -39,9 +39,9 @@ public sealed class Ts097_LabPutContractTests(B04LabsWebAppFactory factory)
     {
         // given: L1 (1, 5) и L2 (1, 6) — разные записи с разными парами; teacher.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        var l1 = B04DomainSeed.AddLab(labs, semester: 1, number: 5);
-        _ = B04DomainSeed.AddLab(labs, semester: 1, number: 6);
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        var l1 = await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 5);
+        await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 6);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when/then (1): PUT собственной записи с той же парой (1, 5) — 200, не 409.
         using var selfUpdate = await client.PutAsJsonAsync($"/api/v1/labs/{l1.Id}", new

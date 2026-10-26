@@ -83,7 +83,7 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
     public async Task Request_CodeLivesExactlyTenMinutes_ConfirmSecondBeforeExpiry_200_ZeroKdf()
     {
         // given: пользователь; база Δkdf до request.
-        var user = SeedUser("rec-time-ttl");
+        var user = await SeedUserAsync("rec-time-ttl");
         using var client = CreateClient();
         _fixture.LogSink.Clear();
         var kdf = HostKdfCounter();
@@ -94,8 +94,8 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         await RecoveryEndpointHarness.AssertEmptyBodyAsync(response);
 
-        var live = HostServices().GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveForUser(user.Id);
+        var live = await HostServices().GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Null(live!.UsedAt);
         Assert.Equal(0, live.Attempts);
@@ -119,7 +119,7 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
     public async Task Request_ExpiryBoundaryAtExactlyTenMinutes_CodeNotLive_Confirm400UnifiedText()
     {
         // given: живой код, полученный через request.
-        var user = SeedUser("rec-time-boundary");
+        var user = await SeedUserAsync("rec-time-boundary");
         using var client = CreateClient();
         _ = await RecoveryEndpointHarness.RequestCodeAsync(client, user.Email);
         var code = EmailedCode();
@@ -130,8 +130,8 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
 
         // then: живых кодов нет; confirm ВЕРНЫМ значением просроченного кода —
         // единый 400 «Код восстановления не подходит» (FR-013).
-        Assert.Null(
-            HostServices().GetRequiredService<ISecurityTokenRepository>().FindLiveForUser(user.Id));
+        Assert.Null(await 
+            await HostServices().GetRequiredService<ISecurityTokenRepository>().FindLiveForUserAsync(user.Id));
         using var response = await RecoveryEndpointHarness.ConfirmAsync(client, user.Email, code);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(ValidationTexts.RecoveryCodeRejected, await RecoveryEndpointHarness.MessageAsync(response));
@@ -141,7 +141,7 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
     public async Task Resend_ExtinguishesPreviousCode_Old400_New200_ResetTokenTtlExactlyFifteenMinutes()
     {
         // given: код C1 в момент t0.
-        var user = SeedUser("rec-time-resend");
+        var user = await SeedUserAsync("rec-time-resend");
         using var client = CreateClient();
         _ = await RecoveryEndpointHarness.RequestCodeAsync(client, user.Email);
         var firstCode = EmailedCode();
@@ -167,8 +167,8 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
         var resetToken = body.RootElement.GetProperty("resetToken").GetString();
         Assert.False(string.IsNullOrEmpty(resetToken));
 
-        var record = HostServices().GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveResetByHash(Sha256Hex(resetToken!));
+        var record = await HostServices().GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveResetByHashAsync(Sha256Hex(resetToken!));
         Assert.NotNull(record);
         Assert.Equal(user.Id, record!.UserId);
         Assert.Equal(
@@ -180,7 +180,7 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
     public async Task Limiter_FourthRequestExistingAndNonexistent_Identical429_WindowSlidesAfterExactlyOneHour()
     {
         // given: существующий email X и несуществующий Y; по 3 запроса на каждый.
-        var user = SeedUser("rec-time-limiter");
+        var user = await SeedUserAsync("rec-time-limiter");
         using var client = CreateClient();
         const string existing = "rec-time-x@example.com";
         _ = await RecoveryEndpointHarness.RequestCodeAsync(client, existing);
@@ -236,13 +236,13 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
         after.Values.Sum() - before.Values.Sum();
 
     /// <summary>DI-сид пользователя с реальным PBKDF2-хэшем (до снимков Δkdf).</summary>
-    private User SeedUser(string login)
+    private async Task<User> SeedUserAsync(string login)
     {
         var services = HostServices();
         var passwordHash = services.GetRequiredService<IPasswordHasher>()
             .Hash(RecoveryEndpointHarness.TestUserPassword, KdfCallers.Seed);
         var repository = services.GetRequiredService<IUserRepository>();
-        repository.Add(new User
+        await repository.AddAsync(new User
         {
             Id = Guid.NewGuid(),
             Login = login,
@@ -253,7 +253,7 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByLogin(login)
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 

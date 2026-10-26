@@ -2,8 +2,10 @@
 
 Серверная часть системы: монолитное приложение на **ASP.NET Core** (.NET 8),
 которое обслуживает REST API `/api/v1` и раздаёт статику собранного
-Angular-клиента (`src/client`). Хранилище — in-memory реализации интерфейсов
-репозиториев (см. раздел 5). Подробности —
+Angular-клиента (`src/client`). Хранилище — **PostgreSQL 16**: репозитории
+подключены через **EF Core (Npgsql)**, репозиторий сдач — на «сыром»
+ADO.NET (`NpgsqlCommand`/`NpgsqlDataReader`); схема создаётся SQL-скриптами
+`src/api/db/` (см. раздел 5). Подробности —
 [Спецификация системы](../../docs/system-specification.md).
 
 Ключевые положения:
@@ -22,7 +24,9 @@ Angular-клиента (`src/client`). Хранилище — in-memory реал
 
 ## 1. Требования и запуск
 
-Требуется **.NET SDK 8.0**.
+Требуются **.NET SDK 8.0** и **PostgreSQL 16** с применёнными скриптами
+`src/api/db/` (схема + демо-данные; порядок применения — в
+[README папки db](../db/README.md)).
 
 ```bash
 dotnet run --project src/api/LabsApp
@@ -47,6 +51,8 @@ dotnet run --project src/api/LabsApp
 | `Seed__TeacherLogin` | `teacher` | Логин сид-учётки преподавателя |
 | `Seed__TeacherPassword` | `teacher123!` (только Development; см. предупреждение в разделе 3) | Пароль сид-учётки преподавателя |
 | `Seed__DemoData` | умолчание по окружению: Development — `true`, вне Development — всегда `false` | Демо-набор данных; допустимые явные значения — `true` / `false` (некорректное значение даёт warning и умолчание окружения) |
+| `Storage__Provider` | `postgres` | Провайдер хранилища: `postgres` (EF Core + Npgsql, требуется БД) либо `inmemory` (заглушка без ввода-вывода, только для тестов) |
+| `Storage__ConnectionString` | `Host=127.0.0.1;Port=5434;Database=labsapp;Username=labsapp;Password=labsapp` | Строка подключения к PostgreSQL при `Storage__Provider=postgres`; обязательна, в Production не может равняться dev-умолчанию |
 
 Нарушения правил валидации (например, `Auth__JwtKey` короче 32 символов в
 Production или `Auth__Pbkdf2Iterations` вне диапазона) останавливают старт
@@ -88,8 +94,9 @@ ng test                             # из корня репозитория, Ch
 
 ## 3. Сид-учётки и предупреждение SEC-001
 
-Сид выполняется синхронно при старте, до обслуживания запросов, и идемпотентен
-(повторный запуск не дублирует и не изменяет существующие записи).
+Сид выполняется при старте, до обслуживания запросов, и идемпотентен по
+естественным ключам (повторный запуск не дублирует и не изменяет существующие
+записи; при старте на БД с применённым `03_seed_demo.sql` ничего не добавляется).
 
 **Development:**
 
@@ -147,16 +154,26 @@ ng test                             # из корня репозитория, Ch
 запросы кода восстановления — 3/3600 с на email. Превышение → 429 с телом
 `{"message":"Слишком много попыток. Повторите позже"}`.
 
-## 5. Хранилище: in-memory сейчас, EF Core/PostgreSQL — следующая итерация
+## 5. Хранилище: PostgreSQL — EF Core + сырой Npgsql
 
-Сейчас данные живут в памяти процесса: репозитории
-`IUserRepository`, `IGroupRepository`, `ILabRepository`, `ISubmissionRepository`,
-`ISecurityTokenRepository` реализованы in-memory (состояние теряется при
-перезапуске). Контроллеры и ядро аутентификации зависят только от интерфейсов,
-поэтому переход на **EF Core + PostgreSQL (Npgsql)** выполняется в следующей
-итерации заменой in-memory реализаций этих интерфейсов на persistence-реализации
-без изменения доменной логики и контрактов API. В текущей итерации EF Core и
-Npgsql не используются.
+Данные живут в **PostgreSQL 16**: схема в 3НФ создаётся SQL-скриптами
+[папки `db/`](../db/README.md) (таблицы, индексы, демо-данные) — миграции EF Core
+не используются, EF маппируется на готовую схему. Подключение репозиториев к
+контрактам `IUserRepository`, `IGroupRepository`, `ILabRepository`,
+`ISubmissionRepository`, `ISecurityTokenRepository`:
+
+- **EF Core (Npgsql)**: пользователи, группы, работы, токены безопасности —
+  `Storage/Ef/` (DbContext без миграций, ci-поиски через `lower()`, конфликты
+  уникальности транслируются из ошибок Postgres в конверт API);
+- **сырой ADO.NET**: сдачи — `Storage/Postgres/NpgsqlSubmissionRepository`
+  (`NpgsqlDataSource` + `NpgsqlCommand`/`NpgsqlDataReader`; upsert пары
+  студент-работа — `INSERT … ON CONFLICT … DO UPDATE … RETURNING`).
+
+Все репозитории и контроллеры асинхронны. Каскады целостности выполняет БД
+(удаление группы — `ON DELETE SET NULL` студентам, удаление работы —
+`ON DELETE CASCADE` сдачам). Провайдер `inmemory` остаётся как тестовый двой
+(задаётся переменной `Storage__Provider=inmemory` в тестовых фабриках хоста);
+данные теперь переживают перезапуск процесса.
 
 ## 6. Dev-почта (восстановление пароля)
 

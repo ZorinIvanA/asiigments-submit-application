@@ -20,7 +20,7 @@ public sealed class Ts133_StudentsSearchBoundary200Tests : IClassFixture<B05WebA
     public async Task SearchOfExactly200Chars_IsAcceptedAndReturnsEmptyPage()
     {
         // given: teacher авторизован.
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search ровно 200 символов (ни один студент не содержит такую подстроку).
         var search = Uri.EscapeDataString(new string('x', 200));

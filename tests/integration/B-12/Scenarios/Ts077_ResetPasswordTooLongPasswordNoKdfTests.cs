@@ -49,7 +49,7 @@ public sealed class Ts077_ResetPasswordTooLongPasswordNoKdfTests(B12RecoveryDevS
         Assert.Equal(ErrorTexts.PasswordMax, maxText);
 
         // then: токен жив.
-        Assert.NotNull(securityTokens.FindLiveResetByHash(tokenHash));
+        Assert.NotNull( await securityTokens.FindLiveResetByHashAsync(tokenHash) );
 
         // then: Δkdf=0 (хэширование не выполнялось — отклонение до KDF).
         var kdfAfter = B12RecoveryHarness.KdfSnapshot(_factory);

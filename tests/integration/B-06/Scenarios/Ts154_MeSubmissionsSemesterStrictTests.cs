@@ -21,7 +21,7 @@ public sealed class Ts154_MeSubmissionsSemesterStrictTests : IClassFixture<B06Su
     public async Task GetMeSubmissionsWithOutOfRangeAndNonNumericSemester_Returns400()
     {
         // given: сессия student01.
-        using var client = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
 
         // when/then: semester=11 — 400 со строгой ошибкой semester.
         using var outOfRange = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "11");

@@ -47,7 +47,7 @@ public sealed class Ts087_ProfilePutIgnoresLoginUpdatesNameEmailTests : IClassFi
             password: B18ProfileHarness.TestUserPassword);
 
         // given (наблюдаемость «groupName пересчитан»): состояние групп изменилось ДО PUT.
-        B18ProfileHarness.RenameGroup(_factory, group, GroupRenamed);
+        await B18ProfileHarness.RenameGroupAsync(_factory, group, GroupRenamed);
 
         using var client = B18ProfileHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
@@ -72,7 +72,7 @@ public sealed class Ts087_ProfilePutIgnoresLoginUpdatesNameEmailTests : IClassFi
 
         // then: в хранилище обновлены только fullName/email — login/роль/группа прежние,
         // поле login:'hacker' проигнорировано.
-        var stored = B18ProfileHarness.StoredUser(_factory, user.Id);
+        var stored = await B18ProfileHarness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}».");

@@ -41,7 +41,7 @@ public sealed class Ts073_ResetPasswordSuccessTests(B13RecoveryTimedHost factory
         var now = _factory.Time.GetUtcNow().UtcDateTime;
 
         var secondDevice = tokens.CreateRefreshToken(user.Id);
-        securityTokens.Add(new RefreshToken
+        await securityTokens.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
@@ -80,8 +80,8 @@ public sealed class Ts073_ResetPasswordSuccessTests(B13RecoveryTimedHost factory
         Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
 
         // then: ВСЕ reset-токены пользователя погашены (и применённый, и дополнительный).
-        Assert.Null(securityTokens.FindLiveResetByHash(B13RecoverySeed.Sha256Hex(resetToken!)));
-        Assert.Null(securityTokens.FindLiveResetByHash(extraResetHash));
+        Assert.Null( await securityTokens.FindLiveResetByHashAsync(B13RecoverySeed.Sha256Hex(resetToken!)) );
+        Assert.Null( await securityTokens.FindLiveResetByHashAsync(extraResetHash) );
 
         // then: ВСЕ refresh-токены отозваны — refresh второго устройства даёт 401.
         using var secondDeviceRefresh = await B13RecoveryApi.RefreshWithCookieAsync(client, secondDevice.Value);

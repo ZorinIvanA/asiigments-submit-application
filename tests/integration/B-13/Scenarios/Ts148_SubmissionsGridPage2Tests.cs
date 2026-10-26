@@ -27,12 +27,12 @@ public sealed class Ts148_SubmissionsGridPage2Tests(B13WebAppFactory factory) : 
         var lab1 = B13Seed.AddLab(_factory, 1, 1);
         var lab2 = B13Seed.AddLab(_factory, 1, 2);
         var lab3 = B13Seed.AddLab(_factory, 1, 3);
-        B13Seed.AddSubmission(_factory, students[1].Id, lab1.Id, "2025-02-10", null);        // Борисов — страница 1
-        B13Seed.AddSubmission(_factory, students[2].Id, lab2.Id, "2025-02-11", null);        // Васильев — страница 1
-        B13Seed.AddSubmission(_factory, students[5].Id, lab1.Id, "2025-02-12", "2025-02-20"); // Егоров — страница 2
-        B13Seed.AddSubmission(_factory, students[6].Id, lab3.Id, "2025-02-13", null);        // Жуков — страница 2
+        await B13Seed.AddSubmissionAsync(_factory, students[1].Id, lab1.Id, "2025-02-10", null);        // Борисов — страница 1
+        await B13Seed.AddSubmissionAsync(_factory, students[2].Id, lab2.Id, "2025-02-11", null);        // Васильев — страница 1
+        await B13Seed.AddSubmissionAsync(_factory, students[5].Id, lab1.Id, "2025-02-12", "2025-02-20"); // Егоров — страница 2
+        await B13Seed.AddSubmissionAsync(_factory, students[6].Id, lab3.Id, "2025-02-13", null);        // Жуков — страница 2
 
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /api/v1/submissions?groupId=X&semester=1&page=2.
         using var response = await client.GetAsync(

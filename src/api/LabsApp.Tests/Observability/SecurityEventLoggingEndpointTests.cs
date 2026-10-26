@@ -60,13 +60,13 @@ internal static class SecurityEventLoggingHarness
         });
 
     /// <summary>DI-сид пользователя с РЕАЛЬНЫМ PBKDF2-хэшем (метка seed).</summary>
-    public static User SeedUser(TestWebAppFactory factory, string login, string password = TestUserPassword)
+    public static async Task<User> SeedUser(TestWebAppFactory factory, string login, string password = TestUserPassword)
     {
         var passwordHash = factory.Services
             .GetRequiredService<IPasswordHasher>()
             .Hash(password, KdfCallers.Seed);
         var repository = factory.Services.GetRequiredService<IUserRepository>();
-        repository.Add(new User
+        await repository.AddAsync(new User
         {
             Id = Guid.NewGuid(),
             Login = login,
@@ -77,7 +77,7 @@ internal static class SecurityEventLoggingHarness
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByLogin(login)
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 
@@ -85,13 +85,13 @@ internal static class SecurityEventLoggingHarness
     /// given «живой refresh-токен»: ITokenService.CreateRefreshToken + запись в
     /// ISecurityTokenRepository; возвращает ОТКРЫТОЕ значение (для cookie/маркера).
     /// </summary>
-    public static string SeedRefreshToken(TestWebAppFactory factory, Guid userId)
+    public static async Task<string> SeedRefreshToken(TestWebAppFactory factory, Guid userId)
     {
         var grant = factory.Services
             .GetRequiredService<ITokenService>()
             .CreateRefreshToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -172,9 +172,9 @@ public sealed class PasswordChangeSecurityLogTests(SecurityEventLoggingApiFixtur
     public async Task Put_Success_LogsPasswordChangeAndRevocationFacts_WithoutSecrets()
     {
         // given: пользователь; refresh-токен текущей сессии (cookie) и «второго устройства».
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-pwd");
-        var currentRefresh = SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
-        var otherRefresh = SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-pwd");
+        var currentRefresh = await SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
+        var otherRefresh = await SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
             _factory,
             $"{SecurityEventLoggingHarness.AccessCookieOf(_factory, user.Id)}; " +
@@ -217,7 +217,7 @@ public sealed class PasswordChangeSecurityLogTests(SecurityEventLoggingApiFixtur
     public async Task Put_WrongCurrentPassword_WritesNoSecurityRecords()
     {
         // given: пользователь; сессия минтована; чистый log-sink.
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-pwd-bad");
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-pwd-bad");
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
             _factory, SecurityEventLoggingHarness.AccessCookieOf(_factory, user.Id));
         _factory.LogSink.Clear();
@@ -245,8 +245,8 @@ public sealed class LogoutSecurityLogTests(SecurityEventLoggingApiFixture fixtur
     {
         // given: пользователь с живым refresh-токеном; только refresh-cookie
         // (валидный access не требуется — FR-010).
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-out");
-        var refresh = SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-out");
+        var refresh = await SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
             _factory, $"{AuthCoreDefaults.RefreshTokenCookieName}={refresh}");
 
@@ -302,7 +302,7 @@ public sealed class SecurityCategoryUnificationTests(SecurityEventLoggingApiFixt
     public async Task AllWarningRecords_MiddlewareAndLogger_UseUnifiedApiSecurityCategory()
     {
         // given: уникальный IP (окно лимитера не пересекается с другими тестами).
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-uniform");
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "sec-log-uniform");
         using var passwordClient = SecurityEventLoggingHarness.CreateCookieClient(
             _factory, SecurityEventLoggingHarness.AccessCookieOf(_factory, user.Id));
         using var loginClient = SecurityEventLoggingHarness.CreateAnonymousClient(_factory);
@@ -360,8 +360,8 @@ public sealed class SubjectChannelSecurityLogTests(SecurityEventLoggingApiFixtur
     {
         // given: пользователь; access минтован ПРОД-формой (с login), refresh
         // текущей сессии — в cookie (ветка ISS-002).
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "subject-pwd");
-        var currentRefresh = SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "subject-pwd");
+        var currentRefresh = await SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
         var access = _factory.Services.GetRequiredService<ITokenService>()
             .IssueAccessToken(user.Id, user.Role, user.Login);
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
@@ -397,7 +397,7 @@ public sealed class SubjectChannelSecurityLogTests(SecurityEventLoggingApiFixtur
     {
         // given: access минтован ДВУХАРГУМЕНТНОЙ формой (тестовый харнес, IF-003) —
         // токен валиден, principal без claim «login».
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "subject-pwd-null");
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "subject-pwd-null");
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
             _factory, SecurityEventLoggingHarness.AccessCookieOf(_factory, user.Id));
 
@@ -419,8 +419,8 @@ public sealed class SubjectChannelSecurityLogTests(SecurityEventLoggingApiFixtur
     {
         // given: пользователь с живым reset-токеном; сброс выполняется АНОНИМНО —
         // операция не аутентифицирована (граница ADR-044), субъект — traceId.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "subject-reset");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "subject-reset");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
         // when: успешный сброс пароля — 204.
@@ -443,7 +443,7 @@ public sealed class SubjectChannelSecurityLogTests(SecurityEventLoggingApiFixtur
         // given: DI-сид student; сессия получается РЕАЛЬНЫМ POST /auth/login
         // (прод-путь IssueSession → JWT с claim «login» → Set-Cookie), cookie
         // переносит сценарий — вручную, как во всех сквозных сценариях.
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "subject-login-403");
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "subject-login-403");
         using var client = SecurityEventLoggingHarness.CreateAnonymousClient(_factory);
         var container = new TestCookieContainer();
 
@@ -477,8 +477,8 @@ public sealed class SubjectChannelSecurityLogTests(SecurityEventLoggingApiFixtur
     {
         // given: пользователь; живой refresh и ВАЛИДНЫЙ access с claim «login»
         // (трёхаргументная прод-форма) в cookie.
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "subject-logout");
-        var refresh = SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "subject-logout");
+        var refresh = await SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
         var access = _factory.Services.GetRequiredService<ITokenService>()
             .IssueAccessToken(user.Id, user.Role, user.Login);
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
@@ -510,8 +510,8 @@ public sealed class SubjectChannelSecurityLogTests(SecurityEventLoggingApiFixtur
     {
         // given: живой refresh в cookie, access ОТСУТСТВУЕТ — операция анонимна
         // (граница ADR-044: актор идентифицируется traceId + владением refresh).
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "subject-logout-anon");
-        var refresh = SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "subject-logout-anon");
+        var refresh = await SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
             _factory, $"{AuthCoreDefaults.RefreshTokenCookieName}={refresh}");
 
@@ -570,7 +570,7 @@ public sealed class LoginClaimMintingEndpointTests(SecurityEventLoggingApiFixtur
     [Fact]
     public async Task Login_IssuesAccessJwtWithLoginClaim()
     {
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "mint-login");
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "mint-login");
         using var client = SecurityEventLoggingHarness.CreateAnonymousClient(_factory);
 
         // when: login — 200 с access-cookie.
@@ -586,8 +586,8 @@ public sealed class LoginClaimMintingEndpointTests(SecurityEventLoggingApiFixtur
     [Fact]
     public async Task Refresh_IssuesNewAccessJwtWithLoginClaim()
     {
-        var user = SecurityEventLoggingHarness.SeedUser(_factory, "mint-refresh");
-        var refresh = SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await SecurityEventLoggingHarness.SeedUser(_factory, "mint-refresh");
+        var refresh = await SecurityEventLoggingHarness.SeedRefreshToken(_factory, user.Id);
         using var client = SecurityEventLoggingHarness.CreateCookieClient(
             _factory, $"{AuthCoreDefaults.RefreshTokenCookieName}={refresh}");
 

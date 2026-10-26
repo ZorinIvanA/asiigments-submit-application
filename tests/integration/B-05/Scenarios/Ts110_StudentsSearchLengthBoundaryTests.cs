@@ -20,7 +20,7 @@ public sealed class Ts110_StudentsSearchLengthBoundaryTests : IClassFixture<B05W
     public async Task SearchOfExactly200Chars_IsAcceptedAndFilterApplies()
     {
         // given: teacher авторизован.
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search ровно 200 символов (ни один сид-студент не содержит её).
         var search = Uri.EscapeDataString(new string('x', 200));
@@ -38,7 +38,7 @@ public sealed class Ts110_StudentsSearchLengthBoundaryTests : IClassFixture<B05W
     public async Task SearchOf201Chars_IsRejectedWithFieldError()
     {
         // given: teacher авторизован.
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search из 201 символа.
         var search = Uri.EscapeDataString(new string('и', 201));

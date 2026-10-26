@@ -23,8 +23,8 @@ public sealed class Ts152_SubmissionsNonIntegerSemesterTests(B13WebAppFactory fa
         var first = B13Seed.AddStudent(_factory, "ts152-s1", "Алексеев", group.Id);
         B13Seed.AddStudent(_factory, "ts152-s2", "Борисов", group.Id);
         var lab = B13Seed.AddLab(_factory, 1, 1);
-        B13Seed.AddSubmission(_factory, first.Id, lab.Id, "2025-03-01", null);
-        using var client = HostClients.CreateTeacherClient(_factory);
+        await B13Seed.AddSubmissionAsync(_factory, first.Id, lab.Id, "2025-03-01", null);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /submissions?groupId=X&semester=abc.
         using var response = await client.GetAsync(

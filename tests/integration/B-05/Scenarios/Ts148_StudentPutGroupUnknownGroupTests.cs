@@ -19,8 +19,8 @@ public sealed class Ts148_StudentPutGroupUnknownGroupTests : IClassFixture<B05We
     public async Task PutUnknownGroupForStudent_Returns404GroupNotFound()
     {
         // given: student31 существует; группы с указанным uuid нет; teacher авторизован.
-        var student31 = B05SeedLookup.StudentByLogin(_factory, "student31");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение student31 в несуществующую группу.
         using var put = await client.PutAsJsonAsync(

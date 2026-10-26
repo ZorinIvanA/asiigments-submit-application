@@ -17,9 +17,9 @@ public sealed class Ts197_SemestersUnauthorizedTests(B10NoDemoWebAppFactory fact
     public async Task TS197_GetSemesters_WithoutCookie_Returns401UnauthorizedMessage()
     {
         // given: cookie отсутствуют (клиент без Cookie-заголовка); лабораторные в хранилище есть (DI-сид).
-        B10Seed.AddLab(_factory, semester: 1, number: 1);
+        await B10Seed.AddLabAsync(_factory, semester: 1, number: 1);
         Assert.True(
-            B10Seed.TotalLabCount(_factory) > 0,
+            await B10Seed.TotalLabCountAsync(_factory) > 0,
             "Шаг given неисполним: в хранилище нет лабораторных.");
         using var client = HostClients.Create(_factory);
 

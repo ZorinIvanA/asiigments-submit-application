@@ -50,7 +50,7 @@ public sealed class Ts193_ProfileInvalidEmailFormatTests : IClassFixture<B15WebA
         BodyAssertions.ErrorFieldEquals(envelope, "email", "Введите корректный email");
 
         // then: email пользователя в хранилище не изменился.
-        var stored = B15Harness.UserById(_factory, seeded.Id);
+        var stored = await B15Harness.UserByIdAsync(_factory, seeded.Id);
         Assert.Equal(OldEmail, stored.Email);
     }
 }

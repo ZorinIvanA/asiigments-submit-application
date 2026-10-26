@@ -43,14 +43,14 @@ public sealed class Ts038_RegisterLoginRaceTests : IClassFixture<B03HostFactory>
         // given: все оспариваемые ключи свободны; счётчики политики register сброшены
         // тестовым швом IRateLimitStore (повторные прогоны детерминированы).
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "racelogin1"));
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "racemail1"));
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "racemail2"));
-        Assert.Null(users.GetByEmail("race1a@example.com"));
-        Assert.Null(users.GetByEmail("race1b@example.com"));
-        Assert.Null(users.GetByEmail("shared.race@example.com"));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "racelogin1"));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "racemail1"));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "racemail2"));
+        Assert.Null( await users.GetByEmailAsync("race1a@example.com") );
+        Assert.Null( await users.GetByEmailAsync("race1b@example.com") );
+        Assert.Null( await users.GetByEmailAsync("shared.race@example.com") );
         ResetRegisterPolicy();
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
 
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: CaseRemoteIp);
 
@@ -102,14 +102,14 @@ public sealed class Ts038_RegisterLoginRaceTests : IClassFixture<B03HostFactory>
 
         // then: после обеих гонок дублей нет — состав вырос ровно на двух студентов
         // (по одному на гонку).
-        Assert.Equal(studentsBefore + 2, B03UserSeed.CountStudents(_factory));
+        Assert.Equal(studentsBefore + 2, await B03UserSeed.CountStudentsAsync(_factory));
 
         // then: ровно один пользователь с lower(login)='racelogin1' — ci-индекс отдаёт
         // единственную запись, и создан ровно один из двух email-вариантов ветки (1).
-        var loginRaceWinner = users.GetByLogin("racelogin1");
+        var loginRaceWinner = await users.GetByLoginAsync("racelogin1");
         Assert.NotNull(loginRaceWinner);
-        var byRace1a = users.GetByEmail("race1a@example.com");
-        var byRace1b = users.GetByEmail("race1b@example.com");
+        var byRace1a = await users.GetByEmailAsync("race1a@example.com");
+        var byRace1b = await users.GetByEmailAsync("race1b@example.com");
         Assert.True(
             (byRace1a is null) != (byRace1b is null),
             "Ожидался ровно один созданный пользователь из пары email race1a/race1b@example.com, фактически " +
@@ -119,13 +119,13 @@ public sealed class Ts038_RegisterLoginRaceTests : IClassFixture<B03HostFactory>
         // then: ровно один пользователь с lower(email)='shared.race@example.com' —
         // ci-индекс отдаёт единственную запись с одним из двух логинов ветки (2),
         // второй логин свободен.
-        var emailRaceWinner = users.GetByEmail("shared.race@example.com");
+        var emailRaceWinner = await users.GetByEmailAsync("shared.race@example.com");
         Assert.NotNull(emailRaceWinner);
         Assert.True(
             emailRaceWinner.Login is "racemail1" or "racemail2",
             $"Ожидался победитель гонки email с логином 'racemail1'/'racemail2', фактически '{emailRaceWinner.Login}'");
         var loserLogin = emailRaceWinner.Login == "racemail1" ? "racemail2" : "racemail1";
-        Assert.Null(B03UserSeed.FindByLogin(_factory, loserLogin));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, loserLogin));
     }
 
     /// <summary>

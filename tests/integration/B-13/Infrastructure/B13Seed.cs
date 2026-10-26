@@ -25,7 +25,7 @@ public static class B13Seed
             Name = name,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<IGroupRepository>().Add(group);
+        factory.Services.GetRequiredService<IGroupRepository>().AddAsync(group);
         return group;
     }
 
@@ -47,7 +47,7 @@ public static class B13Seed
             GroupId = groupId,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -65,7 +65,7 @@ public static class B13Seed
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<ILabRepository>().Add(lab);
+        factory.Services.GetRequiredService<ILabRepository>().AddAsync(lab);
         return lab;
     }
 
@@ -74,18 +74,18 @@ public static class B13Seed
     /// атомарный upsert IF-015; updatedBy — uuid сид-преподавателя (как у записи,
     /// изменённой преподавателем). Даты — строки 'YYYY-MM-DD' (null = даты нет).
     /// </summary>
-    public static void AddSubmission(
+    public static async Task AddSubmissionAsync(
         B13WebAppFactory factory,
         Guid studentId,
         Guid labId,
         string? submitDate,
         string? defenseDate)
     {
-        var teacherId = factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)?.Id
+        var teacherId = (await factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin))?.Id
             ?? throw new InvalidOperationException(
                 "Сид-преподаватель не найден — сдача не может быть создана.");
-        factory.Services.GetRequiredService<ISubmissionRepository>().Upsert(
+        await factory.Services.GetRequiredService<ISubmissionRepository>().UpsertAsync(
             studentId,
             labId,
             ParseDate(submitDate),

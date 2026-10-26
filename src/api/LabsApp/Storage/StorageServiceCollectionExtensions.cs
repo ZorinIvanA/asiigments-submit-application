@@ -46,12 +46,15 @@ public static class StorageServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Выполняет сид синхронно при построении приложения, до начала обслуживания
+    /// Выполняет сид асинхронно при построении приложения, до начала обслуживания
     /// запросов (FR-004). Вызывается в Program.cs сразу после builder.Build().
+    /// SeedRunner разрешается из скоупа: реализации хранилищ могут быть scoped
+    /// (EF Core/PostgreSQL), при этом одиночный вызов на старт остаётся.
     /// </summary>
-    public static void SeedDatabase(this IApplicationBuilder app)
+    public static async Task SeedDatabaseAsync(this IApplicationBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        app.ApplicationServices.GetRequiredService<SeedRunner>().Run();
+        using var scope = app.ApplicationServices.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<SeedRunner>().RunAsync();
     }
 }

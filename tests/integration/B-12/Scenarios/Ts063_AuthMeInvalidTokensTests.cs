@@ -39,8 +39,8 @@ public sealed class Ts063_AuthMeInvalidTokensTests(B12FakeTimeWebAppFactory fact
     {
         // given: сид-преподаватель — владелец sub в подготовленных токенах
         // (DI-сид; владельцу достаточно существующей учётной записи).
-        var owner = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var owner = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
 
         // given: access-токен, подписанный ДРУГИМ ключом (формат — sub/role/iat).

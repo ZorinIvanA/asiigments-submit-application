@@ -11,35 +11,35 @@ namespace LabsApp.Tests.Storage;
 public sealed class InMemoryGroupRepositoryTests
 {
     [Fact]
-    public void Add_AndGetByName_CaseInsensitive()
+    public async Task Add_AndGetByName_CaseInsensitive()
     {
         var storage = TestStorage.Create();
         var group = TestEntities.Group("ИК-221");
-        storage.Groups.Add(group);
+        await storage.Groups.AddAsync(group);
 
-        Assert.Equal(group.Id, storage.Groups.GetById(group.Id)!.Id);
-        Assert.Equal(group.Id, storage.Groups.GetByName("ик-221")!.Id);
-        Assert.Equal(group.Id, storage.Groups.GetByName("ИК-221")!.Id);
+        Assert.Equal(group.Id, (await storage.Groups.GetByIdAsync(group.Id))!.Id);
+        Assert.Equal(group.Id, (await storage.Groups.GetByNameAsync("ик-221"))!.Id);
+        Assert.Equal(group.Id, (await storage.Groups.GetByNameAsync("ИК-221"))!.Id);
     }
 
     [Fact]
-    public void Add_DuplicateNameDifferentCase_Conflict()
+    public async Task Add_DuplicateNameDifferentCase_Conflict()
     {
         var storage = TestStorage.Create();
-        storage.Groups.Add(TestEntities.Group("ИК-221"));
+        await storage.Groups.AddAsync(TestEntities.Group("ИК-221"));
 
-        Assert.Throws<StorageConflictException>(
-            () => storage.Groups.Add(TestEntities.Group("ик-221")));
+        await Assert.ThrowsAsync<StorageConflictException>(
+            async () => await storage.Groups.AddAsync(TestEntities.Group("ик-221")));
     }
 
     [Fact]
-    public void GetAll_ReturnsAllGroups()
+    public async Task GetAll_ReturnsAllGroups()
     {
         var storage = TestStorage.Create();
-        storage.Groups.Add(TestEntities.Group("Г1"));
-        storage.Groups.Add(TestEntities.Group("Г2"));
+        await storage.Groups.AddAsync(TestEntities.Group("Г1"));
+        await storage.Groups.AddAsync(TestEntities.Group("Г2"));
 
-        Assert.Equal(2, storage.Groups.GetAll().Count);
+        Assert.Equal(2, (await storage.Groups.GetAllAsync()).Count);
     }
 
     // ------------------------------------------------------------------
@@ -47,84 +47,84 @@ public sealed class InMemoryGroupRepositoryTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void List_ReturnsAllGroups_SameAsGetAll()
+    public async Task List_ReturnsAllGroups_SameAsGetAll()
     {
         var storage = TestStorage.Create();
-        storage.Groups.Add(TestEntities.Group("ИК-221"));
-        storage.Groups.Add(TestEntities.Group("ИК-222"));
+        await storage.Groups.AddAsync(TestEntities.Group("ИК-221"));
+        await storage.Groups.AddAsync(TestEntities.Group("ИК-222"));
 
-        var listed = storage.Groups.List();
+        var listed = await storage.Groups.ListAsync();
 
         Assert.Equal(2, listed.Count);
         Assert.Equal(
-            storage.Groups.GetAll().Select(group => group.Id).OrderBy(id => id),
+            (await storage.Groups.GetAllAsync()).Select(group => group.Id).OrderBy(id => id),
             listed.Select(group => group.Id).OrderBy(id => id));
     }
 
     [Fact]
-    public void List_OnEmptyStorage_ReturnsEmpty()
+    public async Task List_OnEmptyStorage_ReturnsEmpty()
     {
         var storage = TestStorage.Create();
 
-        Assert.Empty(storage.Groups.List());
+        Assert.Empty(await storage.Groups.ListAsync());
     }
 
     [Fact]
-    public void ExistsNameCi_CaseInsensitive_TrueForExisting()
+    public async Task ExistsNameCi_CaseInsensitive_TrueForExisting()
     {
         var storage = TestStorage.Create();
-        storage.Groups.Add(TestEntities.Group("ИК-221"));
+        await storage.Groups.AddAsync(TestEntities.Group("ИК-221"));
 
-        Assert.True(storage.Groups.ExistsNameCi("ИК-221"));
-        Assert.True(storage.Groups.ExistsNameCi("ик-221"));
-        Assert.True(storage.Groups.ExistsNameCi("иК-221"));
+        Assert.True(await storage.Groups.ExistsNameCiAsync("ИК-221"));
+        Assert.True(await storage.Groups.ExistsNameCiAsync("ик-221"));
+        Assert.True(await storage.Groups.ExistsNameCiAsync("иК-221"));
     }
 
     [Fact]
-    public void ExistsNameCi_MissingOrAfterRename_False()
+    public async Task ExistsNameCi_MissingOrAfterRename_False()
     {
         var storage = TestStorage.Create();
         var group = TestEntities.Group("Г1");
-        storage.Groups.Add(group);
+        await storage.Groups.AddAsync(group);
 
-        Assert.False(storage.Groups.ExistsNameCi("Г2"));
+        Assert.False(await storage.Groups.ExistsNameCiAsync("Г2"));
 
         group.Name = "Г2";
-        storage.Groups.Update(group);
+        await storage.Groups.UpdateAsync(group);
 
         // Старое имя освободилось, новое занято.
-        Assert.False(storage.Groups.ExistsNameCi("Г1"));
-        Assert.True(storage.Groups.ExistsNameCi("г2"));
+        Assert.False(await storage.Groups.ExistsNameCiAsync("Г1"));
+        Assert.True(await storage.Groups.ExistsNameCiAsync("г2"));
     }
 
     [Fact]
-    public void Update_Rename_ReindexesAndRejectsConflict()
+    public async Task Update_Rename_ReindexesAndRejectsConflict()
     {
         var storage = TestStorage.Create();
         var first = TestEntities.Group("Г1");
         var second = TestEntities.Group("Г2");
-        storage.Groups.Add(first);
-        storage.Groups.Add(second);
+        await storage.Groups.AddAsync(first);
+        await storage.Groups.AddAsync(second);
 
         // Конфликт с другой группой: изменения не сохраняются.
         first.Name = "Г2";
-        Assert.Throws<StorageConflictException>(() => storage.Groups.Update(first));
-        Assert.Equal("Г1", storage.Groups.GetByName("Г1")!.Name);
+        await Assert.ThrowsAsync<StorageConflictException>(async () => await storage.Groups.UpdateAsync(first));
+        Assert.Equal("Г1", (await storage.Groups.GetByNameAsync("Г1"))!.Name);
 
         // Переименование без конфликта: индексы перепривязаны.
         first.Name = "Г3";
-        storage.Groups.Update(first);
-        Assert.Null(storage.Groups.GetByName("Г1"));
-        Assert.Equal(first.Id, storage.Groups.GetByName("г3")!.Id);
+        await storage.Groups.UpdateAsync(first);
+        Assert.Null(await await storage.Groups.GetByNameAsync("Г1"));
+        Assert.Equal(first.Id, (await storage.Groups.GetByNameAsync("г3"))!.Id);
     }
 
     [Fact]
-    public void Update_Missing_Throws()
+    public async Task Update_Missing_Throws()
     {
         var storage = TestStorage.Create();
 
-        Assert.Throws<InvalidOperationException>(
-            () => storage.Groups.Update(TestEntities.Group("ghost")));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await storage.Groups.UpdateAsync(TestEntities.Group("ghost")));
     }
 
     // ------------------------------------------------------------------
@@ -133,38 +133,38 @@ public sealed class InMemoryGroupRepositoryTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Delete_StudentsOfGroup_AliveWithNullGroupId()
+    public async Task Delete_StudentsOfGroup_AliveWithNullGroupId()
     {
         var storage = TestStorage.Create();
         var removed = TestEntities.Group("ИК-221");
         var other = TestEntities.Group("ИК-222");
-        storage.Groups.Add(removed);
-        storage.Groups.Add(other);
+        await storage.Groups.AddAsync(removed);
+        await storage.Groups.AddAsync(other);
 
         var inRemoved1 = TestEntities.User("s1", groupId: removed.Id);
         var inRemoved2 = TestEntities.User("s2", groupId: removed.Id);
         var inOther = TestEntities.User("s3", groupId: other.Id);
         var teacher = TestEntities.User("t1", role: UserRoles.Teacher);
-        storage.Users.Add(inRemoved1);
-        storage.Users.Add(inRemoved2);
-        storage.Users.Add(inOther);
-        storage.Users.Add(teacher);
+        await storage.Users.AddAsync(inRemoved1);
+        await storage.Users.AddAsync(inRemoved2);
+        await storage.Users.AddAsync(inOther);
+        await storage.Users.AddAsync(teacher);
 
-        storage.Groups.Delete(removed.Id);
+        await storage.Groups.DeleteAsync(removed.Id);
 
-        Assert.Null(storage.Groups.GetById(removed.Id));
-        Assert.Null(storage.Groups.GetByName("ик-221"));
-        Assert.Single(storage.Groups.GetAll());
+        Assert.Null(await await storage.Groups.GetByIdAsync(removed.Id));
+        Assert.Null(await await storage.Groups.GetByNameAsync("ик-221"));
+        Assert.Single(await storage.Groups.GetAllAsync());
 
         // Студенты удалённой группы живы, groupId сброшен.
-        Assert.NotNull(storage.Users.GetById(inRemoved1.Id));
-        Assert.NotNull(storage.Users.GetById(inRemoved2.Id));
-        Assert.Null(storage.Users.GetById(inRemoved1.Id)!.GroupId);
-        Assert.Null(storage.Users.GetById(inRemoved2.Id)!.GroupId);
+        Assert.NotNull(await await storage.Users.GetByIdAsync(inRemoved1.Id));
+        Assert.NotNull(await await storage.Users.GetByIdAsync(inRemoved2.Id));
+        Assert.Null((await storage.Users.GetByIdAsync(inRemoved1.Id))!.GroupId);
+        Assert.Null((await storage.Users.GetByIdAsync(inRemoved2.Id))!.GroupId);
 
         // Чужие пользователи не затронуты.
-        Assert.Equal(other.Id, storage.Users.GetById(inOther.Id)!.GroupId);
-        Assert.Null(storage.Users.GetById(teacher.Id)!.GroupId);
+        Assert.Equal(other.Id, (await storage.Users.GetByIdAsync(inOther.Id))!.GroupId);
+        Assert.Null((await storage.Users.GetByIdAsync(teacher.Id))!.GroupId);
     }
 
     /// <summary>
@@ -172,43 +172,43 @@ public sealed class InMemoryGroupRepositoryTests
     /// счётчики других групп не изменились, «none»-фильтр видит отвязанных.
     /// </summary>
     [Fact]
-    public void Delete_DetachesStudents_OtherGroupCountsUnchanged()
+    public async Task Delete_DetachesStudents_OtherGroupCountsUnchanged()
     {
         var storage = TestStorage.Create();
         var ik222 = TestEntities.Group("ИК-222");
         var ik223 = TestEntities.Group("ИК-223");
-        storage.Groups.Add(ik222);
-        storage.Groups.Add(ik223);
+        await storage.Groups.AddAsync(ik222);
+        await storage.Groups.AddAsync(ik223);
 
-        storage.Users.Add(TestEntities.User("d1", groupId: ik222.Id));
-        storage.Users.Add(TestEntities.User("d2", groupId: ik222.Id));
-        storage.Users.Add(TestEntities.User("k1", groupId: ik223.Id));
-        storage.Users.Add(TestEntities.User("k2", groupId: ik223.Id));
-        storage.Users.Add(TestEntities.User("k3", groupId: ik223.Id));
+        await storage.Users.AddAsync(TestEntities.User("d1", groupId: ik222.Id));
+        await storage.Users.AddAsync(TestEntities.User("d2", groupId: ik222.Id));
+        await storage.Users.AddAsync(TestEntities.User("k1", groupId: ik223.Id));
+        await storage.Users.AddAsync(TestEntities.User("k2", groupId: ik223.Id));
+        await storage.Users.AddAsync(TestEntities.User("k3", groupId: ik223.Id));
 
-        Assert.Equal(2, storage.Users.CountByGroup(ik222.Id));
-        Assert.Equal(3, storage.Users.CountByGroup(ik223.Id));
+        Assert.Equal(2, await storage.Users.CountByGroupAsync(ik222.Id));
+        Assert.Equal(3, await storage.Users.CountByGroupAsync(ik223.Id));
 
-        storage.Groups.Delete(ik222.Id);
+        await storage.Groups.DeleteAsync(ik222.Id);
 
         // Студенты ИК-222 отвязаны и живы; счётчики других групп не изменились.
-        Assert.Equal(0, storage.Users.CountByGroup(ik222.Id));
-        Assert.Equal(3, storage.Users.CountByGroup(ik223.Id));
-        Assert.Null(storage.Users.GetByLogin("d1")!.GroupId);
-        Assert.Null(storage.Users.GetByLogin("d2")!.GroupId);
-        Assert.Equal(2, storage.Users.ListStudents(null, "none").Count); // d1, d2
-        Assert.Empty(storage.Users.ListByGroup(ik222.Id));
-        Assert.Equal(3, storage.Users.ListByGroup(ik223.Id).Count);
+        Assert.Equal(0, await storage.Users.CountByGroupAsync(ik222.Id));
+        Assert.Equal(3, await storage.Users.CountByGroupAsync(ik223.Id));
+        Assert.Null((await storage.Users.GetByLoginAsync("d1"))!.GroupId);
+        Assert.Null((await storage.Users.GetByLoginAsync("d2"))!.GroupId);
+        Assert.Equal(2, (await storage.Users.ListStudentsAsync(null, "none")).Count); // d1, d2
+        Assert.Empty(await storage.Users.ListByGroupAsync(ik222.Id));
+        Assert.Equal(3, (await storage.Users.ListByGroupAsync(ik223.Id)).Count);
     }
 
     [Fact]
-    public void Delete_Missing_NoOp()
+    public async Task Delete_Missing_NoOp()
     {
         var storage = TestStorage.Create();
-        storage.Groups.Add(TestEntities.Group("Г1"));
+        await storage.Groups.AddAsync(TestEntities.Group("Г1"));
 
-        storage.Groups.Delete(Guid.NewGuid());
+        await storage.Groups.DeleteAsync(Guid.NewGuid());
 
-        Assert.Single(storage.Groups.GetAll());
+        Assert.Single(await storage.Groups.GetAllAsync());
     }
 }

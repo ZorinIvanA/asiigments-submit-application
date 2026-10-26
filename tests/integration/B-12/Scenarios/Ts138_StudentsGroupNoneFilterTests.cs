@@ -16,19 +16,19 @@ public sealed class Ts138_StudentsGroupNoneFilterTests(B12WebAppFactory factory)
     public async Task TS138_GroupIdNone_ReturnsOnlyStudentsWithoutGroup()
     {
         // given: студент с группой и студент без группы; сессия teacher.
-        var group = B12Seed.EnsureGroup(_factory, "B12-138-ИК");
-        B12Seed.EnsureStudent(
+        var group = await B12Seed.EnsureGroupAsync(_factory, "B12-138-ИК");
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s138with",
             fullName: "С Группой С Групович",
             email: "b12s138with@x.ru",
             groupId: group.Id);
-        var withoutGroup = B12Seed.EnsureStudent(
+        var withoutGroup = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s138none",
             fullName: "Без Группы Безгрупович",
             email: "b12s138none@x.ru");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /students?groupId=none.
         using var response = await client.GetAsync("/api/v1/students?groupId=none");

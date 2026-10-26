@@ -22,8 +22,8 @@ public sealed class Ts126_DeleteLabUnknownId404Tests : IClassFixture<B05WebAppFa
     {
         // given: случайный uuid, которого нет в хранилище работ; teacher авторизован.
         var unknownId = Guid.NewGuid();
-        Assert.Null(_factory.Services.GetRequiredService<ILabRepository>().GetById(unknownId));
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        Assert.Null(await _factory.Services.GetRequiredService<ILabRepository>().GetByIdAsync(unknownId));
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: DELETE /labs/<uuid>.
         using var response = await client.DeleteAsync($"/api/v1/labs/{unknownId}");

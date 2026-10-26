@@ -24,13 +24,13 @@ public sealed class Ts125_SubmissionsRoleInversionTests : IClassFixture<B05WebAp
     public async Task GridUnderStudent_AndMySubmissionsUnderTeacher_AreBoth403()
     {
         // given: валидные сессии student (student01) и teacher.
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
         using var studentClient = B05MintedSessions.Create(_factory);
         B05MintedSessions.MintAccessCookie(_factory, studentClient, student01.Id, UserRoles.Student);
-        using var teacherClient = B05MintedSessions.CreateTeacherClient(_factory);
+        using var teacherClient = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: GET /submissions с валидными параметрами под student.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
         using var gridAsStudent = await studentClient.GetAsync(
             $"{GridEndpoint}?groupId={ik221.Id}&semester=1&page=1");
 

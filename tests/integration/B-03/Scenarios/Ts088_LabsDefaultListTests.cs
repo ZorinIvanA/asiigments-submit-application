@@ -10,21 +10,28 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// page:1, pageSize:10}; первый элемент — semester=1, number=1 (дефолтная
 /// сортировка semester↑, number↑).
 /// </summary>
-public sealed class Ts088_LabsDefaultListTests : IClassFixture<B03HostFactory>
+public sealed class Ts088_LabsDefaultListTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts088_LabsDefaultListTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task GetLabsWithoutParameters_ReturnsFirstPageOfDefaultSorted23()
     {
         // given: сессия teacher.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: GET /api/v1/labs без параметров.
         using var response = await B03LabsApi.GetLabsAsync(client);

@@ -35,9 +35,9 @@ namespace LabsApp.Controllers;
 ///    отсутствующее/null/нестроковое поле — пустая строка (зеркало мока asString);
 ///  - 409 проверяется после валидации по ci-индексу репозитория (совпадение с
 ///    самим собой — не конфликт); авторитетная ci-проверка и запись — УЗКАЯ
-///    атомарная мутация <see cref="IUserRepository.UpdateProfile"/> в одной
-///    критической секции (CR-001/SEC-001, IF-015): конкурентные смена пароля
-///    и группы не откатываются, 200 рендерится по свежему снимку.
+///    атомарная мутация <see cref="IUserRepository.UpdateProfileAsync"/> (CR-001/
+///    SEC-001, IF-015): конкурентные смена пароля и группы не откатываются,
+///    200 рендерится по свежему снимку.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -52,16 +52,16 @@ public sealed class ProfileController(IUserRepository users, IGroupRepository gr
 
     /// <summary>GET /api/v1/me/profile — ProfileDto текущего пользователя (FR-015).</summary>
     [HttpGet]
-    public IActionResult Get()
+    public async Task<IActionResult> Get()
     {
-        return TryLoadCurrentUser() is { } user ? Ok(ToDto(user)) : UnauthorizedEnvelope();
+        return await TryLoadCurrentUserAsync() is { } user ? Ok(await ToDtoAsync(user)) : UnauthorizedEnvelope();
     }
 
     /// <summary>PUT /api/v1/me/profile — правка fullName/email (FR-015): 400 → 409 → 200.</summary>
     [HttpPut]
     public async Task<IActionResult> Update(CancellationToken cancellationToken)
     {
-        if (TryLoadCurrentUser() is not { } user)
+        if (await TryLoadCurrentUserAsync() is not { } user)
         {
             return UnauthorizedEnvelope();
         }
@@ -81,7 +81,7 @@ public sealed class ProfileController(IUserRepository users, IGroupRepository gr
 
         // Дубликат lower(email) среди ДРУГИХ пользователей (IF-013 CONFLICT_EMAIL);
         // ci-поиск репозитория = Collation.Key, совпадение с самим собой — не конфликт.
-        if (_users.GetByEmail(email) is { } owner && owner.Id != user.Id)
+        if (await _users.GetByEmailAsync(email) is { } owner && owner.Id != user.Id)
         {
             return DuplicateEmail();
         }
@@ -91,10 +91,10 @@ public sealed class ProfileController(IUserRepository users, IGroupRepository gr
         // перечитываются и не перезаписываются — конкурентные смена пароля
         // (SetPassword) и назначение группы (SetGroup) не откатываются (IF-013).
         // Авторитетная ci-проверка занятости email ДРУГИМ пользователем и
-        // перепривязка byEmail — внутри мутатора в одной критической секции
+        // перепривязка byEmail — внутри мутатора атомарно
         // (IF-015 EMAIL_CONFLICT: гонка двух PUT на один email → ровно один 200).
         // Поле login во входе игнорируется (FR-015).
-        return _users.UpdateProfile(user.Id, fullName, email) switch
+        return await _users.UpdateProfileAsync(user.Id, fullName, email) switch
         {
             UpdateProfileResult.EmailConflict => DuplicateEmail(),
 
@@ -102,8 +102,8 @@ public sealed class ProfileController(IUserRepository users, IGroupRepository gr
             // зеркало TryLoadCurrentUser): запись исчезла между чтением и мутацией.
             UpdateProfileResult.UserNotFound => UnauthorizedEnvelope(),
 
-            _ => TryLoadCurrentUser() is { } fresh
-                ? Ok(ToDto(fresh))
+            _ => await TryLoadCurrentUserAsync() is { } fresh
+                ? Ok(await ToDtoAsync(fresh))
 
                 // 200 рендерится по СВЕЖЕМУ снимку (groupName актуален); null
                 // сразу после Success — запись удалена в полёте → 401-конверт.
@@ -120,10 +120,10 @@ public sealed class ProfileController(IUserRepository users, IGroupRepository gr
     /// живой сессии либо запись, удалённая из хранилища, дают null — действие
     /// отвечает 401 «Не авторизован» (зеркало мока requireSessionUser).
     /// </summary>
-    private User? TryLoadCurrentUser()
+    private async Task<User?> TryLoadCurrentUserAsync()
     {
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(rawId, out var id) ? _users.GetById(id) : null;
+        return Guid.TryParse(rawId, out var id) ? await _users.GetByIdAsync(id) : null;
     }
 
     private static IActionResult UnauthorizedEnvelope() =>
@@ -216,12 +216,12 @@ public sealed class ProfileController(IUserRepository users, IGroupRepository gr
     // ------------------------------------------------------------------
 
     /// <summary>ProfileDto: groupName — по ТЕКУЩЕМУ состоянию групп (IF-013).</summary>
-    private ProfileDto ToDto(User user) => new()
+    private async Task<ProfileDto> ToDtoAsync(User user) => new()
     {
         Login = user.Login,
         Email = user.Email,
         FullName = user.FullName,
         Role = user.Role,
-        GroupName = user.GroupId is { } groupId ? _groups.GetById(groupId)?.Name : null,
+        GroupName = user.GroupId is { } groupId ? (await _groups.GetByIdAsync(groupId))?.Name : null,
     };
 }

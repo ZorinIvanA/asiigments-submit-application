@@ -20,7 +20,7 @@ public sealed class Ts158_ErrorEnvelopeMalformedJsonBusinessEndpointTests
         // given: teacher авторизован — валидная access-cookie сеяного учителя
         // (ADR-015: DI-сид + минтованный access-JWT вместо HTTP-входа).
         using var factory = new B01WebAppFactory();
-        using var client = MintedSession.CreateTeacherClient(factory);
+        using var client = await MintedSession.CreateTeacherClient(factory);
 
         // when: POST /api/v1/labs (бизнес-эндпойнт) с синтаксически некорректным
         // JSON в теле.

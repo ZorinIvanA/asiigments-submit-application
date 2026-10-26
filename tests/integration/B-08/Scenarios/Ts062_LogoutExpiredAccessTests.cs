@@ -38,8 +38,8 @@ public sealed class Ts062_LogoutExpiredAccessTests : IClassFixture<B08WebAppFact
     {
         // given: сессия, затем access-JWT переведён в просроченный (exp в прошлом).
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
-        var grant = B08Host.EstablishSession(_factory, client, user.Id, UserRoles.Student);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
+        var grant = await B08Host.EstablishSessionAsync(_factory, client, user.Id, UserRoles.Student);
 
         var expiredAccess = B08Host.MintExpiredAccessToken(_factory, user.Id, UserRoles.Student);
         var tokens = _factory.Services.GetRequiredService<ITokenService>();

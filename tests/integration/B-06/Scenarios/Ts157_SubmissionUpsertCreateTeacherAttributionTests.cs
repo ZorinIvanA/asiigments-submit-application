@@ -20,7 +20,8 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        ведомость отражает дату (FR-021 AC «Upsert создаёт»).
 /// </summary>
 public sealed class Ts157_SubmissionUpsertCreateTeacherAttributionTests :
-    IClassFixture<B06SubmissionsWebAppFactory>
+    IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private const string SubmitDate = "2026-09-20";
 
@@ -30,25 +31,30 @@ public sealed class Ts157_SubmissionUpsertCreateTeacherAttributionTests :
     private const int GridPageSize = 5; // ведомость: страница студентов по 5 (FR-021).
 
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _studentId;
-    private readonly Guid _labId;
-    private readonly Guid _groupId;
+    private Guid _studentId;
+    private Guid _labId;
+    private Guid _groupId;
 
     public Ts157_SubmissionUpsertCreateTeacherAttributionTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _studentId = B06SubmissionsSessions.RequireUser(factory, "student05").Id;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 4).Id;
-        _groupId = B06SubmissionsSessions.RequireGroup(factory, "ИК-221").Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _studentId = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student05")).Id;
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 4)).Id;
+        _groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionOnFreePair_CreatesRecordWithTeacherAttribution()
     {
         // given: пара (student05, работа 1.4) в хранилище отсутствует; teacher-сессия.
-        Assert.Null(_factory.Services.GetRequiredService<ISubmissionRepository>()
-            .GetByStudentAndLab(_studentId, _labId));
-        var (client, teacherId) = B06SubmissionsSessions.CreateTeacherSession(_factory);
+        Assert.Null(await _factory.Services.GetRequiredService<ISubmissionRepository>()
+            .GetByStudentAndLabAsync(_studentId, _labId));
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
         using var _client = client;
         var hostNow = _factory.Time.GetUtcNow();
 

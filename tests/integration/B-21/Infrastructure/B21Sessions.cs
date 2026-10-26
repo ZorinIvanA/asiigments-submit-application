@@ -28,10 +28,10 @@ public static class B21Sessions
     /// Клиент с сессией сид-преподавателя (заголовок Cookie access_token выставлен
     /// во всех запросах клиента) и uuid преподавателя.
     /// </summary>
-    public static (HttpClient Client, Guid TeacherId) CreateTeacherSession(B21WebAppFactory factory)
+    public static async Task<(HttpClient Client, Guid TeacherId)> CreateTeacherSessionAsync(B21WebAppFactory factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>()
-            .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+            .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сид-преподаватель не найден в DI-хранилище тестового хоста (шаг given «сессия teacher» неисполним).");
 

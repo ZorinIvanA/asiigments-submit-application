@@ -10,6 +10,8 @@ namespace LabsApp.Storage.InMemory;
 /// (ADR-002), метки времени — TimeProvider (FR-003). Хранятся только хэши; живость
 /// вычисляется лениво (без таймеров); DI-singleton, состояние сбрасывается перезапуском.
 /// Хранилище хранит и отдаёт КОПИИ-снимки сущностей.
+/// Реализация асинхронна по контракту интерфейса, но не выполняет ввода-вывода:
+/// все задачи завершаются синхронно (Task.FromResult).
 /// </summary>
 public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, TimeProvider timeProvider) :
     ISecurityTokenRepository
@@ -36,7 +38,7 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
     // ------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public void Add(RefreshToken token)
+    public Task AddAsync(RefreshToken token)
     {
         ArgumentNullException.ThrowIfNull(token);
 
@@ -51,25 +53,28 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
             _refreshTokens[token.Id] = Clone(token);
             _refreshByTokenHash[token.TokenHash] = token.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public RefreshToken? FindLiveByHash(string tokenHash)
+    public Task<RefreshToken?> FindLiveByHashAsync(string tokenHash)
     {
         lock (lockObject.SyncRoot)
         {
             if (!_refreshByTokenHash.TryGetValue(tokenHash, out var id))
             {
-                return null;
+                return Task.FromResult<RefreshToken?>(null);
             }
 
             var token = _refreshTokens[id];
-            return token.RevokedAt is null && token.ExpiresAt > Now() ? Clone(token) : null;
+            return Task.FromResult<RefreshToken?>(
+                token.RevokedAt is null && token.ExpiresAt > Now() ? Clone(token) : null);
         }
     }
 
     /// <inheritdoc/>
-    public void Revoke(Guid id)
+    public Task RevokeAsync(Guid id)
     {
         lock (lockObject.SyncRoot)
         {
@@ -78,10 +83,12 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 token.RevokedAt = Now();
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void RevokeAllForUserExcept(Guid userId, string? exceptTokenHash)
+    public Task RevokeAllForUserExceptAsync(Guid userId, string? exceptTokenHash)
     {
         lock (lockObject.SyncRoot)
         {
@@ -95,6 +102,8 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 }
             }
         }
+
+        return Task.CompletedTask;
     }
 
     // ------------------------------------------------------------------
@@ -102,7 +111,7 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
     // ------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public void AddLive(RecoveryCode code)
+    public Task AddLiveAsync(RecoveryCode code)
     {
         ArgumentNullException.ThrowIfNull(code);
 
@@ -126,10 +135,12 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
             _recoveryCodes[code.Id] = Clone(code);
             AddRecoveryToIndex(code.Id, code.UserId);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public RecoveryCode? FindLiveForUser(Guid userId)
+    public Task<RecoveryCode?> FindLiveForUserAsync(Guid userId)
     {
         lock (lockObject.SyncRoot)
         {
@@ -149,12 +160,12 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 }
             }
 
-            return latest is null ? null : Clone(latest);
+            return Task.FromResult(latest is null ? null : Clone(latest));
         }
     }
 
     /// <inheritdoc/>
-    public void IncrementAttemptsOnLive(Guid codeId)
+    public Task IncrementAttemptsOnLiveAsync(Guid codeId)
     {
         lock (lockObject.SyncRoot)
         {
@@ -163,7 +174,7 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 || code.ExpiresAt <= Now())
             {
                 // Отсутствующий или неживой код: попытки не считаются.
-                return;
+                return Task.CompletedTask;
             }
 
             code.Attempts += 1;
@@ -173,10 +184,12 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 code.UsedAt = Now();
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void MarkUsed(Guid codeId)
+    public Task MarkUsedAsync(Guid codeId)
     {
         lock (lockObject.SyncRoot)
         {
@@ -185,6 +198,8 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 code.UsedAt = Now();
             }
         }
+
+        return Task.CompletedTask;
     }
 
     // ------------------------------------------------------------------
@@ -192,7 +207,7 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
     // ------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public void Add(PasswordResetToken token)
+    public Task AddAsync(PasswordResetToken token)
     {
         ArgumentNullException.ThrowIfNull(token);
 
@@ -207,24 +222,27 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
             _resetTokens[token.TokenHash] = Clone(token);
             AddResetToIndex(token.TokenHash, token.UserId);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public PasswordResetToken? FindLiveResetByHash(string resetTokenHash)
+    public Task<PasswordResetToken?> FindLiveResetByHashAsync(string resetTokenHash)
     {
         lock (lockObject.SyncRoot)
         {
             if (!_resetTokens.TryGetValue(resetTokenHash, out var record))
             {
-                return null;
+                return Task.FromResult<PasswordResetToken?>(null);
             }
 
-            return record.UsedAt is null && record.ExpiresAt > Now() ? Clone(record) : null;
+            return Task.FromResult<PasswordResetToken?>(
+                record.UsedAt is null && record.ExpiresAt > Now() ? Clone(record) : null);
         }
     }
 
     /// <inheritdoc/>
-    public void MarkUsed(string resetTokenHash)
+    public Task MarkUsedAsync(string resetTokenHash)
     {
         lock (lockObject.SyncRoot)
         {
@@ -233,16 +251,18 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 record.UsedAt = Now();
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void ConsumeAllForUser(Guid userId)
+    public Task ConsumeAllForUserAsync(Guid userId)
     {
         lock (lockObject.SyncRoot)
         {
             if (!_resetByUserId.TryGetValue(userId, out var tokenHashes))
             {
-                return;
+                return Task.CompletedTask;
             }
 
             var now = Now();
@@ -255,6 +275,8 @@ public sealed class InMemorySecurityTokenRepository(StorageLock lockObject, Time
                 }
             }
         }
+
+        return Task.CompletedTask;
     }
 
     // ------------------------------------------------------------------

@@ -32,7 +32,7 @@ public sealed class Ts072b_RecoveryRequestLimitUnknownEmailTests : IClassFixture
         //        пользователей); 3 запроса recovery/request за последний час.
         using var client = B17Host.CreateClient(_factory);
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(users.GetByEmail(Email));
+        Assert.Null(await users.GetByEmailAsync(Email));
 
         for (var attempt = 1; attempt <= 3; attempt++)
         {

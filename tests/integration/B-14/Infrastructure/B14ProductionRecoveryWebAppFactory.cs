@@ -44,6 +44,9 @@ public sealed class B14ProductionRecoveryWebAppFactory : B14WebAppFactory
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
+            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
+            builder.UseSetting("Storage:Provider", "InMemory");
         // Конфигурация зоны B14WebAppFactory повторяется с заменой окружения:
         // base.ConfigureWebHost не вызывается, он фиксирует Development.
         builder.UseEnvironment(Environments.Production);

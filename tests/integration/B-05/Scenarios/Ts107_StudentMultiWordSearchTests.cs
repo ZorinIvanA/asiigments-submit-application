@@ -22,8 +22,8 @@ public sealed class Ts107_StudentMultiWordSearchTests : IClassFixture<B05WebAppF
     public async Task SearchBothTokensInFullName_FindsStudent01()
     {
         // given: student01 существует в сиде; teacher авторизован (минт сессии).
-        _ = B05SeedLookup.StudentByLogin(_factory, "student01");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: многословный поиск «иван 01» (пробел — разделитель токенов запроса).
         var search = Uri.EscapeDataString("иван 01");

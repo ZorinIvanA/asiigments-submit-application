@@ -31,7 +31,7 @@ public sealed class Ts163_RegisterRacerParallelUniquenessTests : IClassFixture<B
     public async Task TwoConcurrentRegistrationsOfRacer_ExactlyOne201OtherConflict_SingleStoredUser()
     {
         // given: логин 'racer' свободен.
-        Assert.Null(_factory.Services.GetRequiredService<IUserRepository>().GetByLogin(Login));
+        Assert.Null(await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(Login));
 
         using var firstClient = HostClients.Create(_factory);
         using var secondClient = HostClients.Create(_factory);
@@ -76,15 +76,15 @@ public sealed class Ts163_RegisterRacerParallelUniquenessTests : IClassFixture<B
         var winnerEmail = Assert.Single(winners);
         var loserEmail = winnerEmail == FirstEmail ? SecondEmail : FirstEmail;
 
-        var storedStudents = users.ListStudents();
+        var storedStudents = await users.ListStudentsAsync();
         var racer = Assert.Single(storedStudents, user => Collation.Key(user.Login) == Login);
         Assert.Equal(winnerEmail, racer.Email);
         Assert.Equal(Login, Collation.Key(racer.Login));
 
-        var byLoginCi = users.GetByLogin("RACER");
+        var byLoginCi = await users.GetByLoginAsync("RACER");
         Assert.NotNull(byLoginCi);
         Assert.Equal(racer.Id, byLoginCi!.Id);
-        Assert.Null(users.GetByEmail(loserEmail));
+        Assert.Null( await users.GetByEmailAsync(loserEmail) );
     }
 
     private static Task<HttpResponseMessage> RegisterAsync(HttpClient client, string email, string fullName) =>

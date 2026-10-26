@@ -27,7 +27,7 @@ public sealed class Ts198_GetLabByIdTests : IClassFixture<B06SubmissionsWebAppFa
     public async Task GetLabById_ReturnsLabDtoEqualToListItem()
     {
         // given: сессия teacher; id записи (1,1) — первый элемент items списка GET /labs?semester=1.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
         using var listResponse = await B06SubmissionsApi.GetLabsBySemesterAsync(client, semester: "1");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         var list = await BodyAssertions.ReadRootObjectAsync(listResponse);

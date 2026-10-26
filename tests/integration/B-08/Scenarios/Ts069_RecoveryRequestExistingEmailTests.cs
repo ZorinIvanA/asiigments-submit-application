@@ -41,9 +41,9 @@ public sealed class Ts069_RecoveryRequestExistingEmailTests : IClassFixture<B08W
     {
         // given: Development; пользователь с email a@b.ru; живых кодов нет.
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
         var codes = _factory.Services.GetRequiredService<ISecurityTokenRepository>();
-        Assert.Null(codes.FindLiveForUser(user.Id));
+        Assert.Null( await codes.FindLiveForUserAsync(user.Id) );
         var recordsBefore = B08Host.CountRecoveryCodeRecords(_factory);
         _factory.LogSink.Clear();
 
@@ -56,7 +56,7 @@ public sealed class Ts069_RecoveryRequestExistingEmailTests : IClassFixture<B08W
         ResponseAssertions.AssertEmptyBody(body, "recovery/request");
 
         // then: в хранилище ровно один живой код пользователя с expiresAt=now+10 мин.
-        var live = codes.FindLiveForUser(user.Id);
+        var live = await codes.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.True(live.UsedAt is null, "Живой код не должен быть погашен.");
 

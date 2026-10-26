@@ -21,10 +21,9 @@ public sealed class SemestersController(ILabRepository labs) : ControllerBase
 
     /// <summary>GET /api/v1/semesters — distinct семестры по возрастанию (FR-018).</summary>
     [HttpGet]
-    public IActionResult List()
+    public async Task<IActionResult> List()
     {
-        var semesters = _labs
-            .GetAll()
+        var semesters = (await _labs.GetAllAsync())
             .Select(lab => lab.Semester)
             .Distinct()
             .OrderBy(semester => semester)

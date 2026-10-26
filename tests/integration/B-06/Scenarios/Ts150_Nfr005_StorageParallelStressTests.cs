@@ -55,7 +55,7 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
 
         using var startGate = new ManualResetEventSlim();
         var workers = Enumerable.Range(0, Threads)
-            .Select(threadIndex => Task.Run(() => RunMixedOperations(
+            .Select(threadIndex => Task.Run(() => RunMixedOperationsAsync(
                 threadIndex,
                 users,
                 groups,
@@ -80,7 +80,7 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
             "Потоки нагрузки завершились с отклонениями: " + string.Join(" | ", failures.Take(5)));
 
         // then: инвариант lower(login) и lower(email) — уникальны (Collation ci-правило).
-        var storedStudents = users.ListStudents();
+        var storedStudents = await users.ListStudentsAsync();
         Assert.Equal(Threads * EntitiesPerThread, storedStudents.Count);
         Assert.Equal(
             storedStudents.Count,
@@ -90,30 +90,30 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
             storedStudents.Select(user => Collation.Key(user.Email)).Distinct(StringComparer.Ordinal).Count());
 
         // then: инвариант lower(group.name) — уникальны.
-        var storedGroups = groups.GetAll();
+        var storedGroups = await groups.GetAllAsync();
         Assert.Equal(Threads * EntitiesPerThread, storedGroups.Count);
         Assert.Equal(
             storedGroups.Count,
             storedGroups.Select(group => Collation.Key(group.Name)).Distinct(StringComparer.Ordinal).Count());
 
         // then: инвариант пар (semester, number) — уникальны; семестры потоков 1..8.
-        var storedLabs = labs.GetAll();
+        var storedLabs = await labs.GetAllAsync();
         Assert.Equal(Threads * EntitiesPerThread, storedLabs.Count);
         Assert.Equal(
             storedLabs.Count,
             storedLabs.Select(lab => (lab.Semester, lab.Number)).Distinct().Count());
-        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, labs.Semesters());
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, await labs.SemestersAsync());
 
         // then: инвариант пар (studentId, labId) — уникальны; у каждого студента ровно одна сдача.
         Assert.Equal(Threads * EntitiesPerThread, allPairs.Distinct().Count());
         foreach (var pair in allPairs)
         {
-            Assert.NotNull(submissions.GetByStudentAndLab(pair.StudentId, pair.LabId));
+            Assert.NotNull(await submissions.GetByStudentAndLabAsync(pair.StudentId, pair.LabId));
         }
 
         foreach (var student in allStudents)
         {
-            Assert.Single(submissions.ListByStudent(student.Id));
+            Assert.Single(await submissions.ListByStudentAsync(student.Id));
         }
     }
 
@@ -125,7 +125,7 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
     /// сопровождается контрольным чтением того же ключа. Любое исключение или
     /// нарушение ожидания чтения попадает в <paramref name="failures"/>.
     /// </summary>
-    private static void RunMixedOperations(
+    private static async Task RunMixedOperationsAsync(
         int threadIndex,
         IUserRepository users,
         IGroupRepository groups,
@@ -165,10 +165,10 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                                 GroupId = null,
                                 CreatedAt = now,
                             };
-                            users.Add(user);
+                            await users.AddAsync(user);
                             students.Add(user);
                             allStudents.Add(user);
-                            if (users.GetByLogin(user.Login) is null)
+                            if (await users.GetByLoginAsync(user.Login) is null)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: студент не найден сразу после создания");
                             }
@@ -184,10 +184,10 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                                 Name = $"Т-150-{threadIndex}-{index}",
                                 CreatedAt = now,
                             };
-                            groups.Add(group);
+                            await groups.AddAsync(group);
                             threadGroups.Add(group);
                             allGroups.Add(group);
-                            if (groups.GetByName(group.Name) is null)
+                            if (await groups.GetByNameAsync(group.Name) is null)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: группа не найдена сразу после создания");
                             }
@@ -208,10 +208,10 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                                 CreatedAt = now,
                                 UpdatedAt = now,
                             };
-                            labs.Add(lab);
+                            await labs.AddAsync(lab);
                             threadLabs.Add(lab);
                             allLabs.Add(lab);
-                            if (labs.TryGetByPair(lab.Semester, lab.Number) is null)
+                            if (await labs.TryGetByPairAsync(lab.Semester, lab.Number) is null)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: работа не найдена по паре сразу после создания");
                             }
@@ -222,7 +222,7 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                     case 3: // создание сдачи по собственной паре потока + чтение
                         {
                             var pair = (students[index].Id, threadLabs[index].Id);
-                            submissions.Upsert(
+                            await submissions.UpsertAsync(
                                 pair.Item1,
                                 pair.Item2,
                                 new DateOnly(2026, 9, 1).AddDays(index),
@@ -230,7 +230,7 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                                 null,
                                 now);
                             allPairs.Add(pair);
-                            if (submissions.GetByStudentAndLab(pair.Item1, pair.Item2) is null)
+                            if (await submissions.GetByStudentAndLabAsync(pair.Item1, pair.Item2) is null)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: сдача не найдена по паре сразу после создания");
                             }
@@ -253,8 +253,8 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                                 CreatedAt = user.CreatedAt,
                             };
                             students[index] = updated;
-                            users.Update(updated);
-                            if (users.GetById(user.Id)?.FullName != updated.FullName)
+                            await users.UpdateAsync(updated);
+                            if ((await users.GetByIdAsync(user.Id))?.FullName != updated.FullName)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: обновление ФИО студента не прочиталось");
                             }
@@ -272,8 +272,8 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                                 CreatedAt = group.CreatedAt,
                             };
                             threadGroups[index] = renamed;
-                            groups.Update(renamed);
-                            if (groups.GetById(group.Id)?.Name != renamed.Name)
+                            await groups.UpdateAsync(renamed);
+                            if ((await groups.GetByIdAsync(group.Id))?.Name != renamed.Name)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: переименование группы не прочиталось");
                             }
@@ -296,8 +296,8 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                                 UpdatedAt = now,
                             };
                             threadLabs[index] = updated;
-                            labs.Update(updated);
-                            if (labs.GetById(lab.Id)?.Content != updated.Content)
+                            await labs.UpdateAsync(updated);
+                            if ((await labs.GetByIdAsync(lab.Id))?.Content != updated.Content)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: обновление содержания работы не прочиталось");
                             }
@@ -309,8 +309,8 @@ public sealed class Ts150_Nfr005_StorageParallelStressTests : IClassFixture<B06W
                         {
                             var pair = (students[index].Id, threadLabs[index].Id);
                             var defenseDate = new DateOnly(2026, 10, 1).AddDays(index);
-                            submissions.Upsert(pair.Item1, pair.Item2, new DateOnly(2026, 9, 1).AddDays(index), defenseDate, null, now);
-                            if (submissions.GetByStudentAndLab(pair.Item1, pair.Item2)?.DefenseDate != defenseDate)
+                            await submissions.UpsertAsync(pair.Item1, pair.Item2, new DateOnly(2026, 9, 1).AddDays(index), defenseDate, null, now);
+                            if ((await submissions.GetByStudentAndLabAsync(pair.Item1, pair.Item2))?.DefenseDate != defenseDate)
                             {
                                 failures.Add($"поток {threadIndex}, итерация {i}: проставленная дата защиты не прочиталась");
                             }

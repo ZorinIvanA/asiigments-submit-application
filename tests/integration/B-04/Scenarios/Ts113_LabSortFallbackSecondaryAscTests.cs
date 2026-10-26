@@ -25,11 +25,11 @@ public sealed class Ts113_LabSortFallbackSecondaryAscTests(B04LabsWebAppFactory 
     {
         // given: работы (1,1),(1,2),(2,1),(2,2); teacher.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        B04DomainSeed.AddLab(labs, semester: 1, number: 1);
-        B04DomainSeed.AddLab(labs, semester: 1, number: 2);
-        B04DomainSeed.AddLab(labs, semester: 2, number: 1);
-        B04DomainSeed.AddLab(labs, semester: 2, number: 2);
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 1);
+        await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 2);
+        await B04DomainSeed.AddLabAsync(labs, semester: 2, number: 1);
+        await B04DomainSeed.AddLabAsync(labs, semester: 2, number: 2);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: sortField/sortDir вне словаря.
         using var fallback = await client.GetAsync("/api/v1/labs?sortField=garbage&sortDir=garbage");

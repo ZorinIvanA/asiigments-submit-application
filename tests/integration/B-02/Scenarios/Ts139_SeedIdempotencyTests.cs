@@ -23,7 +23,7 @@ namespace LabsApp.IntegrationTests.B02.Scenarios;
 public sealed class Ts139_SeedIdempotencyTests
 {
     [Fact]
-    public void ReseedingInTheSameProcess_DoesNotChangeCountsOrNaturalKeys()
+    public async Task ReseedingInTheSameProcess_DoesNotChangeCountsOrNaturalKeys()
     {
         // given: Development-хост с демо-данными (Seed__DemoData не задан → умолчание true);
         // первый сид выполнен при построении хоста.
@@ -35,32 +35,32 @@ public sealed class Ts139_SeedIdempotencyTests
         var labs = factory.Services.GetRequiredService<ILabRepository>();
         var submissions = factory.Services.GetRequiredService<ISubmissionRepository>();
 
-        var before = CountAll(users, groups, labs, submissions);
+        var before = await CountAllAsync(users, groups, labs, submissions);
         Assert.True(before.Users > 1, "Хост без сида — кейс недействителен.");
 
         // when: повторный вызов сида в рамках одного процесса.
-        factory.Services.GetRequiredService<SeedRunner>().Run();
+        await factory.Services.GetRequiredService<SeedRunner>().RunAsync();
 
         // then: количества не изменились.
-        var after = CountAll(users, groups, labs, submissions);
+        var after = await CountAllAsync(users, groups, labs, submissions);
         Assert.Equal(before, after);
 
         // then: дублей по естественным ключам нет.
-        var allUsers = AllUsers(users);
+        var allUsers = await AllUsersAsync(users);
         Assert.Equal(allUsers.Count, allUsers.Select(user => user.Login.ToLowerInvariant()).Distinct().Count());
         Assert.Equal(allUsers.Count, allUsers.Select(user => user.Email.ToLowerInvariant()).Distinct().Count());
-        var allGroups = groups.GetAll();
+        var allGroups = await groups.GetAllAsync();
         Assert.Equal(allGroups.Count, allGroups.Select(group => group.Name.ToLowerInvariant()).Distinct().Count());
-        var allLabs = labs.GetAll();
+        var allLabs = await labs.GetAllAsync();
         Assert.Equal(allLabs.Count, allLabs.Select(lab => (lab.Semester, lab.Number)).Distinct().Count());
-        var allSubmissions = submissions.ListByLabIds(allLabs.Select(lab => lab.Id).ToList());
+        var allSubmissions = await submissions.ListByLabIdsAsync(allLabs.Select(lab => lab.Id).ToList());
         Assert.Equal(allSubmissions.Count, allSubmissions.Select(submission => (submission.StudentId, submission.LabId)).Distinct().Count());
     }
 
-    private static IReadOnlyList<User> AllUsers(IUserRepository users)
+    private static async Task<IReadOnlyList<User>> AllUsersAsync(IUserRepository users)
     {
-        var all = new List<User>(users.ListStudents());
-        var teacher = users.GetByLogin(SeedOptions.DefaultTeacherLogin);
+        var all = new List<User>(await users.ListStudentsAsync());
+        var teacher = await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin);
         if (teacher is not null)
         {
             all.Add(teacher);
@@ -69,13 +69,16 @@ public sealed class Ts139_SeedIdempotencyTests
         return all;
     }
 
-    private static (int Users, int Groups, int Labs, int Submissions) CountAll(
+    private static async Task<(int Users, int Groups, int Labs, int Submissions)> CountAllAsync(
         IUserRepository users,
         IGroupRepository groups,
         ILabRepository labs,
-        ISubmissionRepository submissions) =>
-        (AllUsers(users).Count,
-            groups.GetAll().Count,
-            labs.GetAll().Count,
-            submissions.ListByLabIds(labs.GetAll().Select(lab => lab.Id).ToList()).Count);
+        ISubmissionRepository submissions)
+    {
+        var allLabs = await labs.GetAllAsync();
+        return ((await AllUsersAsync(users)).Count,
+            (await groups.GetAllAsync()).Count,
+            allLabs.Count,
+            (await submissions.ListByLabIdsAsync(allLabs.Select(lab => lab.Id).ToList())).Count);
+    }
 }

@@ -20,10 +20,10 @@ public static class B22DomainSeed
     /// Работа заданной пары (semester, number): добавляется в ILabRepository, если пара
     /// свободна; иначе возвращается существующая запись.
     /// </summary>
-    public static Lab AddLab(WebApplicationFactory<Program> factory, int semester, int number)
+    public static async Task<Lab> AddLabAsync(WebApplicationFactory<Program> factory, int semester, int number)
     {
         var labs = factory.Services.GetRequiredService<ILabRepository>();
-        if (labs.TryGetByPair(semester, number) is { } existing)
+        if (await labs.TryGetByPairAsync(semester, number) is { } existing)
         {
             return existing;
         }
@@ -39,15 +39,15 @@ public static class B22DomainSeed
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
-        labs.Add(lab);
+        await labs.AddAsync(lab);
         return lab;
     }
 
     /// <summary>Группа с заданным именем (если имя свободно — добавляется, иначе существующая).</summary>
-    public static Group AddGroup(WebApplicationFactory<Program> factory, string name)
+    public static async Task<Group> AddGroupAsync(WebApplicationFactory<Program> factory, string name)
     {
         var groups = factory.Services.GetRequiredService<IGroupRepository>();
-        if (groups.GetByName(name) is { } existing)
+        if (await groups.GetByNameAsync(name) is { } existing)
         {
             return existing;
         }
@@ -58,17 +58,17 @@ public static class B22DomainSeed
             Name = name,
             CreatedAt = DateTime.UtcNow,
         };
-        groups.Add(group);
+        await groups.AddAsync(group);
         return group;
     }
 
     /// <summary>
     /// Учётная запись студента role=student с заданной группой (GroupId = null — без группы).
     /// </summary>
-    public static User AddStudent(WebApplicationFactory<Program> factory, string login, Guid? groupId = null)
+    public static async Task<User> AddStudentAsync(WebApplicationFactory<Program> factory, string login, Guid? groupId = null)
     {
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        if (users.GetByLogin(login) is { } existing)
+        if (await users.GetByLoginAsync(login) is { } existing)
         {
             return existing;
         }
@@ -84,7 +84,7 @@ public static class B22DomainSeed
             PasswordHash = "b22-di-seed-hash-not-used-by-cases",
             CreatedAt = DateTime.UtcNow,
         };
-        users.Add(student);
+        await users.AddAsync(student);
         return student;
     }
 
@@ -99,7 +99,7 @@ public static class B22DomainSeed
     /// вмещает первых 25 студентов; остальные 275 — вне группы.
     /// KDF-зависимые поверхности не задействованы.
     /// </summary>
-    public static PerformanceDataset SeedPerformanceDataset(B22WebAppFactory factory)
+    public static async Task<PerformanceDataset> SeedPerformanceDatasetAsync(B22WebAppFactory factory)
     {
         const int targetSemester = 7;
         const int targetSemesterLabs = 20;
@@ -110,23 +110,23 @@ public static class B22DomainSeed
         // 200 работ: целевой семестр (20) + шесть прочих семестров (6 × 30 = 180).
         for (var number = 1; number <= targetSemesterLabs; number++)
         {
-            AddLab(factory, targetSemester, number);
+            await AddLabAsync(factory, targetSemester, number);
         }
 
         foreach (var semester in new[] { 1, 2, 3, 4, 5, 6 })
         {
             for (var number = 1; number <= otherSemesterLabs; number++)
             {
-                AddLab(factory, semester, number);
+                await AddLabAsync(factory, semester, number);
             }
         }
 
         // 300 пользователей, первые 25 — в целевой группе.
-        var targetGroup = AddGroup(factory, "B184-Perf-Group");
+        var targetGroup = await AddGroupAsync(factory, "B184-Perf-Group");
         for (var i = 1; i <= totalStudents; i++)
         {
             var inTargetGroup = i <= targetGroupSize;
-            AddStudent(
+            await AddStudentAsync(
                 factory,
                 $"b184-perf-student-{i:D4}",
                 inTargetGroup ? targetGroup.Id : null);

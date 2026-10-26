@@ -50,7 +50,7 @@ public sealed class Ts181_DevelopmentDemoDataSeedTests
         var submissions = factory.Services.GetRequiredService<ISubmissionRepository>();
 
         // then: 3 группы — ИК-221/222/223.
-        var allGroups = groups.GetAll();
+        var allGroups = await groups.GetAllAsync();
         Assert.Equal(3, allGroups.Count);
         Assert.Equal(
             new[] { "ИК-221", "ИК-222", "ИК-223" }.OrderBy(name => name, StringComparer.Ordinal),
@@ -58,7 +58,7 @@ public sealed class Ts181_DevelopmentDemoDataSeedTests
         var groupNameById = allGroups.ToDictionary(group => group.Id, group => group.Name);
 
         // then: 32 студента student01..student32; 01–25→ИК-221, 26–30→ИК-222, 31–32 без группы.
-        var students = users.ListStudents();
+        var students = await users.ListStudentsAsync();
         Assert.Equal(32, students.Count);
         for (var number = 1; number <= 32; number++)
         {
@@ -71,7 +71,7 @@ public sealed class Ts181_DevelopmentDemoDataSeedTests
         }
 
         // then: 23 работы — семестр 1 №1–20, семестр 2 №1–3.
-        var allLabs = labs.GetAll();
+        var allLabs = await labs.GetAllAsync();
         Assert.Equal(23, allLabs.Count);
         var labPairs = allLabs.Select(lab => (lab.Semester, lab.Number)).ToHashSet();
         Assert.Equal(23, labPairs.Count);
@@ -86,7 +86,7 @@ public sealed class Ts181_DevelopmentDemoDataSeedTests
         }
 
         // then: 4 сдачи — student01 1.1/1.2/1.3 и student02 1.1 с точными датами.
-        var stored = submissions.ListByLabIds(allLabs.Select(lab => lab.Id).ToList());
+        var stored = await submissions.ListByLabIdsAsync(allLabs.Select(lab => lab.Id).ToList());
         var studentIdByLogin = students.ToDictionary(user => user.Login, user => user.Id);
         var labIdByPair = allLabs.ToDictionary(lab => (lab.Semester, lab.Number), lab => lab.Id);
         var actual = stored

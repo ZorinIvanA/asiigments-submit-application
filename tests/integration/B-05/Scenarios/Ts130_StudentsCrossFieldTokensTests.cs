@@ -26,8 +26,8 @@ public sealed class Ts130_StudentsCrossFieldTokensTests : IClassFixture<B05WebAp
     public async Task SearchTokensAcrossDifferentFields_MatchNothing()
     {
         // given: student01 существует в сиде; teacher авторизован (минт сессии).
-        _ = B05SeedLookup.StudentByLogin(_factory, "student01");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: поиск двумя токенами из РАЗНЫХ полей student01.
         var search = Uri.EscapeDataString("иванов student01@example.com");

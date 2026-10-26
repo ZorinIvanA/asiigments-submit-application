@@ -81,9 +81,9 @@ public static class B09HostClients
     }
 
     /// <summary>Пользователь по email (ci) из хранилища тестового хоста — для проверок given/then.</summary>
-    public static User ResolveUserByEmail(B09WebAppFactory factory, string email)
+    public static async Task<User> ResolveUserByEmailAsync(B09WebAppFactory factory, string email)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetByEmail(email);
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByEmailAsync(email);
         Assert.NotNull(user);
         return user!;
     }

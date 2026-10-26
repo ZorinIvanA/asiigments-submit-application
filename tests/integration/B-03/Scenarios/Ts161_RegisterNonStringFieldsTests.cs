@@ -32,7 +32,7 @@ public sealed class Ts161_RegisterNonStringFieldsTests : IClassFixture<B03HostFa
         // given: снимки состава студентов и суммарного счётчика KDF до запроса;
         //        регистрационный лимит не исчерпан (свежая фикстура, свой IP).
         var kdf = B03Kdf.Resolve(_factory.Services);
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
         var kdfBefore = kdf.Snapshot();
 
         using var client = B03RegisterApi.CreateClient(_factory, CaseIp);
@@ -62,7 +62,7 @@ public sealed class Ts161_RegisterNonStringFieldsTests : IClassFixture<B03HostFa
         ResponseAssert.FieldErrorsExactly(body.RootElement, "email", "Заполните поле");
 
         // then: пользователь не создан; дериваций KDF нет (Δkdf=0).
-        Assert.Equal(studentsBefore, B03UserSeed.CountStudents(_factory));
+        Assert.Equal(studentsBefore, await B03UserSeed.CountStudentsAsync(_factory));
         Assert.Equal(0, B03Kdf.TotalDelta(kdfBefore, kdf.Snapshot()));
     }
 

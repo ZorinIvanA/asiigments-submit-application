@@ -45,6 +45,9 @@ public class B15RecoveryWebAppFactory : B15WebAppFactory
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
+            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
+            builder.UseSetting("Storage:Provider", "InMemory");
         // Базовая конфигурация зоны (Development, ключи, сид, log-sink) — затем добавки.
         base.ConfigureWebHost(builder);
 

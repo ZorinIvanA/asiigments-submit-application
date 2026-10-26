@@ -36,7 +36,7 @@ public sealed class Ts070_RecoveryConfirmWrongCodeAttemptsTests(B11TimedWebAppFa
         await ApiAssert.AssertMessageAsync(confirm, HttpStatusCode.BadRequest, ErrorTexts.RecoveryCodeRejected);
 
         // then: attempts живого кода = 1 (код остался жив).
-        var live = securityTokens.FindLiveForUser(user.Id);
+        var live = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Equal(1, live.Attempts);
         Assert.Equal(codeRecord.Id, live.Id);

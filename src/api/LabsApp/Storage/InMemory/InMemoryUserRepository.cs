@@ -9,11 +9,13 @@ namespace LabsApp.Storage.InMemory;
 /// составные операции атомарны под общим <see cref="StorageLock"/> (IF-015). Каждая составная операция — целиком в
 /// критической секции. Хранилище хранит и отдаёт КОПИИ-снимки сущностей: внешняя
 /// мутация выданной копии не влияет на хранилище и ci-индексы, изменения — только
-/// через узкие атомарные мутаторы <see cref="SetGroup"/> (группа, SEC-001),
-/// <see cref="SetPassword"/> (пароль) и <see cref="UpdateProfile"/> (профиль) —
+/// через узкие атомарные мутаторы <see cref="SetGroupAsync"/> (группа, SEC-001),
+/// <see cref="SetPasswordAsync"/> (пароль) и <see cref="UpdateProfileAsync"/> (профиль) —
 /// каждый меняет ТОЛЬКО свои поля записи и не откатывает конкурентные мутации
-/// соседних полей (CR-001); <see cref="Update"/> — полная замена, прод-контроллерами
+/// соседних полей (CR-001); <see cref="UpdateAsync"/> — полная замена, прод-контроллерами
 /// не применяется (документально суженный контракт, OQ-002).
+/// Реализация асинхронна по контракту интерфейса, но не выполняет ввода-вывода:
+/// все задачи завершаются синхронно (Task.FromResult).
 /// </summary>
 public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserRepository
 {
@@ -22,7 +24,7 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
     private readonly Dictionary<string, Guid> _byEmail = new(StringComparer.Ordinal);
 
     /// <inheritdoc/>
-    public void Add(User user)
+    public Task AddAsync(User user)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -45,41 +47,43 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
             _byLogin[loginKey] = user.Id;
             _byEmail[emailKey] = user.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public User? GetById(Guid id)
+    public Task<User?> GetByIdAsync(Guid id)
     {
         lock (lockObject.SyncRoot)
         {
-            return _users.TryGetValue(id, out var user) ? Clone(user) : null;
+            return Task.FromResult(_users.TryGetValue(id, out var user) ? Clone(user) : null);
         }
     }
 
     /// <inheritdoc/>
-    public User? GetByLogin(string login)
+    public Task<User?> GetByLoginAsync(string login)
     {
         lock (lockObject.SyncRoot)
         {
-            return _byLogin.TryGetValue(Collation.Key(login), out var id)
+            return Task.FromResult(_byLogin.TryGetValue(Collation.Key(login), out var id)
                 ? Clone(_users[id])
-                : null;
+                : null);
         }
     }
 
     /// <inheritdoc/>
-    public User? GetByEmail(string email)
+    public Task<User?> GetByEmailAsync(string email)
     {
         lock (lockObject.SyncRoot)
         {
-            return _byEmail.TryGetValue(Collation.Key(email), out var id)
+            return Task.FromResult(_byEmail.TryGetValue(Collation.Key(email), out var id)
                 ? Clone(_users[id])
-                : null;
+                : null);
         }
     }
 
     /// <inheritdoc/>
-    public void Update(User user)
+    public Task UpdateAsync(User user)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -110,10 +114,12 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
             _byLogin[loginKey] = user.Id;
             _byEmail[emailKey] = user.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public SetGroupResult SetGroup(Guid userId, Guid? groupId, Func<Guid, bool>? groupExists)
+    public Task<SetGroupResult> SetGroupAsync(Guid userId, Guid? groupId, Func<Guid, Task<bool>>? groupExists)
     {
         if (groupId is not null && groupExists is null)
         {
@@ -126,30 +132,31 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
             // критической секции, меняется ТОЛЬКО GroupId хранимой записи (без
             // перечитывания и перезаписи полного снимка), поэтому параллельная
             // смена пароля/профиля студента не откатывается, а группа, удалённая
-            // после проверки, не оставляет висячего GroupId. Делегат вызывается
-            // под уже удерживаемой блокировкой: замок хранилища единый (ADR-002),
-            // Monitor реентерабелен.
+            // после проверки, не оставляет висячего GroupId.
             if (!_users.TryGetValue(userId, out var user) || user.Role != UserRoles.Student)
             {
-                return SetGroupResult.StudentNotFound;
+                return Task.FromResult(SetGroupResult.StudentNotFound);
             }
 
             if (groupId is { } target)
             {
                 // groupExists обязателен для ненулевой цели — guard в начале метода.
-                if (!groupExists!(target))
+                // Делегат асинхронный по контракту, но в этом хранилище завершается
+                // синхронно (in-memory-задачи без ввода-вывода), поэтому блокирующее
+                // ожидание под замком не защищает ничью асинхронную работу.
+                if (!groupExists!(target).GetAwaiter().GetResult())
                 {
-                    return SetGroupResult.GroupNotFound;
+                    return Task.FromResult(SetGroupResult.GroupNotFound);
                 }
             }
 
             user.GroupId = groupId;
-            return SetGroupResult.Success;
+            return Task.FromResult(SetGroupResult.Success);
         }
     }
 
     /// <inheritdoc/>
-    public bool SetPassword(Guid userId, string passwordHash)
+    public Task<bool> SetPasswordAsync(Guid userId, string passwordHash)
     {
         if (string.IsNullOrEmpty(passwordHash))
         {
@@ -164,16 +171,16 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
             // профиля и назначение группы не откатываются; ci-индексы не затрагиваются.
             if (!_users.TryGetValue(userId, out var user))
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             user.PasswordHash = passwordHash;
-            return true;
+            return Task.FromResult(true);
         }
     }
 
     /// <inheritdoc/>
-    public UpdateProfileResult UpdateProfile(Guid userId, string fullName, string email)
+    public Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email)
     {
         ArgumentNullException.ThrowIfNull(fullName);
         ArgumentNullException.ThrowIfNull(email);
@@ -187,13 +194,13 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
             // PasswordHash/CreatedAt не перечитываются и не перезаписываются.
             if (!_users.TryGetValue(userId, out var user))
             {
-                return UpdateProfileResult.UserNotFound;
+                return Task.FromResult(UpdateProfileResult.UserNotFound);
             }
 
             var newEmailKey = Collation.Key(email);
             if (_byEmail.TryGetValue(newEmailKey, out var owner) && owner != userId)
             {
-                return UpdateProfileResult.EmailConflict;
+                return Task.FromResult(UpdateProfileResult.EmailConflict);
             }
 
             var oldEmailKey = Collation.Key(user.Email);
@@ -205,46 +212,46 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
 
             user.FullName = fullName;
             user.Email = email;
-            return UpdateProfileResult.Success;
+            return Task.FromResult(UpdateProfileResult.Success);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListStudents(string? search = null, string? groupIdFilter = null)
+    public Task<IReadOnlyList<User>> ListStudentsAsync(string? search = null, string? groupIdFilter = null)
     {
         lock (lockObject.SyncRoot)
         {
             var tokens = Tokenize(search);
             var groupFilter = ParseGroupFilter(groupIdFilter);
 
-            return _users.Values
+            return Task.FromResult<IReadOnlyList<User>>(_users.Values
                 .Where(user => user.Role == UserRoles.Student)
                 .Where(user => MatchesGroupFilter(user, groupFilter))
                 .Where(user => MatchesSearch(user, tokens))
                 .Select(Clone)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListByGroup(Guid groupId)
+    public Task<IReadOnlyList<User>> ListByGroupAsync(Guid groupId)
     {
         lock (lockObject.SyncRoot)
         {
-            return _users.Values
+            return Task.FromResult<IReadOnlyList<User>>(_users.Values
                 .Where(user => user.Role == UserRoles.Student && user.GroupId == groupId)
                 .Select(Clone)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public int CountByGroup(Guid groupId)
+    public Task<int> CountByGroupAsync(Guid groupId)
     {
         lock (lockObject.SyncRoot)
         {
-            return _users.Values.Count(
-                user => user.Role == UserRoles.Student && user.GroupId == groupId);
+            return Task.FromResult(_users.Values.Count(
+                user => user.Role == UserRoles.Student && user.GroupId == groupId));
         }
     }
 
@@ -327,7 +334,7 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
 
     /// <summary>
     /// Каскад удаления группы: сбрасывает GroupId в null всем студентам группы.
-    /// ВЫЗЫВАЕТСЯ ТОЛЬКО из <see cref="InMemoryGroupRepository.Delete"/> под уже
+    /// ВЫЗЫВАЕТСЯ ТОЛЬКО из <see cref="InMemoryGroupRepository.DeleteAsync"/> под уже
     /// удерживаемой блокировкой хранилища — отдельную блокировку не берёт.
     /// </summary>
     internal void ClearGroupMembership(Guid groupId)

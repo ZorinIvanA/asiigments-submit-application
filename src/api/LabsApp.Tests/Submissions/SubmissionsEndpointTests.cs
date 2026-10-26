@@ -49,11 +49,11 @@ internal static class SubmissionsEndpointHarness
     /// <summary>Размер страницы студентов ведомости (FR-021: по 5).</summary>
     public const int PageSize = 5;
 
-    public static HttpClient CreateTeacherClient(TestWebAppFactory factory) =>
-        CreateClient(factory, UserByLogin(factory, "teacher"));
+    public static async Task<HttpClient> CreateTeacherClient(TestWebAppFactory factory) =>
+        CreateClient(factory, await UserByLoginAsync(factory, "teacher"));
 
-    public static HttpClient CreateStudentClient(TestWebAppFactory factory, string login) =>
-        CreateClient(factory, UserByLogin(factory, login));
+    public static async Task<HttpClient> CreateStudentClient(TestWebAppFactory factory, string login) =>
+        CreateClient(factory, await UserByLoginAsync(factory, login));
 
     public static HttpClient CreateAnonymousClient(TestWebAppFactory factory) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -62,16 +62,16 @@ internal static class SubmissionsEndpointHarness
             HandleCookies = false,
         });
 
-    public static User UserByLogin(TestWebAppFactory factory, string login) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login)
+    public static async Task<User> UserByLoginAsync(TestWebAppFactory factory, string login) =>
+        await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login)
         ?? throw new InvalidOperationException($"Пользователя {login} нет в хранилище тестового хоста.");
 
-    public static Group GroupByName(TestWebAppFactory factory, string name) =>
-        factory.Services.GetRequiredService<IGroupRepository>().GetByName(name)
+    public static async Task<Group> GroupByNameAsync(TestWebAppFactory factory, string name) =>
+        await factory.Services.GetRequiredService<IGroupRepository>().GetByNameAsync(name)
         ?? throw new InvalidOperationException($"Группы {name} нет в хранилище тестового хоста.");
 
-    public static Lab LabByPair(TestWebAppFactory factory, int semester, int number) =>
-        factory.Services.GetRequiredService<ILabRepository>().TryGetByPair(semester, number)
+    public static async Task<Lab> LabByPairAsync(TestWebAppFactory factory, int semester, int number) =>
+        await factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(semester, number)
         ?? throw new InvalidOperationException($"Работы {semester}:{number} нет в хранилище тестового хоста.");
 
     /// <summary>Клиент с валидным по форме access-JWT для произвольного userId
@@ -147,8 +147,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_FirstPage_DemoSeed_PagedSortedAndPairsOnly()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=1");
@@ -190,8 +190,11 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
         var studentIds = students.EnumerateArray()
             .Select(item => item.GetProperty("id").GetString())
             .ToHashSet();
-        var semesterLabIds = new HashSet<string?>(Enumerable.Range(1, 20)
-            .Select(nn => SubmissionsEndpointHarness.LabByPair(_factory, 1, nn).Id.ToString()));
+        var semesterLabIds = new HashSet<string?>();
+        foreach (var nn in Enumerable.Range(1, 20))
+        {
+            semesterLabIds.Add((await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, nn)).Id.ToString());
+        }
         var submissions = root.GetProperty("submissions").EnumerateArray().ToArray();
         Assert.Equal(4, submissions.Length);
         Assert.All(submissions, item =>
@@ -209,13 +212,13 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_SubmissionsMatchSeedDates()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        var student01 = SubmissionsEndpointHarness.UserByLogin(_factory, "student01").Id.ToString();
-        var student02 = SubmissionsEndpointHarness.UserByLogin(_factory, "student02").Id.ToString();
-        var lab1 = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id.ToString();
-        var lab2 = SubmissionsEndpointHarness.LabByPair(_factory, 1, 2).Id.ToString();
-        var lab3 = SubmissionsEndpointHarness.LabByPair(_factory, 1, 3).Id.ToString();
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        var student01 = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student01")).Id.ToString();
+        var student02 = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student02")).Id.ToString();
+        var lab1 = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id.ToString();
+        var lab2 = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 2)).Id.ToString();
+        var lab3 = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 3)).Id.ToString();
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=1");
@@ -244,8 +247,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [InlineData("99")]           // выше Labs__MaxSemester=10
     public async Task Grid_StrictSemester_BadRequestWithFieldError(string? semester)
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         var query = semester is null
             ? $"groupId={groupId}&page=1"
@@ -267,8 +270,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [InlineData("10")]  // верхняя граница: семестр без работ — 200, не 400
     public async Task Grid_SemesterBoundaries_Accepted(string semester)
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester={semester}&page=1");
@@ -284,7 +287,7 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_MissingGroupId_RequiredFieldError()
     {
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?semester=1&page=1");
@@ -300,7 +303,7 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_MissingGroupAndSemester_BothErrorsAtOnce()
     {
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(SubmissionsEndpointHarness.GridEndpoint);
 
@@ -317,7 +320,7 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_UnknownGroup_NotFound()
     {
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
         var unknownId = Guid.NewGuid();
 
         using var response = await client.GetAsync(
@@ -330,7 +333,7 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_NonUuidGroup_NotFound()
     {
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId=not-a-uuid&semester=1&page=1");
@@ -342,8 +345,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_LastPage_FiveStudentsWithCorrectPage()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         // 25 студентов по 5 — последняя страница 5: student21..25.
         using var response = await client.GetAsync(
@@ -364,8 +367,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_PageBeyondLast_EmptyItemsWithCorrectTotal()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=6");
@@ -390,8 +393,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
         // в отрицательное (для pageSize=5 — с page ≥ 429 496 731) — Skip отдавал
         // ПЕРВУЮ страницу вместо пустой. Хвостовая страница обязана быть пустой
         // при корректном total, ответ эхом отдаёт нормализованный номер страницы.
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page={rawPage}");
@@ -408,8 +411,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_SecondPage_SubmissionsOnlyForSecondPageStudents()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         // Чередование страниц (FR-021): страница 1 содержит сид-сдачи
         // student01/02, страница 2 (student06..10) — пустые submissions,
@@ -448,8 +451,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [InlineData("2.5")]
     public async Task Grid_InvalidPage_NormalizedToOneWithoutEcho(string rawPage)
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page={rawPage}");
@@ -467,8 +470,8 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_AsStudent_Forbidden()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        using var client = SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=1");
@@ -480,7 +483,7 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     [Fact]
     public async Task Grid_Anonymous_Unauthorized()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
         using var client = SubmissionsEndpointHarness.CreateAnonymousClient(_factory);
 
         using var response = await client.GetAsync(
@@ -496,7 +499,7 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
         // given: access-JWT минтован для teacher-роли, которой нет в хранилище
         // (удалена при живом access-токене — зеркало мока requireSessionUser).
         // Грид-запрос валиден целиком: отказ — из действия, а не из схемы.
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
         using var client = SubmissionsEndpointHarness.CreateSessionClient(
             _factory, Guid.NewGuid(), UserRoles.Teacher);
 
@@ -523,10 +526,10 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_CreatesRecord_ReturnsFullSubmissionWithTeacherMarks()
     {
-        var teacherId = SubmissionsEndpointHarness.UserByLogin(_factory, "teacher").Id;
-        var studentId = SubmissionsEndpointHarness.UserByLogin(_factory, "student05").Id;
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var teacherId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "teacher")).Id;
+        var studentId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student05")).Id;
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -551,10 +554,10 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_GridReflectsCreatedSubmission()
     {
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
-        var studentId = SubmissionsEndpointHarness.UserByLogin(_factory, "student05").Id.ToString();
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id.ToString();
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        var studentId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student05")).Id.ToString();
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id.ToString();
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var put = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -579,9 +582,9 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_ReplacesBothDates_ThenResetKeepsPairWithStableId()
     {
-        var studentId = SubmissionsEndpointHarness.UserByLogin(_factory, "student01").Id;
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var studentId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student01")).Id;
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         // Полная замена обеих дат существующей сид-записи.
         using var replace = await SubmissionsEndpointHarness.PutJsonAsync(
@@ -609,7 +612,7 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
         Assert.Equal(JsonValueKind.Null, resetBody.RootElement.GetProperty("defenseDate").ValueKind);
 
         // Повторная ведомость отражает сброс: пара осталась с null-датами.
-        var groupId = SubmissionsEndpointHarness.GroupByName(_factory, "ИК-221").Id;
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
         using var grid = await client.GetAsync(
             $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=1");
         Assert.Equal(HttpStatusCode.OK, grid.StatusCode);
@@ -625,7 +628,7 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     public async Task Put_NonContractDate_BadRequestBeforeEntityResolution()
     {
         // Неизвестные студент и работа — но 400 по дате РАНЬШЕ 404 (IF-012).
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -644,9 +647,9 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_CalendarInvalidAndNonStringDates_BothFieldErrors()
     {
-        var studentId = SubmissionsEndpointHarness.UserByLogin(_factory, "student01").Id;
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var studentId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student01")).Id;
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         // '2026-02-30' — строгий формат 4-2-2, но календарно невалидна;
         // defenseDate — число (нестроковое значение).
@@ -665,9 +668,9 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_MissingDateField_BadRequest()
     {
-        var studentId = SubmissionsEndpointHarness.UserByLogin(_factory, "student01").Id;
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var studentId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student01")).Id;
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         // Отсутствующее поле — тоже нарушение (контракт: обе даты всегда целиком).
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
@@ -685,8 +688,8 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_UnknownStudent_NotFound()
     {
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -701,9 +704,9 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     public async Task Put_TeacherAsStudent_NotFound()
     {
         // Пользователь существует, но role != student — тот же 404 (IF-012).
-        var teacherId = SubmissionsEndpointHarness.UserByLogin(_factory, "teacher").Id;
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var teacherId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "teacher")).Id;
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -717,8 +720,8 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_UnknownLab_NotFound()
     {
-        var studentId = SubmissionsEndpointHarness.UserByLogin(_factory, "student01").Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var studentId = (await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student01")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -732,8 +735,8 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_NonUuidStudent_NotFound()
     {
-        var labId = SubmissionsEndpointHarness.LabByPair(_factory, 1, 1).Id;
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        var labId = (await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, 1)).Id;
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -747,7 +750,7 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_BrokenJson_BadRequestWithoutFieldErrors()
     {
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client, SubmissionsEndpointHarness.GridEndpoint, """{"studentId": oops""");
@@ -765,7 +768,7 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     [Fact]
     public async Task Put_AsStudent_Forbidden()
     {
-        using var client = SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
 
         using var response = await SubmissionsEndpointHarness.PutJsonAsync(
             client,
@@ -812,7 +815,7 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
     [Fact]
     public async Task My_InGroup_SemesterLabsAndOwnSubmissionsOnly()
     {
-        using var client = SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
 
         using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=1");
 
@@ -829,8 +832,11 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
             labs.Select(item => item.GetProperty("number").GetInt32()));
 
         // Только свои сид-сдачи (labs 1..3), без studentId и без чужих строк.
-        var semesterLabIds = new HashSet<string?>(Enumerable.Range(1, 20)
-            .Select(nn => SubmissionsEndpointHarness.LabByPair(_factory, 1, nn).Id.ToString()));
+        var semesterLabIds = new HashSet<string?>();
+        foreach (var nn in Enumerable.Range(1, 20))
+        {
+            semesterLabIds.Add((await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, nn)).Id.ToString());
+        }
         var submissions = root.GetProperty("submissions").EnumerateArray().ToArray();
         Assert.Equal(3, submissions.Length);
         Assert.All(submissions, item =>
@@ -853,8 +859,8 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
     public async Task My_WithoutGroup_EmptyResult()
     {
         // student31 — сид-студент без группы.
-        Assert.Null(SubmissionsEndpointHarness.UserByLogin(_factory, "student31").GroupId);
-        using var client = SubmissionsEndpointHarness.CreateStudentClient(_factory, "student31");
+        Assert.Null((await SubmissionsEndpointHarness.UserByLoginAsync(_factory, "student31")).GroupId);
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student31");
 
         using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=1");
 
@@ -871,7 +877,7 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
     [InlineData("2.5")]  // нецелое
     public async Task My_StrictSemester_BadRequestWithFieldError(string semester)
     {
-        using var client = SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
 
         using var response = await client.GetAsync(
             $"{SubmissionsEndpointHarness.MyEndpoint}?semester={semester}");
@@ -888,7 +894,7 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
     [Fact]
     public async Task My_MissingSemester_BadRequestWithFieldError()
     {
-        using var client = SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
 
         using var response = await client.GetAsync(SubmissionsEndpointHarness.MyEndpoint);
 
@@ -904,7 +910,7 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
     {
         // Семестр 10 (граница) валиден: у студента он без работ — 200 с пустыми
         // массивами работ, но hasGroup по-прежнему true.
-        using var client = SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
 
         using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=10");
 
@@ -922,7 +928,7 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
     [Fact]
     public async Task My_AsTeacher_Forbidden()
     {
-        using var client = SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=1");
 

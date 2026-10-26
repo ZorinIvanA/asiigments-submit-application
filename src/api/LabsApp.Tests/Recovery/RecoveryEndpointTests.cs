@@ -71,7 +71,7 @@ internal static class RecoveryEndpointHarness
         });
 
     /// <summary>DI-сид пользователя с РЕАЛЬНЫМ PBKDF2-хэшем пароля (метка seed).</summary>
-    public static User SeedUser(
+    public static async Task<User> SeedUser(
         TestWebAppFactory factory,
         string login,
         string? email = null,
@@ -81,7 +81,7 @@ internal static class RecoveryEndpointHarness
             .GetRequiredService<IPasswordHasher>()
             .Hash(TestUserPassword, KdfCallers.Seed);
         var repository = factory.Services.GetRequiredService<IUserRepository>();
-        repository.Add(new User
+        await repository.AddAsync(new User
         {
             Id = Guid.NewGuid(),
             Login = login,
@@ -92,7 +92,7 @@ internal static class RecoveryEndpointHarness
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByLogin(login)
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 
@@ -100,13 +100,13 @@ internal static class RecoveryEndpointHarness
     /// given «действующий refresh-токен устройства»: ITokenService.CreateRefreshToken
     /// + запись в ISecurityTokenRepository; возвращает ОТКРЫТОЕ значение токена.
     /// </summary>
-    public static string SeedRefreshToken(TestWebAppFactory factory, Guid userId)
+    public static async Task<string> SeedRefreshToken(TestWebAppFactory factory, Guid userId)
     {
         var grant = factory.Services
             .GetRequiredService<ITokenService>()
             .CreateRefreshToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -123,13 +123,13 @@ internal static class RecoveryEndpointHarness
     /// в хранилище — только SHA-256-дайджест. <paramref name="timeToLive"/>
     /// переопределяет TTL сид-записи (отрицательный — уже просроченный).
     /// </summary>
-    public static string SeedResetToken(TestWebAppFactory factory, Guid userId, TimeSpan? timeToLive = null)
+    public static async Task<string> SeedResetToken(TestWebAppFactory factory, Guid userId, TimeSpan? timeToLive = null)
     {
         var grant = factory.Services
             .GetRequiredService<ITokenService>()
             .CreatePasswordResetToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new PasswordResetToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new PasswordResetToken
         {
             TokenHash = grant.TokenHash,
             UserId = userId,
@@ -144,7 +144,7 @@ internal static class RecoveryEndpointHarness
     /// Ранее выданный код восстановления с известным значением (DI-сид):
     /// attempts и TTL переопределяемы (отрицательный TTL — уже просроченный).
     /// </summary>
-    public static void SeedRecoveryCode(
+    public static async Task SeedRecoveryCode(
         TestWebAppFactory factory,
         Guid userId,
         string code,
@@ -152,7 +152,7 @@ internal static class RecoveryEndpointHarness
         TimeSpan? timeToLive = null)
     {
         var now = DateTime.UtcNow;
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().AddLive(new RecoveryCode
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddLiveAsync(new RecoveryCode
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -165,27 +165,27 @@ internal static class RecoveryEndpointHarness
     }
 
     /// <summary>Гашение сид-токена без HTTP (ветка «использован», FR-014).</summary>
-    public static void MarkResetTokenUsed(TestWebAppFactory factory, string tokenValue) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .MarkUsed(Sha256Hex(tokenValue));
+    public static async Task MarkResetTokenUsedAsync(TestWebAppFactory factory, string tokenValue) =>
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .MarkUsedAsync(Sha256Hex(tokenValue));
 
     /// <summary>Живой код пользователя либо null (коды с attempts и TTL — копия-снимок).</summary>
-    public static RecoveryCode? LiveCode(TestWebAppFactory factory, Guid userId) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveForUser(userId);
+    public static async Task<RecoveryCode?> LiveCodeAsync(TestWebAppFactory factory, Guid userId) =>
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveForUserAsync(userId);
 
     /// <summary>
     /// ЖИВАЯ запись reset-токена по ОТКРЫТОМУ значению либо null: применённый или
     /// истёкший токен живым не является (live-only FindLiveResetByHash, IF-015) —
     /// факт гашения проверяется исчезновением из живой выборки (с базой NotNull).
     /// </summary>
-    public static PasswordResetToken? ResetTokenRecord(TestWebAppFactory factory, string tokenValue) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveResetByHash(Sha256Hex(tokenValue));
+    public static async Task<PasswordResetToken?> ResetTokenRecordAsync(TestWebAppFactory factory, string tokenValue) =>
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveResetByHashAsync(Sha256Hex(tokenValue));
 
     /// <summary>Живая запись refresh-токена по значению либо null (live-only, IF-015).</summary>
-    public static RefreshToken? RefreshTokenRecord(TestWebAppFactory factory, string tokenValue) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveByHash(Sha256Hex(tokenValue));
+    public static async Task<RefreshToken?> RefreshTokenRecordAsync(TestWebAppFactory factory, string tokenValue) =>
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveByHashAsync(Sha256Hex(tokenValue));
 
     /// <summary>Записи категории «EmailDev» log-sink тестового хоста (IF-005).</summary>
     public static IReadOnlyList<TestLogRecord> EmailDevRecords(TestWebAppFactory factory) =>
@@ -307,7 +307,7 @@ public sealed class RecoveryRequestTests(RecoveryApiFixture fixture) : IClassFix
     public async Task Request_ExistingEmail_200EmptyBody_SingleLiveCode_TtlTenMinutes_EmailOnce_ZeroKdf()
     {
         // given: зарегистрированный пользователь; чистый log-sink; база Δkdf.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-req-exist");
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-req-exist");
         _factory.LogSink.Clear();
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
@@ -320,7 +320,7 @@ public sealed class RecoveryRequestTests(RecoveryApiFixture fixture) : IClassFix
         await RecoveryEndpointHarness.AssertEmptyBodyAsync(response);
 
         // then: ровно один живой код, attempts=0, TTL 10 минут.
-        var live = RecoveryEndpointHarness.LiveCode(_factory, user.Id);
+        var live = await RecoveryEndpointHarness.LiveCodeAsync(_factory, user.Id);
         Assert.NotNull(live);
         Assert.Null(live!.UsedAt);
         Assert.Equal(0, live.Attempts);
@@ -356,7 +356,7 @@ public sealed class RecoveryRequestTests(RecoveryApiFixture fixture) : IClassFix
     public async Task Request_Resend_ExtinguishesPreviousCode_OldRejected_NewConfirmed()
     {
         // given: пользователь; первый код C1 получен и вычитан из «EmailDev».
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-req-resend");
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-req-resend");
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         _factory.LogSink.Clear();
 
@@ -370,7 +370,7 @@ public sealed class RecoveryRequestTests(RecoveryApiFixture fixture) : IClassFix
         // then: 200; новый код отличен от прежнего и жив; прежний погашен.
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
         Assert.NotEqual(firstCode, secondCode);
-        var live = RecoveryEndpointHarness.LiveCode(_factory, user.Id);
+        var live = await RecoveryEndpointHarness.LiveCodeAsync(_factory, user.Id);
         Assert.NotNull(live);
 
         // then: подтверждение прежнего кода C1 → 400 «Код восстановления не подходит»;
@@ -408,7 +408,7 @@ public sealed class RecoveryRequestTests(RecoveryApiFixture fixture) : IClassFix
     {
         // given: существующий email; 3 request с ДРУГИМ регистром (тот же
         // ci-ключ lower(trim(email))) — лимитер не различает ветки.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-429-exist");
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-429-exist");
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         for (var attempt = 0; attempt < 3; attempt++)
         {
@@ -457,7 +457,7 @@ public sealed class RecoveryRequestTests(RecoveryApiFixture fixture) : IClassFix
     public async Task Request_CodeAppearsOnlyInEmailDevCategory()
     {
         // given: пользователь; чистый log-sink; Development-хост (фикстура).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-req-nfr006");
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-req-nfr006");
         _factory.LogSink.Clear();
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
@@ -490,7 +490,7 @@ public sealed class RecoveryConfirmTests(RecoveryApiFixture fixture) : IClassFix
     public async Task Confirm_CorrectCode_Trimmed_ReturnsResetToken_LiveFifteenMinutes_CodeConsumed()
     {
         // given: живой код известен из «EmailDev».
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-ok");
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-ok");
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         _ = await RecoveryEndpointHarness.RequestCodeAsync(client, user.Email);
         var code = RecoveryEndpointHarness.LastEmailedCode(_factory);
@@ -507,7 +507,7 @@ public sealed class RecoveryConfirmTests(RecoveryApiFixture fixture) : IClassFix
         Assert.False(string.IsNullOrEmpty(resetToken));
         Assert.True(resetToken!.Length >= 43, $"Ожидался токен ≥256 бит, длина {resetToken.Length}.");
 
-        var record = RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken!);
+        var record = await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken!);
         Assert.NotNull(record);
         Assert.Equal(user.Id, record!.UserId);
         var remaining = record.ExpiresAt - DateTime.UtcNow;
@@ -524,7 +524,7 @@ public sealed class RecoveryConfirmTests(RecoveryApiFixture fixture) : IClassFix
     public async Task Confirm_WrongCode_IncrementsAttempts_UnifiedText()
     {
         // given: живой код; заведомо неверное значение (7 символов ≠ коду).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-wrong");
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-wrong");
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         _ = await RecoveryEndpointHarness.RequestCodeAsync(client, user.Email);
         var code = RecoveryEndpointHarness.LastEmailedCode(_factory);
@@ -535,7 +535,7 @@ public sealed class RecoveryConfirmTests(RecoveryApiFixture fixture) : IClassFix
         // then: 400 единый текст; attempts живого кода = 1 (попытки считаются).
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(ValidationTexts.RecoveryCodeRejected, await RecoveryEndpointHarness.MessageAsync(response));
-        var live = RecoveryEndpointHarness.LiveCode(_factory, user.Id);
+        var live = await RecoveryEndpointHarness.LiveCodeAsync(_factory, user.Id);
         Assert.NotNull(live);
         Assert.Equal(1, live!.Attempts);
     }
@@ -544,8 +544,8 @@ public sealed class RecoveryConfirmTests(RecoveryApiFixture fixture) : IClassFix
     public async Task Confirm_FifthWrongAttempt_AnnullsCode_CorrectCodeThenRejected()
     {
         // given: живой код с attempts=4 (DI-сид, значение известно).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-fifth");
-        RecoveryEndpointHarness.SeedRecoveryCode(_factory, user.Id, "123456", attempts: 4);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-fifth");
+        await RecoveryEndpointHarness.SeedRecoveryCode(_factory, user.Id, "123456", attempts: 4);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
         // when: пятая неверная попытка.
@@ -555,7 +555,7 @@ public sealed class RecoveryConfirmTests(RecoveryApiFixture fixture) : IClassFix
         // последующий ВЕРНЫЙ код → тот же 400 (аннулированный не «оживает»).
         Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
         Assert.Equal(ValidationTexts.RecoveryCodeRejected, await RecoveryEndpointHarness.MessageAsync(wrong));
-        Assert.Null(RecoveryEndpointHarness.LiveCode(_factory, user.Id));
+        Assert.Null(await RecoveryEndpointHarness.LiveCodeAsync(_factory, user.Id));
 
         using var correct = await RecoveryEndpointHarness.ConfirmAsync(client, user.Email, "123456");
         Assert.Equal(HttpStatusCode.BadRequest, correct.StatusCode);
@@ -578,8 +578,8 @@ public sealed class RecoveryConfirmTests(RecoveryApiFixture fixture) : IClassFix
     public async Task Confirm_ExpiredCode_UnifiedText()
     {
         // given: просроченный код (TTL −1 минута, DI-сид).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-expired");
-        RecoveryEndpointHarness.SeedRecoveryCode(
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-conf-expired");
+        await RecoveryEndpointHarness.SeedRecoveryCode(
             _factory, user.Id, "123456", timeToLive: TimeSpan.FromMinutes(-1));
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
@@ -625,15 +625,15 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         // given: пользователь; refresh-токены двух «устройств»; ранее выданный
         // второй reset-токен (погашается успехом — ConsumeAllForUser); чужой
         // пользователь с живым refresh-токеном (сессии других не затрагиваются).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-flow");
-        var firstDevice = RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
-        var secondDevice = RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
-        var earlierResetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
-        var otherUser = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-other");
-        var otherDevice = RecoveryEndpointHarness.SeedRefreshToken(_factory, otherUser.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-flow");
+        var firstDevice = await RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var secondDevice = await RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var earlierResetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var otherUser = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-other");
+        var otherDevice = await RecoveryEndpointHarness.SeedRefreshToken(_factory, otherUser.Id);
 
-        Assert.NotNull(RecoveryEndpointHarness.RefreshTokenRecord(_factory, firstDevice));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, earlierResetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.RefreshTokenRecordAsync(_factory, firstDevice));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, earlierResetToken));
 
         // given: живой код → confirm → resetToken; база Δkdf вокруг reset.
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
@@ -673,25 +673,25 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
 
         // then: ВСЕ reset-токены пользователя погашены — и предъявленный, и ранее
         // выданный (live-only выборка: исчезновение записи = погашение).
-        Assert.Null(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken!));
-        Assert.Null(RecoveryEndpointHarness.ResetTokenRecord(_factory, earlierResetToken));
+        Assert.Null(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken!));
+        Assert.Null(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, earlierResetToken));
 
         // then: ВСЕ его refresh-токены отозваны (живая выборка + поведение refresh 401).
-        Assert.Null(RecoveryEndpointHarness.RefreshTokenRecord(_factory, firstDevice));
-        Assert.Null(RecoveryEndpointHarness.RefreshTokenRecord(_factory, secondDevice));
+        Assert.Null(await RecoveryEndpointHarness.RefreshTokenRecordAsync(_factory, firstDevice));
+        Assert.Null(await RecoveryEndpointHarness.RefreshTokenRecordAsync(_factory, secondDevice));
         using var refreshClient = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         using var refresh = await RecoveryEndpointHarness.RefreshAsync(refreshClient, firstDevice);
         Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
 
         // then: чужая сессия не затронута.
-        Assert.NotNull(RecoveryEndpointHarness.RefreshTokenRecord(_factory, otherDevice));
+        Assert.NotNull(await RecoveryEndpointHarness.RefreshTokenRecordAsync(_factory, otherDevice));
     }
 
     [Fact]
     public async Task Reset_UnknownToken_400ResetLinkInvalid_ZeroKdf_PasswordKept()
     {
         // given: пользователь с реальным хэшем; в хранилище нет такого дайджеста.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-unknown");
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-unknown");
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
 
@@ -706,7 +706,7 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         Assert.Equal(
             0,
             RecoveryEndpointHarness.KdfDelta(before, RecoveryEndpointHarness.KdfSnapshot(_factory)));
-        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetById(user.Id);
+        var stored = await _factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(user.Id);
         Assert.NotNull(stored);
         Assert.True(_factory.Services.GetRequiredService<IPasswordHasher>()
             .Verify(RecoveryEndpointHarness.TestUserPassword, stored!.PasswordHash, KdfCallers.ResetPassword));
@@ -716,8 +716,8 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
     public async Task Reset_ExpiredToken_400ResetLinkInvalid_PasswordKept()
     {
         // given: просроченный reset-токен (TTL −1 минута, DI-сид).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-expired");
-        var expiredToken = RecoveryEndpointHarness.SeedResetToken(
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-expired");
+        var expiredToken = await RecoveryEndpointHarness.SeedResetToken(
             _factory, user.Id, TimeSpan.FromMinutes(-1));
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
@@ -730,8 +730,8 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         // пароль не изменён.
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(ValidationTexts.ResetTokenInvalid, await RecoveryEndpointHarness.MessageAsync(response));
-        Assert.Null(RecoveryEndpointHarness.ResetTokenRecord(_factory, expiredToken));
-        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetById(user.Id);
+        Assert.Null(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, expiredToken));
+        var stored = await _factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(user.Id);
         Assert.NotNull(stored);
         Assert.True(_factory.Services.GetRequiredService<IPasswordHasher>()
             .Verify(RecoveryEndpointHarness.TestUserPassword, stored!.PasswordHash, KdfCallers.ResetPassword));
@@ -741,9 +741,9 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
     public async Task Reset_UsedToken_400ResetLinkInvalid_PasswordKept()
     {
         // given: применённый reset-токен (DI-сид + гашение хранилищем).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-used");
-        var usedToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
-        RecoveryEndpointHarness.MarkResetTokenUsed(_factory, usedToken);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-used");
+        var usedToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        await RecoveryEndpointHarness.MarkResetTokenUsedAsync(_factory, usedToken);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
         // when: reset использованным токеном.
@@ -753,7 +753,7 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         // then: 400 RESET_LINK_INVALID; пароль не изменён.
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(ValidationTexts.ResetTokenInvalid, await RecoveryEndpointHarness.MessageAsync(response));
-        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetById(user.Id);
+        var stored = await _factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(user.Id);
         Assert.NotNull(stored);
         Assert.True(_factory.Services.GetRequiredService<IPasswordHasher>()
             .Verify(RecoveryEndpointHarness.TestUserPassword, stored!.PasswordHash, KdfCallers.ResetPassword));
@@ -763,8 +763,8 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
     public async Task Reset_FieldError_KeepsTokenLive_ZeroKdf_ThenSucceeds()
     {
         // given: живой reset-токен; база Δkdf.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-weak");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-weak");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
 
@@ -786,7 +786,7 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         Assert.Equal(
             0,
             RecoveryEndpointHarness.KdfDelta(before, RecoveryEndpointHarness.KdfSnapshot(_factory)));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken));
 
         // then: повтор с валидной парой — 204 (токен применим).
         using var ok = await RecoveryEndpointHarness.ResetAsync(
@@ -798,8 +798,8 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
     public async Task Reset_OversizedPassword129_400PasswordMaxOnly_TokenLive_ZeroKdf()
     {
         // given: живой reset-токен; база Δkdf.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-max");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-max");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
 
@@ -819,15 +819,15 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         Assert.Equal(
             0,
             RecoveryEndpointHarness.KdfDelta(before, RecoveryEndpointHarness.KdfSnapshot(_factory)));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken));
     }
 
     [Fact]
     public async Task Reset_ConfirmMismatch_400Mismatch_TokenLive()
     {
         // given: живой reset-токен.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-mismatch");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-mismatch");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
         // when: повтор пароля не совпадает.
@@ -841,15 +841,15 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         Assert.Equal(
             [ValidationTexts.PasswordMismatch],
             RecoveryEndpointHarness.ErrorOf(errors, "confirmPassword"));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken));
     }
 
     [Fact]
     public async Task Reset_EmptyConfirmPassword_400Required_TokenLive()
     {
         // given: живой reset-токен; база Δkdf.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-empty-confirm");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-empty-confirm");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
 
@@ -868,15 +868,15 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         Assert.Equal(
             0,
             RecoveryEndpointHarness.KdfDelta(before, RecoveryEndpointHarness.KdfSnapshot(_factory)));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken));
     }
 
     [Fact]
     public async Task Reset_MalformedJson_400WithoutErrors_TokenLive()
     {
         // given: живой reset-токен; база Δkdf.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-broken");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-broken");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
 
@@ -893,7 +893,7 @@ public sealed class RecoveryResetTests(RecoveryApiFixture fixture) : IClassFixtu
         Assert.Equal(
             0,
             RecoveryEndpointHarness.KdfDelta(before, RecoveryEndpointHarness.KdfSnapshot(_factory)));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken));
     }
 }
 
@@ -915,9 +915,9 @@ public sealed class ResetPasswordSecurityLogTests(RecoveryApiFixture fixture) : 
     {
         // given: пользователь; refresh-токены двух «устройств» (значения известны —
         // поверхность маркерной проверки); живой reset-токен через request → confirm.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-sec-reset");
-        var firstDevice = RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
-        var secondDevice = RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-sec-reset");
+        var firstDevice = await RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var secondDevice = await RecoveryEndpointHarness.SeedRefreshToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         _ = await RecoveryEndpointHarness.RequestCodeAsync(client, user.Email);
         var code = RecoveryEndpointHarness.LastEmailedCode(_factory);
@@ -967,8 +967,8 @@ public sealed class ResetPasswordSecurityLogTests(RecoveryApiFixture fixture) : 
     public async Task Reset_FailureBranches_WriteNoSecurityRecords()
     {
         // given: пользователь; живой reset-токен (останется живым при полевой ошибке).
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-sec-reset-bad");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-sec-reset-bad");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
         // when №1: несуществующий токен → 400; чистый sink вокруг обеих попыток.
@@ -984,6 +984,6 @@ public sealed class ResetPasswordSecurityLogTests(RecoveryApiFixture fixture) : 
         // then: ни одна ветка отказа не пишет события безопасности — запись только
         // при ФАКТИЧЕСКОМ выполнении операции (IF-016); токен остался жив.
         Assert.Empty(SecurityEventLoggingHarness.SecurityRecords(_factory));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken));
     }
 }

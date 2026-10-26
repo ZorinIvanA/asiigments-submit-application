@@ -43,6 +43,9 @@ public class B16GroupsWebAppFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
+            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
+            builder.UseSetting("Storage:Provider", "InMemory");
         Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "true");
 
         // Имя окружения строкой: константа Environments в compile-поверхности

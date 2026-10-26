@@ -29,7 +29,7 @@ public sealed class Ts199_GroupRosterPageNormalizationTests : IClassFixture<B16G
     public async Task GetRosterWithInvalidPage_NormalizesToPage1WithNonEmptyItems(string query)
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?{query} (page=0 | page=abc | page=2.5).
@@ -53,7 +53,7 @@ public sealed class Ts199_GroupRosterPageNormalizationTests : IClassFixture<B16G
     public async Task GetRosterWithPageBeyondLast_ReturnsEmptyItemsWithCorrectTotal()
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=99.

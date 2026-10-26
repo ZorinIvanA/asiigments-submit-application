@@ -59,16 +59,16 @@ internal static class GroupsEndpointHarness
 {
     public const string GroupsEndpoint = "/api/v1/groups";
 
-    public static HttpClient CreateTeacherClient(TestWebAppFactory factory)
+    public static async Task<HttpClient> CreateTeacherClient(TestWebAppFactory factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("teacher");
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
         return CreateSessionClient(factory, teacher.Id, UserRoles.Teacher);
     }
 
-    public static HttpClient CreateStudentClient(TestWebAppFactory factory)
+    public static async Task<HttpClient> CreateStudentClient(TestWebAppFactory factory)
     {
-        var student = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("student01");
+        var student = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("student01");
         Assert.NotNull(student);
         return CreateSessionClient(factory, student.Id, UserRoles.Student);
     }
@@ -80,8 +80,8 @@ internal static class GroupsEndpointHarness
             HandleCookies = false,
         });
 
-    public static Group GroupByName(TestWebAppFactory factory, string name) =>
-        factory.Services.GetRequiredService<IGroupRepository>().GetByName(name)
+    public static async Task<Group> GroupByNameAsync(TestWebAppFactory factory, string name) =>
+        await factory.Services.GetRequiredService<IGroupRepository>().GetByNameAsync(name)
         ?? throw new InvalidOperationException($"Группы {name} нет в хранилище тестового хоста.");
 
     public static IGroupRepository Groups(TestWebAppFactory factory) =>
@@ -90,15 +90,15 @@ internal static class GroupsEndpointHarness
     public static IUserRepository Users(TestWebAppFactory factory) =>
         factory.Services.GetRequiredService<IUserRepository>();
 
-    public static User SeedStudent(
+    public static async Task<User> SeedStudent(
         TestWebAppFactory factory,
         string login,
         string fullName,
         Guid? groupId)
     {
         var repository = Users(factory);
-        repository.Add(TestEntities.User(login, fullName: fullName, groupId: groupId));
-        return repository.GetByLogin(login)
+        await repository.AddAsync(TestEntities.User(login, fullName: fullName, groupId: groupId));
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Студент {login} не сохранился при DI-сиде.");
     }
 
@@ -156,7 +156,7 @@ public sealed class GroupsListEndpointTests(GroupsApiFixture fixture) : IClassFi
     [Fact]
     public async Task List_DemoSeed_ThreeGroupsOrderedWithComputedCounts()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(GroupsEndpointHarness.GroupsEndpoint);
 
@@ -182,7 +182,7 @@ public sealed class GroupsListEndpointTests(GroupsApiFixture fixture) : IClassFi
     [Fact]
     public async Task List_Student_Returns403ForbiddenEnvelope()
     {
-        using var client = GroupsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.GetAsync(GroupsEndpointHarness.GroupsEndpoint);
 
@@ -214,7 +214,7 @@ public sealed class GroupsListSortEndpointTests(GroupsApiFixture fixture) : ICla
     [Fact]
     public async Task List_RuLocaleCaseInsensitive_NameAscending()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         // Три названия различают ordinal- и ru-порядок: при ordinal первым был бы
         // «Б-группа» (U+0411), при русской локали без учёта регистра — «а-группа».
@@ -250,7 +250,7 @@ public sealed class GroupsEmptyListEndpointTests(NoDemoGroupsApiFixture fixture)
     [Fact]
     public async Task List_WithoutGroups_ReturnsEmptyArray()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(GroupsEndpointHarness.GroupsEndpoint);
 
@@ -272,7 +272,7 @@ public sealed class GroupsCreateEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Create_TrimsName_ThenCaseInsensitiveDuplicate_Returns409()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var created = await client.PostAsync(
             GroupsEndpointHarness.GroupsEndpoint,
@@ -302,7 +302,7 @@ public sealed class GroupsCreateEndpointTests(GroupsApiFixture fixture) : IClass
     [InlineData("""{"name":"   "}""")]
     public async Task Create_NameOutsideBoundaries_SingleValidationText(string json)
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             GroupsEndpointHarness.GroupsEndpoint,
@@ -319,7 +319,7 @@ public sealed class GroupsCreateEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Create_NameLengthBoundary_100Valid101Rejected()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         var boundaryName = new string('Я', 100);
         using var valid = await client.PostAsync(
@@ -340,7 +340,7 @@ public sealed class GroupsCreateEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Create_SyntacticallyBrokenJson_Returns400MessageWithoutErrors()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             GroupsEndpointHarness.GroupsEndpoint,
@@ -365,9 +365,9 @@ public sealed class GroupsUpdateEndpointTests(GroupsApiFixture fixture) : IClass
     public async Task Update_Renames_Returns200WithSameIdAndComputedCount()
     {
         // Своя группа с одним студентом: studentCount должен пережить переименование.
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-222");
-        GroupsEndpointHarness.SeedStudent(_factory, "upd-count-1", "Переименование Тест Тестович", group.Id);
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-222");
+        await GroupsEndpointHarness.SeedStudent(_factory, "upd-count-1", "Переименование Тест Тестович", group.Id);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}",
@@ -378,14 +378,14 @@ public sealed class GroupsUpdateEndpointTests(GroupsApiFixture fixture) : IClass
         Assert.Equal(group.Id.ToString(), body.RootElement.GetProperty("id").GetString());
         Assert.Equal("Переименованная-222", body.RootElement.GetProperty("name").GetString());
         Assert.Equal(6, body.RootElement.GetProperty("studentCount").GetInt32());
-        Assert.NotNull(GroupsEndpointHarness.Groups(_factory).GetByName("переименованная-222"));
+        Assert.NotNull(await GroupsEndpointHarness.Groups(_factory).GetByNameAsync("переименованная-222"));
     }
 
     [Fact]
     public async Task Update_SameNameCiSelf_NoSelfConflict()
     {
         // Своя группа (fixture класса общий для тестов — seeded-группы не трогаем).
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
         using var created = await client.PostAsync(
             GroupsEndpointHarness.GroupsEndpoint,
             GroupsEndpointHarness.Json("""{"name":"Сам-Конфликт"}"""));
@@ -406,8 +406,8 @@ public sealed class GroupsUpdateEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Update_ForeignNameDuplicate_Returns409()
     {
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-223");
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}",
@@ -418,13 +418,13 @@ public sealed class GroupsUpdateEndpointTests(GroupsApiFixture fixture) : IClass
             "Группа с таким названием уже существует",
             await GroupsEndpointHarness.MessageAsync(response));
         // Имя группы не изменилось.
-        Assert.Equal("ИК-223", GroupsEndpointHarness.GroupByName(_factory, "ИК-223").Name);
+        Assert.Equal("ИК-223", (await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-223")).Name);
     }
 
     [Fact]
     public async Task Update_NonexistentGuid_Returns404GroupNotFound()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{Guid.NewGuid()}",
@@ -437,7 +437,7 @@ public sealed class GroupsUpdateEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Update_NonGuidRouteValue_TreatedAsNotFound()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/not-a-guid",
@@ -450,7 +450,7 @@ public sealed class GroupsUpdateEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Update_NonexistentIdInvalidBody_ValidationBeforeExistence()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         // Порядок 400 → 404: невалидное имя на несуществующем id даёт 400.
         using var response = await client.PutAsync(
@@ -467,7 +467,7 @@ public sealed class GroupsUpdateEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Update_SyntacticallyBrokenJson_Returns400MessageWithoutErrors()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         // Битый JSON тела PUT — 400 без errors (IF-001), причём раньше 404
         // несуществующего id (порядок IF-010).
@@ -493,13 +493,13 @@ public sealed class GroupsDeleteEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Delete_RemovesGroup_StudentsKeptWithoutGroup()
     {
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-222");
-        var detachedLogins = GroupsEndpointHarness.Users(_factory)
-            .ListByGroup(group.Id)
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-222");
+        var detachedLogins = await (await GroupsEndpointHarness.Users(_factory)
+            .ListByGroupAsync(group.Id))
             .Select(student => student.Login)
             .ToArray();
         Assert.Equal(5, detachedLogins.Length);
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.DeleteAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}");
@@ -507,23 +507,23 @@ public sealed class GroupsDeleteEndpointTests(GroupsApiFixture fixture) : IClass
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
         // Группа исчезла из хранилища (и по ci-имени).
-        Assert.Null(GroupsEndpointHarness.Groups(_factory).GetById(group.Id));
-        Assert.Null(GroupsEndpointHarness.Groups(_factory).GetByName("ик-222"));
+        Assert.Null(await GroupsEndpointHarness.Groups(_factory).GetByIdAsync(group.Id));
+        Assert.Null(await GroupsEndpointHarness.Groups(_factory).GetByNameAsync("ик-222"));
 
         // Учётные записи студентов живы и потеряли группу (groupId=null).
         var users = GroupsEndpointHarness.Users(_factory);
         foreach (var login in detachedLogins)
         {
-            var student = users.GetByLogin(login);
+            var student = await users.GetByLoginAsync(login);
             Assert.NotNull(student);
             Assert.Null(student.GroupId);
         }
 
         // Все «освобождённые» видимы выборкой «без группы» — бэкенд
         // GET /students?groupId=none (эндпойнт — зона T-110).
-        var ungrouped = users.ListStudents(groupIdFilter: "none").Select(student => student.Login).ToArray();
+        var ungrouped = (await users.ListStudentsAsync(groupIdFilter: "none")).Select(student => student.Login).ToArray();
         Assert.Subset(ungrouped.ToHashSet(), detachedLogins.ToHashSet());
-        Assert.Equal(0, users.CountByGroup(group.Id));
+        Assert.Equal(0, await users.CountByGroupAsync(group.Id));
 
         // Состав удалённой группы больше не читается.
         using var roster = await client.GetAsync(
@@ -534,7 +534,7 @@ public sealed class GroupsDeleteEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Delete_NonexistentGuid_Returns404GroupNotFound()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.DeleteAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{Guid.NewGuid()}");
@@ -546,7 +546,7 @@ public sealed class GroupsDeleteEndpointTests(GroupsApiFixture fixture) : IClass
     [Fact]
     public async Task Delete_NonGuidRouteValue_TreatedAsNotFound()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.DeleteAsync($"{GroupsEndpointHarness.GroupsEndpoint}/not-a-guid");
 
@@ -567,8 +567,8 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
     [Fact]
     public async Task Students_SecondToThirdPage_PartialLastPageWithProjection()
     {
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students?page=3");
@@ -601,8 +601,8 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
     [Fact]
     public async Task Students_DefaultPage_FirstPageSorted()
     {
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students");
@@ -627,11 +627,11 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
         //    (ordinal поставил бы «Борисов» (U+0411) первым);
         //  - при равном fullName логин «альфа-логин» раньше «Бета-логин»
         //    (ordinal снова дал бы обратное).
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-223");
-        GroupsEndpointHarness.SeedStudent(_factory, "g-borisov", "Борисов Борис", group.Id);
-        GroupsEndpointHarness.SeedStudent(_factory, "Бета-логин", "антонов Арат", group.Id);
-        GroupsEndpointHarness.SeedStudent(_factory, "альфа-логин", "антонов Арат", group.Id);
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
+        await GroupsEndpointHarness.SeedStudent(_factory, "g-borisov", "Борисов Борис", group.Id);
+        await GroupsEndpointHarness.SeedStudent(_factory, "Бета-логин", "антонов Арат", group.Id);
+        await GroupsEndpointHarness.SeedStudent(_factory, "альфа-логин", "антонов Арат", group.Id);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students");
@@ -660,8 +660,8 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
     [InlineData("2.5")]
     public async Task Students_InvalidPage_NormalizedToOne(string rawPage)
     {
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students?page={Uri.EscapeDataString(rawPage)}");
@@ -677,8 +677,8 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
     [Fact]
     public async Task Students_PageBeyondLast_EmptyItemsWithCorrectTotal()
     {
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students?page=99");
@@ -700,8 +700,8 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
         // int, заворачивалось в отрицательное — Skip отдавал ПЕРВУЮ страницу вместо
         // пустой. Страница правее последней обязана быть пустой при корректном
         // total, ответ эхом отдаёт нормализованный номер страницы (IF-009/IF-010).
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students?page={rawPage}");
@@ -717,7 +717,7 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
     [Fact]
     public async Task Students_EmptyGroup_EmptyItemsZeroTotal()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
         using var created = await client.PostAsync(
             GroupsEndpointHarness.GroupsEndpoint,
             GroupsEndpointHarness.Json("""{"name":"Пустая-группа"}"""));
@@ -739,7 +739,7 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
     [Fact]
     public async Task Students_NonexistentGuid_Returns404GroupNotFound()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{Guid.NewGuid()}/students");
@@ -751,7 +751,7 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
     [Fact]
     public async Task Students_NonGuidRouteValue_TreatedAsNotFound()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/not-a-guid/students");
@@ -773,7 +773,7 @@ public sealed class GroupsRolesEndpointTests(GroupsApiFixture fixture) : IClassF
     [Fact]
     public async Task Post_Student_Returns403AndDoesNotCreate()
     {
-        using var client = GroupsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.PostAsync(
             GroupsEndpointHarness.GroupsEndpoint,
@@ -781,13 +781,13 @@ public sealed class GroupsRolesEndpointTests(GroupsApiFixture fixture) : IClassF
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal("Доступ запрещён", await GroupsEndpointHarness.MessageAsync(response));
-        Assert.Null(GroupsEndpointHarness.Groups(_factory).GetByName("студенческая-группа"));
+        Assert.Null(await GroupsEndpointHarness.Groups(_factory).GetByNameAsync("студенческая-группа"));
     }
 
     [Fact]
     public async Task Post_StudentBrokenJson_403Before400()
     {
-        using var client = GroupsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
 
         // Роль проверяется раньше разбора тела: битый JSON не превращает отказ в 400.
         using var response = await client.PostAsync(
@@ -801,7 +801,7 @@ public sealed class GroupsRolesEndpointTests(GroupsApiFixture fixture) : IClassF
     [Fact]
     public async Task Put_StudentNonexistentIdInvalidBody_403Before400And404()
     {
-        using var client = GroupsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
 
         // Роль раньше валидации тела (400) и поиска записи (404).
         using var response = await client.PutAsync(
@@ -815,7 +815,7 @@ public sealed class GroupsRolesEndpointTests(GroupsApiFixture fixture) : IClassF
     [Fact]
     public async Task Delete_StudentNonexistentId_403Before404()
     {
-        using var client = GroupsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.DeleteAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{Guid.NewGuid()}");
@@ -827,8 +827,8 @@ public sealed class GroupsRolesEndpointTests(GroupsApiFixture fixture) : IClassF
     [Fact]
     public async Task Students_Student_Returns403()
     {
-        var group = GroupsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = GroupsEndpointHarness.CreateStudentClient(_factory);
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.GetAsync(
             $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students");
@@ -840,7 +840,7 @@ public sealed class GroupsRolesEndpointTests(GroupsApiFixture fixture) : IClassF
     [Fact]
     public async Task GetList_Teacher_BusinessStatus()
     {
-        using var client = GroupsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(GroupsEndpointHarness.GroupsEndpoint);
 
@@ -862,22 +862,22 @@ public sealed class GroupsUpdateRaceConflictUnitTests
     /// <summary>Декоратор: только Update бросает конфликт гонки, остальное — внутренний склад.</summary>
     private sealed class RaceConflictingGroupRepository(IGroupRepository inner) : IGroupRepository
     {
-        public void Add(Group group) => inner.Add(group);
+        public async Task AddAsync(Group group) => await inner.AddAsync(group);
 
-        public Group? GetById(Guid id) => inner.GetById(id);
+        public async Task<Group?> GetByIdAsync(Guid id) => await inner.GetByIdAsync(id);
 
-        public Group? GetByName(string name) => inner.GetByName(name);
+        public async Task<Group?> GetByNameAsync(string name) => await inner.GetByNameAsync(name);
 
-        public IReadOnlyList<Group> GetAll() => inner.GetAll();
+        public async Task<IReadOnlyList<Group>> GetAllAsync() => await inner.GetAllAsync();
 
-        public IReadOnlyList<Group> List() => inner.List();
+        public async Task<IReadOnlyList<Group>> ListAsync() => await inner.ListAsync();
 
-        public bool ExistsNameCi(string name) => inner.ExistsNameCi(name);
+        public async Task<bool> ExistsNameCiAsync(string name) => await inner.ExistsNameCiAsync(name);
 
-        public void Update(Group group) =>
+        public Task UpdateAsync(Group group) =>
             throw new StorageConflictException("Гонка двух PUT на одно имя (стаб).");
 
-        public void Delete(Guid id) => inner.Delete(id);
+        public async Task DeleteAsync(Guid id) => await inner.DeleteAsync(id);
     }
 
     [Fact]
@@ -885,7 +885,7 @@ public sealed class GroupsUpdateRaceConflictUnitTests
     {
         var storage = TestStorage.Create();
         var group = TestEntities.Group("ИК-999");
-        storage.Groups.Add(group);
+        await storage.Groups.AddAsync(group);
         var controller = new GroupsController(
             new RaceConflictingGroupRepository(storage.Groups),
             storage.Users,

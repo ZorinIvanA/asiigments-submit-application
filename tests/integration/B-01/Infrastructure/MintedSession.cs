@@ -16,10 +16,10 @@ namespace LabsApp.IntegrationTests.B01.Infrastructure;
 public static class MintedSession
 {
     /// <summary>Клиент с валидной access-cookie сеяного учителя (роль teacher, FR-022).</summary>
-    public static HttpClient CreateTeacherClient(B01WebAppFactory factory)
+    public static async Task<HttpClient> CreateTeacherClient(B01WebAppFactory factory)
     {
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        var teacher = users.GetByLogin(SeedOptions.DefaultTeacherLogin);
+        var teacher = await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin);
         Assert.True(
             teacher is not null,
             $"Сеяный учитель «{SeedOptions.DefaultTeacherLogin}» не найден в IUserRepository.");

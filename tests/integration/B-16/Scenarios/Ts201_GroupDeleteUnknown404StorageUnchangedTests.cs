@@ -27,10 +27,10 @@ public sealed class Ts201_GroupDeleteUnknown404StorageUnchangedTests : IClassFix
     {
         // given: сессия teacher; случайный uuid; снимок перечня групп хранилища
         // (демо-сид: ИК-221, ИК-222, ИК-223).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var unknownId = Guid.NewGuid();
         var groupsRepo = _factory.Services.GetRequiredService<IGroupRepository>();
-        var namesBefore = B16GroupsApi.StoredGroupNames(groupsRepo);
+        var namesBefore = await B16GroupsApi.StoredGroupNamesAsync(groupsRepo);
         Assert.True(
             namesBefore.Count == 3,
             "Ожидалось 3 группы демо-сида до DELETE, фактически " +
@@ -45,7 +45,7 @@ public sealed class Ts201_GroupDeleteUnknown404StorageUnchangedTests : IClassFix
         B16GroupsApi.MessageIs(body.RootElement, NotFoundText);
 
         // then: хранилище групп не изменилось (перечень имён совпадает со снимком).
-        var namesAfter = B16GroupsApi.StoredGroupNames(groupsRepo);
+        var namesAfter = await B16GroupsApi.StoredGroupNamesAsync(groupsRepo);
         Assert.True(
             namesBefore.SequenceEqual(namesAfter),
             "Ожидался неизменный перечень групп после 404 на DELETE несуществующей группы, было " +

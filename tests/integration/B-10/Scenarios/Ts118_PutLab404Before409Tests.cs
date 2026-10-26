@@ -18,8 +18,8 @@ public sealed class Ts118_PutLab404Before409Tests(B10NoDemoWebAppFactory factory
     public async Task TS118_PutOccupiedPairOnUnknownId_Returns404Not409()
     {
         // given: пара (1,1) занята существующей записью (DI-сид, ADR-010); U — случайный uuid.
-        _ = B10Seed.AddLab(_factory, semester: 1, number: 1);
-        using var client = HostClients.CreateTeacherClient(_factory);
+        await B10Seed.AddLabAsync(_factory, semester: 1, number: 1);
+        using var client = await HostClients.CreateTeacherClient(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: валидное тело с занятой парой (1,1) на несуществующем id.

@@ -21,8 +21,8 @@ public sealed class Ts113_StudentGroup404Tests : IClassFixture<B05WebAppFactory>
     public async Task PutGroupForTeacher_ReturnsStudentNotFound()
     {
         // given: существующий пользователь с ролью teacher; сессия teacher.
-        var teacher = B05SeedLookup.Teacher(_factory);
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var teacher = await B05SeedLookup.TeacherAsync(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: попытка назначить группу пользователю-преподавателю.
         using var put = await client.PutAsJsonAsync(
@@ -40,7 +40,7 @@ public sealed class Ts113_StudentGroup404Tests : IClassFixture<B05WebAppFactory>
     {
         // given: uuid, которого нет среди пользователей; сессия teacher.
         var unknownStudentId = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение группы несуществующему студенту.
         using var put = await client.PutAsJsonAsync(
@@ -57,8 +57,8 @@ public sealed class Ts113_StudentGroup404Tests : IClassFixture<B05WebAppFactory>
     public async Task PutUnknownGroupForStudent_ReturnsGroupNotFound()
     {
         // given: student31 существует; группы с указанным uuid нет; сессия teacher.
-        var student31 = B05SeedLookup.StudentByLogin(_factory, "student31");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение в несуществующую группу.
         using var put = await client.PutAsJsonAsync(

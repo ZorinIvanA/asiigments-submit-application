@@ -17,7 +17,7 @@ namespace LabsApp.Tests.Storage;
 public sealed class SeedRunnerHostTests
 {
     [Fact]
-    public void Development_ByDefault_DemoSetSeededAtHostBuild()
+    public async Task Development_ByDefault_DemoSetSeededAtHostBuild()
     {
         // Умолчания харнеса отключены (T-006): тест проверяет умолчание ПРИЛОЖЕНИЯ
         // (Development без явной переменной → демо-набор), а не умолчание фабрики.
@@ -29,30 +29,30 @@ public sealed class SeedRunnerHostTests
         var labs = factory.Services.GetRequiredService<ILabRepository>();
         var submissions = factory.Services.GetRequiredService<ISubmissionRepository>();
 
-        Assert.NotNull(users.GetByLogin("teacher"));
-        Assert.Equal(32, users.ListStudents().Count);
-        Assert.Equal(3, groups.GetAll().Count);
-        Assert.Equal(23, labs.GetAll().Count);
-        var allLabIds = labs.GetAll().Select(lab => lab.Id).ToList();
-        Assert.Equal(4, submissions.ListByLabIds(allLabIds).Count);
+        Assert.NotNull(await await users.GetByLoginAsync("teacher"));
+        Assert.Equal(32, (await users.ListStudentsAsync()).Count);
+        Assert.Equal(3, (await groups.GetAllAsync()).Count);
+        Assert.Equal(23, (await labs.GetAllAsync()).Count);
+        var allLabIds = (await labs.GetAllAsync()).Select(lab => lab.Id).ToList();
+        Assert.Equal(4, (await submissions.ListByLabIdsAsync(allLabIds)).Count);
     }
 
     [Fact]
-    public void Production_ByDefault_TeacherOnly()
+    public async Task Production_ByDefault_TeacherOnly()
     {
         using var factory = new TestWebAppFactory(Environments.Production);
         _ = factory.Services;
 
         var users = factory.Services.GetRequiredService<IUserRepository>();
 
-        Assert.NotNull(users.GetByLogin("teacher"));
-        Assert.Empty(users.ListStudents());
+        Assert.NotNull(await await users.GetByLoginAsync("teacher"));
+        Assert.Empty(await users.ListStudentsAsync());
     }
 
     // AC FR-007 v2.3 «Демо-данные не создаются в Production»: явное Seed__DemoData=true
     // игнорируется — opt-in в Production удалён.
     [Fact]
-    public void Production_ExplicitDemoDataTrue_TeacherOnly()
+    public async Task Production_ExplicitDemoDataTrue_TeacherOnly()
     {
         using var factory = new TestWebAppFactory(
             Environments.Production,
@@ -63,16 +63,16 @@ public sealed class SeedRunnerHostTests
         var groups = factory.Services.GetRequiredService<IGroupRepository>();
         var labs = factory.Services.GetRequiredService<ILabRepository>();
 
-        Assert.NotNull(users.GetByLogin("teacher"));
-        Assert.Empty(users.ListStudents());
-        Assert.Empty(groups.GetAll());
-        Assert.Empty(labs.GetAll());
+        Assert.NotNull(await await users.GetByLoginAsync("teacher"));
+        Assert.Empty(await users.ListStudentsAsync());
+        Assert.Empty(await groups.GetAllAsync());
+        Assert.Empty(await labs.GetAllAsync());
     }
 
     // AC FR-004 «Некорректное Seed__DemoData»: применено умолчание окружения
     // (Development → демо-набор), предупреждение содержит имя переменной и значение.
     [Fact]
-    public void SeedDemoData_UnknownValue_WarnsAndAppliesEnvironmentDefault()
+    public async Task SeedDemoData_UnknownValue_WarnsAndAppliesEnvironmentDefault()
     {
         using var factory = new TestWebAppFactory(
             settings: new Dictionary<string, string?> { [SeedOptions.DemoDataVariable] = "yes" });
@@ -86,11 +86,11 @@ public sealed class SeedRunnerHostTests
         Assert.Contains("yes", warning!.Message, StringComparison.Ordinal);
 
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Equal(32, users.ListStudents().Count); // умолчание Development применено
+        Assert.Equal(32, (await users.ListStudentsAsync()).Count); // умолчание Development применено
     }
 
     [Fact]
-    public void SeedDemoData_ExplicitFalse_NoWarning_DemoAbsent()
+    public async Task SeedDemoData_ExplicitFalse_NoWarning_DemoAbsent()
     {
         using var factory = new TestWebAppFactory(
             settings: new Dictionary<string, string?> { [SeedOptions.DemoDataVariable] = "false" });
@@ -102,6 +102,6 @@ public sealed class SeedRunnerHostTests
 
         Assert.Empty(warnings);
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Empty(users.ListStudents());
+        Assert.Empty(await users.ListStudentsAsync());
     }
 }

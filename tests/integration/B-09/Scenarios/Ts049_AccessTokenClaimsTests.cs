@@ -30,7 +30,7 @@ public sealed class Ts049_AccessTokenClaimsTests(B09TimedWebAppFactory factory) 
         // given: учитель существует (сид фикстуры — teacher/teacher123!) и
         // выполнил успешный вход.
         _ = _factory.Services;
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>().GetByLogin("teacher");
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
 
         using var client = B09AuthHttp.Create(_factory, TestIp);

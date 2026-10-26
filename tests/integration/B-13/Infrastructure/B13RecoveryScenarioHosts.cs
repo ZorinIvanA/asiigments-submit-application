@@ -67,6 +67,9 @@ public abstract class B13RecoveryScenarioHostFactory : WebApplicationFactory<Pro
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
+            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
+            builder.UseSetting("Storage:Provider", "InMemory");
         builder.UseEnvironment(HostEnvironmentName);
         builder.UseSetting(WebHostDefaults.ContentRootKey, AppContext.BaseDirectory);
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");

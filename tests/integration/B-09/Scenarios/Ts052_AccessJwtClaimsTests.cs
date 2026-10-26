@@ -36,12 +36,12 @@ public sealed class Ts052_AccessJwtClaimsTests(B09TimedWebAppFactory factory) : 
         // выпущены access-токены обоих (успешные входы).
         _ = _factory.Services;
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var teacher = users.GetByLogin("teacher");
+        var teacher = await users.GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
 
         await B09HostClients.RegisterStudentAsync(
             _factory, "Пятьдесят Второй Студент", StudentLogin, StudentEmail, ip: RegistrationIp);
-        var student = users.GetByLogin(StudentLogin);
+        var student = await users.GetByLoginAsync(StudentLogin);
         Assert.NotNull(student);
 
         using var teacherClient = B09AuthHttp.Create(_factory, TeacherIp);

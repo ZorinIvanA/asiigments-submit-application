@@ -33,12 +33,12 @@ public sealed class Ts156_RoleMatrixTests(B12WebAppFactory factory) : IClassFixt
         "\"assignmentUrl\":null,\"defenseRequired\":false}";
 
     private readonly B12WebAppFactory _factory = factory;
-    private readonly Guid _groupId = B12Seed.EnsureGroup(factory, "ИК-B12-Matrix").Id;
-    private readonly Guid _studentId = B12Seed.EnsureStudent(
+    private readonly Guid _groupId = (await B12Seed.EnsureGroupAsync(factory, "ИК-B12-Matrix")).Id;
+    private readonly Guid _studentId = (await B12Seed.EnsureStudentAsync(
         factory,
         login: "b12-ts156-student",
         fullName: "Матрица Ролей Тестович",
-        email: "b12-ts156@t.local").Id;
+        email: "b12-ts156@t.local")).Id;
 
     /// <summary>Перечень защищённых операций матрицы: (имя, метод, путь, тело, роли).</summary>
     public static IEnumerable<object?[]> Operations()
@@ -133,7 +133,7 @@ public sealed class Ts156_RoleMatrixTests(B12WebAppFactory factory) : IClassFixt
     {
         var userId = role == UserRoles.Teacher
             ? _factory.Services.GetRequiredService<IUserRepository>()
-                    .GetByLogin(SeedOptions.DefaultTeacherLogin)?.Id
+                    .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)?.Id
                 ?? throw new InvalidOperationException("Сид-преподаватель не найден.")
             : _studentId;
         return B12AuthSessions.CreateClientWithAccess(_factory, userId, role);

@@ -22,10 +22,10 @@ public sealed class Ts035_DuplicateLoginFirstTests : IClassFixture<B03HostFactor
     public async Task Register_DuplicateLoginCaseInsensitive_CheckedBeforeEmail()
     {
         // given: существуют пользователь с login 'stu' и email 'stu@example.com'.
-        B03UserSeed.AddStudent(_factory, login: "stu", email: "stu@example.com");
+        await B03UserSeed.AddStudentAsync(_factory, login: "stu", email: "stu@example.com");
         var kdf = B03Kdf.Resolve(_factory.Services);
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.143.0.1");
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
 
         // when: регистрация с тем же логином в другом регистре и тем же email.
         var before = kdf.Snapshot();
@@ -48,6 +48,6 @@ public sealed class Ts035_DuplicateLoginFirstTests : IClassFixture<B03HostFactor
 
         // then: Δkdf=0; новый пользователь не создан.
         Assert.Equal(0, B03Kdf.TotalDelta(before, after));
-        Assert.Equal(studentsBefore, B03UserSeed.CountStudents(_factory));
+        Assert.Equal(studentsBefore, await B03UserSeed.CountStudentsAsync(_factory));
     }
 }

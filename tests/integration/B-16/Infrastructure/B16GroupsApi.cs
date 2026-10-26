@@ -192,10 +192,10 @@ public static class B16GroupsApi
     /// lower-правило уникальности — lower(group.name) FR-024: сравнение
     /// ToLowerInvariant дословно воспроизводит его, не опираясь на код SUT.
     /// </summary>
-    public static IReadOnlyList<string> StoredGroupNames(LabsApp.Storage.IGroupRepository groups) =>
-        groups.GetAll().Select(group => group.Name).ToList();
+    public static async Task<IReadOnlyList<string>> StoredGroupNamesAsync(LabsApp.Storage.IGroupRepository groups) =>
+        (await groups.GetAllAsync()).Select(group => group.Name).ToList();
 
     /// <summary>Число групп хранилища с lower(name), равным ожидаемому (FR-024).</summary>
-    public static int CountStoredGroupsByCiName(LabsApp.Storage.IGroupRepository groups, string ciName) =>
-        groups.GetAll().Count(group => string.Equals(group.Name.ToLowerInvariant(), ciName.ToLowerInvariant(), StringComparison.Ordinal));
+    public static async Task<int> CountStoredGroupsByCiNameAsync(LabsApp.Storage.IGroupRepository groups, string ciName) =>
+        (await groups.GetAllAsync()).Count(group => string.Equals(group.Name.ToLowerInvariant(), ciName.ToLowerInvariant(), StringComparison.Ordinal));
 }

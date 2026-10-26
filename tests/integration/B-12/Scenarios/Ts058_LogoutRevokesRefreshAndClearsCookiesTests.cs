@@ -25,12 +25,12 @@ public sealed class Ts058_LogoutRevokesRefreshAndClearsCookiesTests(B12WebAppFac
     public async Task Logout_NoContent_ClearsBothCookies_RevokesRefresh()
     {
         // given: пользователь вошёл (оба cookie) — сессия минтуется через DI (ADR-015).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
         var accessToken = _factory.Services.GetRequiredService<ITokenService>()
             .IssueAccessToken(teacher.Id, UserRoles.Teacher);
-        var refreshToken = B12AuthSessions.CreateLiveRefreshToken(_factory, teacher.Id);
+        var refreshToken = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, teacher.Id);
 
         using var client = B12AuthSessions.CreateClient(_factory);
 

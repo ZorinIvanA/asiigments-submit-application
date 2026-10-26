@@ -21,26 +21,33 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        400: не-uuid трактуется как несуществующая сущность.
 /// </summary>
 public sealed class Ts195_NonUuidIdentifiersResolveToEntityNotFoundTests :
-    IClassFixture<B06SubmissionsWebAppFactory>
+    IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private const string NotAUuid = "not-a-uuid";
 
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _student01Id;
+    private Guid _student01Id;
 
     public Ts195_NonUuidIdentifiersResolveToEntityNotFoundTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        var student01 = B06SubmissionsSessions.RequireUser(factory, "student01");
+    }
+
+    public async Task InitializeAsync()
+    {
+        var student01 = await B06SubmissionsSessions.RequireUserAsync(_factory, "student01");
         Assert.Equal(UserRoles.Student, student01.Role);
         _student01Id = student01.Id;
     }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task NonUuidIdentifierInPathAndBody_ReturnsEntity404Never500()
     {
         // given: teacher-сессия; валидный student01; не-uuid строка подготовлена.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /students/not-a-uuid/group {groupId:null}.
         using var pathSegment = await PutStudentGroupAsync(client, NotAUuid, groupId: null);

@@ -32,7 +32,7 @@ public sealed class Ts196_ProfileTeacherDtoTests : IClassFixture<B14WebAppFactor
     public async Task ProfileOfSeedTeacher_ReturnsProfileDtoWithNullGroupName()
     {
         // given: сид-преподаватель (role=teacher, GroupId=null); сессия teacher.
-        var teacher = B14Harness.ResolveSeedTeacher(_factory);
+        var teacher = await B14Harness.ResolveSeedTeacherAsync(_factory);
         using var client = B14Harness.CreateSessionClient(_factory, teacher.Id, "teacher");
 
         // when: GET /api/v1/me/profile.

@@ -34,6 +34,9 @@ public sealed class Ts173ProductionHostFactory : B14WebAppFactory
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
+            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
+            builder.UseSetting("Storage:Provider", "InMemory");
         // Конфигурация зоны B14WebAppFactory повторяется с заменой окружения:
         // base.ConfigureWebHost не вызывается, он фиксирует Development.
         builder.UseEnvironment(Environments.Production);
@@ -79,8 +82,8 @@ public sealed class Ts173_SemestersEmptyProductionTests
         // given: Production-хост: создан только сид-преподаватель (ResolveSeedTeacher
         // утверждает его наличие и роль), лабораторных работ нет (предусловие
         // фиксируется чтением ILabRepository тестового хоста); валидная сессия teacher.
-        var teacher = B14Harness.ResolveSeedTeacher(_factory);
-        Assert.Empty(_factory.Services.GetRequiredService<ILabRepository>().GetAll());
+        var teacher = await B14Harness.ResolveSeedTeacherAsync(_factory);
+        Assert.Empty(await _factory.Services.GetRequiredService<ILabRepository>().GetAllAsync());
         using var client = B14Harness.CreateSessionClient(_factory, teacher.Id, UserRoles.Teacher);
 
         // when: GET /api/v1/semesters

@@ -52,7 +52,7 @@ public sealed class Ts077_RecoveryConfirmIssuesResetTokenTests(B13RecoveryTimedH
 
         // then: PasswordResetToken жив: expiresAt=T0+15 мин, usedAt=null
         // (поиск по SHA-256 значения — как в прод-потоке, IF-003).
-        var resetRecord = securityTokens.FindLiveResetByHash(B13RecoverySeed.Sha256Hex(resetToken!));
+        var resetRecord = await securityTokens.FindLiveResetByHashAsync(B13RecoverySeed.Sha256Hex(resetToken!));
         Assert.NotNull(resetRecord);
         Assert.Null(resetRecord.UsedAt);
         Assert.Equal(t0.AddMinutes(15).UtcDateTime, resetRecord.ExpiresAt);

@@ -29,59 +29,59 @@ public sealed class SeedRunnerTests
     private const int TestIterations = 1000;
 
     [Fact]
-    public void Development_NoDemoDataVariable_SeedsFullDemoSet()
+    public async Task Development_NoDemoDataVariable_SeedsFullDemoSet()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
-        AssertDemoSet(storage);
+        await AssertTeacherAsync(storage, harness.Hasher);
+        await AssertDemoSetAsync(storage);
     }
 
     [Fact]
-    public void Production_NoDemoDataVariable_SeedsTeacherOnly()
+    public async Task Production_NoDemoDataVariable_SeedsTeacherOnly()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Production", demoData: null);
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
-        Assert.Empty(storage.Users.ListStudents());
-        Assert.Empty(storage.Groups.GetAll());
-        Assert.Empty(storage.Labs.GetAll());
+        await AssertTeacherAsync(storage, harness.Hasher);
+        Assert.Empty(await storage.Users.ListStudentsAsync());
+        Assert.Empty(await storage.Groups.GetAllAsync());
+        Assert.Empty(await storage.Labs.GetAllAsync());
     }
 
     // FR-025: вне Development флаг ВСЕГДА трактуется как false —
     // явное 'true' игнорируется (opt-in в Production удалён).
     [Fact]
-    public void Production_ExplicitTrue_Ignored_SeedsTeacherOnly()
+    public async Task Production_ExplicitTrue_Ignored_SeedsTeacherOnly()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Production", demoData: "TRUE");
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
-        Assert.Empty(storage.Users.ListStudents());
-        Assert.Empty(storage.Groups.GetAll());
-        Assert.Empty(storage.Labs.GetAll());
+        await AssertTeacherAsync(storage, harness.Hasher);
+        Assert.Empty(await storage.Users.ListStudentsAsync());
+        Assert.Empty(await storage.Groups.GetAllAsync());
+        Assert.Empty(await storage.Labs.GetAllAsync());
     }
 
     [Fact]
-    public void Development_ExplicitFalse_SeedsTeacherOnly()
+    public async Task Development_ExplicitFalse_SeedsTeacherOnly()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: "false");
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
-        Assert.Empty(storage.Users.ListStudents());
-        Assert.Empty(storage.Groups.GetAll());
-        Assert.Empty(storage.Labs.GetAll());
+        await AssertTeacherAsync(storage, harness.Hasher);
+        Assert.Empty(await storage.Users.ListStudentsAsync());
+        Assert.Empty(await storage.Groups.GetAllAsync());
+        Assert.Empty(await storage.Labs.GetAllAsync());
     }
 
     // ------------------------------------------------------------------
@@ -91,27 +91,27 @@ public sealed class SeedRunnerTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Development_UnknownValue_UsesEnvironmentDefault()
+    public async Task Development_UnknownValue_UsesEnvironmentDefault()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: "yes");
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
-        AssertDemoSet(storage);
+        await AssertTeacherAsync(storage, harness.Hasher);
+        await AssertDemoSetAsync(storage);
     }
 
     [Fact]
-    public void Production_UnknownValue_UsesEnvironmentDefault_TeacherOnly()
+    public async Task Production_UnknownValue_UsesEnvironmentDefault_TeacherOnly()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Production", demoData: "2");
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
-        Assert.Empty(storage.Users.ListStudents());
+        await AssertTeacherAsync(storage, harness.Hasher);
+        Assert.Empty(await storage.Users.ListStudentsAsync());
     }
 
     // ------------------------------------------------------------------
@@ -121,42 +121,42 @@ public sealed class SeedRunnerTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Run_WithDemoData_SeedKdfDelta_Is33()
+    public async Task Run_WithDemoData_SeedKdfDelta_Is33()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
         var before = harness.Counter.Snapshot();
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
         Assert.Equal(33, Delta(harness.Counter, before, KdfCallers.Seed));
     }
 
     [Fact]
-    public void Run_TeacherOnly_SeedKdfDelta_Is1()
+    public async Task Run_TeacherOnly_SeedKdfDelta_Is1()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: "false");
         var before = harness.Counter.Snapshot();
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
         Assert.Equal(1, Delta(harness.Counter, before, KdfCallers.Seed));
     }
 
     [Fact]
-    public void Run_Twice_NoAdditionalSeedDerivations()
+    public async Task Run_Twice_NoAdditionalSeedDerivations()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
         var afterFirst = harness.Counter.Snapshot();
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
         Assert.Equal(0, Delta(harness.Counter, afterFirst, KdfCallers.Seed));
-        AssertTeacher(storage, harness.Hasher);
-        AssertDemoSet(storage);
+        await AssertTeacherAsync(storage, harness.Hasher);
+        await AssertDemoSetAsync(storage);
     }
 
     // ------------------------------------------------------------------
@@ -172,14 +172,14 @@ public sealed class SeedRunnerTests
     [InlineData("teacher", "teacher123!")]
     [InlineData("student01", "student123!")]
     [InlineData("student32", "student123!")]
-    public void Run_SeededPasswordHash_HasIf002FourSegmentFormat(string login, string password)
+    public async Task Run_SeededPasswordHash_HasIf002FourSegmentFormat(string login, string password)
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var hash = storage.Users.GetByLogin(login)!.PasswordHash;
+        var hash = (await storage.Users.GetByLoginAsync(login))!.PasswordHash;
         Assert.StartsWith(Pbkdf2PasswordHasher.AlgorithmMarker + "$", hash, StringComparison.Ordinal);
 
         // Ровно 4 сегмента без пустого первого: маркер, итерации, соль, ключ.
@@ -202,22 +202,22 @@ public sealed class SeedRunnerTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Run_Twice_Idempotent()
+    public async Task Run_Twice_Idempotent()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
 
-        harness.Runner.Run();
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
-        AssertDemoSet(storage);
+        await AssertTeacherAsync(storage, harness.Hasher);
+        await AssertDemoSetAsync(storage);
     }
 
     // Идемпотентность по естественному ключу lower(login): существующий студент
     // не дублируется и не перезаписывается (пароль/ email остаются его собственными).
     [Fact]
-    public void Run_ExistingStudentLogin_NotDuplicated_NotOverwritten()
+    public async Task Run_ExistingStudentLogin_NotDuplicated_NotOverwritten()
     {
         var storage = TestStorage.Create();
         var existing = new User
@@ -231,24 +231,24 @@ public sealed class SeedRunnerTests
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         };
-        storage.Users.Add(existing);
+        await storage.Users.AddAsync(existing);
 
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        Assert.Equal(32, storage.Users.ListStudents().Count); // 31 новых + 1 существующий
-        var stored = storage.Users.GetByLogin("STUDENT05")!;   // ci-поиск
+        Assert.Equal(32, (await storage.Users.ListStudentsAsync()).Count); // 31 новых + 1 существующий
+        var stored = (await storage.Users.GetByLoginAsync("STUDENT05"))!;   // ci-поиск
         Assert.Equal(existing.Id, stored.Id);
         Assert.Equal("marker-hash", stored.PasswordHash);
         Assert.Equal("ghost05@example.com", stored.Email);
         Assert.Null(stored.GroupId);
-        Assert.True(harness.Hasher.Verify("student123!", storage.Users.GetByLogin("student06")!.PasswordHash, KdfCallers.Login));
+        Assert.True(harness.Hasher.Verify("student123!", (await storage.Users.GetByLoginAsync("student06"))!.PasswordHash, KdfCallers.Login));
     }
 
     // Идемпотентность по естественному ключу lower(email): занятый сид-email
     // не приводит к конфликту уникальности — студент пропускается.
     [Fact]
-    public void Run_ExistingStudentEmail_NotDuplicated_NotOverwritten()
+    public async Task Run_ExistingStudentEmail_NotDuplicated_NotOverwritten()
     {
         var storage = TestStorage.Create();
         var existing = new User
@@ -262,14 +262,14 @@ public sealed class SeedRunnerTests
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         };
-        storage.Users.Add(existing);
+        await storage.Users.AddAsync(existing);
 
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        Assert.Null(storage.Users.GetByLogin("student08")); // студент пропущен
-        Assert.Equal(32, storage.Users.ListStudents().Count); // 31 новых + ghost
-        var stored = storage.Users.GetByLogin("ghost")!;
+        Assert.Null(await await storage.Users.GetByLoginAsync("student08")); // студент пропущен
+        Assert.Equal(32, (await storage.Users.ListStudentsAsync()).Count); // 31 новых + ghost
+        var stored = (await storage.Users.GetByLoginAsync("ghost"))!;
         Assert.Equal(existing.Id, stored.Id);
         Assert.Equal("marker-hash", stored.PasswordHash);
     }
@@ -277,38 +277,38 @@ public sealed class SeedRunnerTests
     // Идемпотентность по естественному ключу — ci-имя группы: существующая группа
     // переиспользуется (студенты 01–25 привязываются к ней), дублей нет.
     [Fact]
-    public void Run_ExistingGroupNameCi_ReusedForStudents()
+    public async Task Run_ExistingGroupNameCi_ReusedForStudents()
     {
         var storage = TestStorage.Create();
         var existing = TestEntities.Group("ик-221"); // ci-равно «ИК-221»
-        storage.Groups.Add(existing);
+        await storage.Groups.AddAsync(existing);
 
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        Assert.Equal(3, storage.Groups.GetAll().Count);
-        var student01 = storage.Users.GetByLogin("student01")!;
+        Assert.Equal(3, (await storage.Groups.GetAllAsync()).Count);
+        var student01 = (await storage.Users.GetByLoginAsync("student01"))!;
         Assert.Equal(existing.Id, student01.GroupId);
-        var student25 = storage.Users.GetByLogin("student25")!;
+        var student25 = (await storage.Users.GetByLoginAsync("student25"))!;
         Assert.Equal(existing.Id, student25.GroupId);
     }
 
     // Идемпотентность по естественному ключу (semester, number): существующая
     // работа не дублируется и не перезаписывается.
     [Fact]
-    public void Run_ExistingLabPair_NotDuplicated_NotOverwritten()
+    public async Task Run_ExistingLabPair_NotDuplicated_NotOverwritten()
     {
         var storage = TestStorage.Create();
         var existing = TestEntities.Lab(1, 1);
         existing.Content = "пользовательская работа";
         existing.AssignmentUrl = "https://custom.example.com/lab";
-        storage.Labs.Add(existing);
+        await storage.Labs.AddAsync(existing);
 
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        Assert.Equal(23, storage.Labs.GetAll().Count);
-        var stored = storage.Labs.TryGetByPair(1, 1)!;
+        Assert.Equal(23, (await storage.Labs.GetAllAsync()).Count);
+        var stored = (await storage.Labs.TryGetByPairAsync(1, 1))!;
         Assert.Equal(existing.Id, stored.Id);
         Assert.Equal("пользовательская работа", stored.Content);
         Assert.Equal("https://custom.example.com/lab", stored.AssignmentUrl);
@@ -317,44 +317,44 @@ public sealed class SeedRunnerTests
     // Идемпотентность по естественному ключу (student, lab): повторный сид
     // обновляет сдачу по правилам seed.ts на месте, не создавая дублей.
     [Fact]
-    public void Run_ExistingSubmissionPair_UpdatedInPlaceNotDuplicated()
+    public async Task Run_ExistingSubmissionPair_UpdatedInPlaceNotDuplicated()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var student01 = storage.Users.GetByLogin("student01")!;
-        var lab11 = storage.Labs.TryGetByPair(1, 1)!;
-        storage.Submissions.Upsert(
+        var student01 = (await storage.Users.GetByLoginAsync("student01"))!;
+        var lab11 = (await storage.Labs.TryGetByPairAsync(1, 1))!;
+        await storage.Submissions.UpsertAsync(
             student01.Id, lab11.Id, new DateOnly(2025, 1, 1), new DateOnly(2025, 1, 2), updatedBy: null, DateTime.UtcNow);
 
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var allLabIds = storage.Labs.GetAll().Select(lab => lab.Id).ToList();
-        Assert.Equal(4, storage.Submissions.ListByLabIds(allLabIds).Count);
-        var stored = storage.Submissions.GetByStudentAndLab(student01.Id, lab11.Id)!;
+        var allLabIds = (await storage.Labs.GetAllAsync()).Select(lab => lab.Id).ToList();
+        Assert.Equal(4, (await storage.Submissions.ListByLabIdsAsync(allLabIds)).Count);
+        var stored = (await storage.Submissions.GetByStudentAndLabAsync(student01.Id, lab11.Id))!;
         Assert.Equal(new DateOnly(2026, 9, 1), stored.SubmitDate);
         Assert.Equal(new DateOnly(2026, 9, 11), stored.DefenseDate);
-        Assert.Equal(storage.Users.GetByLogin("teacher")!.Id, stored.UpdatedBy);
+        Assert.Equal((await storage.Users.GetByLoginAsync("teacher"))!.Id, stored.UpdatedBy);
     }
 
     // Пер-ключевая идемпотентность (T-005): сид-преподаватель уже существует
     // (например, прошлый запуск без демо-данных) — демо-набор всё равно создаётся,
     // а существующая учётка не перехэшируется (Δkdf{seed} = 32, без преподавателя).
     [Fact]
-    public void Run_AfterTeacherOnlyRun_SeedsDemoDataWithoutRehashingTeacher()
+    public async Task Run_AfterTeacherOnlyRun_SeedsDemoDataWithoutRehashingTeacher()
     {
         var storage = TestStorage.Create();
         var first = CreateHarness(storage, environment: "Development", demoData: "false");
-        first.Runner.Run();
+        await first.Runner.RunAsync();
 
         var second = CreateHarness(storage, environment: "Development", demoData: null);
         var before = second.Counter.Snapshot();
-        second.Runner.Run();
+        await second.Runner.RunAsync();
 
         Assert.Equal(32, Delta(second.Counter, before, KdfCallers.Seed));
-        AssertTeacher(storage, second.Hasher);
-        AssertDemoSet(storage);
+        await AssertTeacherAsync(storage, second.Hasher);
+        await AssertDemoSetAsync(storage);
     }
 
     // ------------------------------------------------------------------
@@ -362,15 +362,15 @@ public sealed class SeedRunnerTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void CustomTeacherLoginAndPassword_SeededAndVerifiable()
+    public async Task CustomTeacherLoginAndPassword_SeededAndVerifiable()
     {
         var storage = TestStorage.Create();
         var options = new SeedOptions { TeacherLogin = "admin", TeacherPassword = "s3cret-Br4nd!" };
 
         var harness = CreateHarness(storage, environment: "Development", options: options);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var teacher = storage.Users.GetByLogin("ADMIN"); // ci-поиск
+        var teacher = await storage.Users.GetByLoginAsync("ADMIN"); // ci-поиск
         Assert.NotNull(teacher);
         Assert.Equal("admin", teacher.Login);
         Assert.Equal(UserRoles.Teacher, teacher.Role);
@@ -383,15 +383,15 @@ public sealed class SeedRunnerTests
     [Theory]
     [InlineData("1")]
     [InlineData("a")]
-    public void SeedPassword_ShortOrWeak_NotValidatedBySection8(string seedPassword)
+    public async Task SeedPassword_ShortOrWeak_NotValidatedBySection8(string seedPassword)
     {
         var storage = TestStorage.Create();
         var options = new SeedOptions { TeacherPassword = seedPassword };
 
         var harness = CreateHarness(storage, environment: "Development", options: options);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var teacher = storage.Users.GetByLogin("teacher");
+        var teacher = await storage.Users.GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
         Assert.True(harness.Hasher.Verify(seedPassword, teacher.PasswordHash, KdfCallers.Login));
     }
@@ -401,15 +401,15 @@ public sealed class SeedRunnerTests
     // хэшируется дословно, а не «схлопывается» тримом к документированному дефолту
     // (иначе учётная запись получала бы пароль, который guard не проверял).
     [Fact]
-    public void SeedPassword_WithLeadingTrailingSpaces_HashedVerbatimNotTrimmed()
+    public async Task SeedPassword_WithLeadingTrailingSpaces_HashedVerbatimNotTrimmed()
     {
         var storage = TestStorage.Create();
         var options = new SeedOptions { TeacherPassword = " teacher123! " };
 
         var harness = CreateHarness(storage, environment: "Development", options: options);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var teacher = storage.Users.GetByLogin("teacher")!;
+        var teacher = (await storage.Users.GetByLoginAsync("teacher"))!;
         Assert.True(harness.Hasher.Verify(" teacher123! ", teacher.PasswordHash, KdfCallers.Login));
         Assert.False(harness.Hasher.Verify("teacher123!", teacher.PasswordHash, KdfCallers.Login));
     }
@@ -417,15 +417,15 @@ public sealed class SeedRunnerTests
     // SEC-001 (регресс): пробелами нельзя «спрятать» слабое значение — эффективный
     // пароль учётной записи равен сырому значению переменной, а не обрезанному.
     [Fact]
-    public void SeedPassword_PaddedWeakValue_EffectivePasswordIsRawValue()
+    public async Task SeedPassword_PaddedWeakValue_EffectivePasswordIsRawValue()
     {
         var storage = TestStorage.Create();
         var options = new SeedOptions { TeacherPassword = "   ab1!   " };
 
         var harness = CreateHarness(storage, environment: "Development", options: options);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var teacher = storage.Users.GetByLogin("teacher")!;
+        var teacher = (await storage.Users.GetByLoginAsync("teacher"))!;
         Assert.True(harness.Hasher.Verify("   ab1!   ", teacher.PasswordHash, KdfCallers.Login));
         Assert.False(harness.Hasher.Verify("ab1!", teacher.PasswordHash, KdfCallers.Login));
     }
@@ -436,37 +436,37 @@ public sealed class SeedRunnerTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void SeedPassword_MissingOrWhitespace_FallsBackToDefault(string? seedPassword)
+    public async Task SeedPassword_MissingOrWhitespace_FallsBackToDefault(string? seedPassword)
     {
         var storage = TestStorage.Create();
         var options = new SeedOptions { TeacherPassword = seedPassword! };
 
         var harness = CreateHarness(storage, environment: "Development", options: options);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        AssertTeacher(storage, harness.Hasher);
+        await AssertTeacherAsync(storage, harness.Hasher);
     }
 
     [Fact]
-    public void EmptyTeacherLogin_FallsBackToDefault()
+    public async Task EmptyTeacherLogin_FallsBackToDefault()
     {
         var storage = TestStorage.Create();
         var options = new SeedOptions { TeacherLogin = "   " };
 
         var harness = CreateHarness(storage, environment: "Development", options: options);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        Assert.NotNull(storage.Users.GetByLogin("teacher"));
+        Assert.NotNull(await await storage.Users.GetByLoginAsync("teacher"));
     }
 
     [Fact]
-    public void DemoSet_StudentPassword_Verifies()
+    public async Task DemoSet_StudentPassword_Verifies()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var student01 = storage.Users.GetByLogin("student01")!;
+        var student01 = (await storage.Users.GetByLoginAsync("student01"))!;
         Assert.True(harness.Hasher.Verify("student123!", student01.PasswordHash, KdfCallers.Login));
     }
 
@@ -475,29 +475,29 @@ public sealed class SeedRunnerTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void DemoSet_GroupsAndStudents()
+    public async Task DemoSet_GroupsAndStudents()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var ik221 = storage.Groups.GetByName("ИК-221");
-        var ik222 = storage.Groups.GetByName("ИК-222");
-        var ik223 = storage.Groups.GetByName("ИК-223");
+        var ik221 = await storage.Groups.GetByNameAsync("ИК-221");
+        var ik222 = await storage.Groups.GetByNameAsync("ИК-222");
+        var ik223 = await storage.Groups.GetByNameAsync("ИК-223");
         Assert.NotNull(ik221);
         Assert.NotNull(ik222);
         Assert.NotNull(ik223);
-        Assert.Equal(3, storage.Groups.GetAll().Count);
+        Assert.Equal(3, (await storage.Groups.GetAllAsync()).Count);
 
-        Assert.Equal(32, storage.Users.ListStudents().Count);
-        Assert.Null(storage.Users.GetByLogin("Student33"));
+        Assert.Equal(32, (await storage.Users.ListStudentsAsync()).Count);
+        Assert.Null(await await storage.Users.GetByLoginAsync("Student33"));
 
-        var student01 = storage.Users.GetByLogin("student01")!;
-        var student25 = storage.Users.GetByLogin("student25")!;
-        var student26 = storage.Users.GetByLogin("student26")!;
-        var student30 = storage.Users.GetByLogin("student30")!;
-        var student31 = storage.Users.GetByLogin("student31")!;
-        var student32 = storage.Users.GetByLogin("student32")!;
+        var student01 = (await storage.Users.GetByLoginAsync("student01"))!;
+        var student25 = (await storage.Users.GetByLoginAsync("student25"))!;
+        var student26 = (await storage.Users.GetByLoginAsync("student26"))!;
+        var student30 = (await storage.Users.GetByLoginAsync("student30"))!;
+        var student31 = (await storage.Users.GetByLoginAsync("student31"))!;
+        var student32 = (await storage.Users.GetByLoginAsync("student32"))!;
         Assert.Equal(ik221!.Id, student01.GroupId);
         Assert.Equal(ik221.Id, student25.GroupId);
         Assert.Equal(ik222!.Id, student26.GroupId);
@@ -507,87 +507,87 @@ public sealed class SeedRunnerTests
 
         Assert.Equal("student01@example.com", student01.Email);
         Assert.Equal("Иванов Иван Иванович 01", student01.FullName);
-        Assert.Equal("student32@example.com", storage.Users.GetByLogin("student32")!.Email);
-        Assert.Equal("Иванов Иван Иванович 32", storage.Users.GetByLogin("student32")!.FullName);
+        Assert.Equal("student32@example.com", (await storage.Users.GetByLoginAsync("student32"))!.Email);
+        Assert.Equal("Иванов Иван Иванович 32", (await storage.Users.GetByLoginAsync("student32"))!.FullName);
     }
 
     [Fact]
-    public void DemoSet_Labs_CompositionAndAttributes()
+    public async Task DemoSet_Labs_CompositionAndAttributes()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
         // 20 работ семестра 1 + 3 работы семестра 2; за границами — нет.
-        Assert.Equal(23, storage.Labs.GetAll().Count);
-        Assert.NotNull(storage.Labs.TryGetByPair(1, 1));
-        Assert.NotNull(storage.Labs.TryGetByPair(1, 20));
-        Assert.Null(storage.Labs.TryGetByPair(1, 21));
-        Assert.NotNull(storage.Labs.TryGetByPair(2, 3));
-        Assert.Null(storage.Labs.TryGetByPair(2, 4));
+        Assert.Equal(23, (await storage.Labs.GetAllAsync()).Count);
+        Assert.NotNull(await await storage.Labs.TryGetByPairAsync(1, 1));
+        Assert.NotNull(await await storage.Labs.TryGetByPairAsync(1, 20));
+        Assert.Null(await await storage.Labs.TryGetByPairAsync(1, 21));
+        Assert.NotNull(await await storage.Labs.TryGetByPairAsync(2, 3));
+        Assert.Null(await await storage.Labs.TryGetByPairAsync(2, 4));
 
         // Содержание, защита у чётных, ссылка у кратных 5.
-        var lab11 = storage.Labs.TryGetByPair(1, 1)!;
+        var lab11 = (await storage.Labs.TryGetByPairAsync(1, 1))!;
         Assert.Equal("Содержание лабораторной работы №1", lab11.Content);
         Assert.False(lab11.DefenseRequired);
         Assert.Null(lab11.AssignmentUrl);
 
-        var lab12 = storage.Labs.TryGetByPair(1, 2)!;
+        var lab12 = (await storage.Labs.TryGetByPairAsync(1, 2))!;
         Assert.True(lab12.DefenseRequired);
         Assert.Null(lab12.AssignmentUrl);
 
-        var lab15 = storage.Labs.TryGetByPair(1, 5)!;
+        var lab15 = (await storage.Labs.TryGetByPairAsync(1, 5))!;
         Assert.False(lab15.DefenseRequired);
         Assert.Equal("https://git.example.com/assignments/1/5", lab15.AssignmentUrl);
 
-        var lab110 = storage.Labs.TryGetByPair(1, 10)!;
+        var lab110 = (await storage.Labs.TryGetByPairAsync(1, 10))!;
         Assert.True(lab110.DefenseRequired);
         Assert.Equal("https://git.example.com/assignments/1/10", lab110.AssignmentUrl);
 
-        var lab21 = storage.Labs.TryGetByPair(2, 1)!;
+        var lab21 = (await storage.Labs.TryGetByPairAsync(2, 1))!;
         Assert.Equal("Содержание лабораторной работы №1", lab21.Content);
         Assert.Null(lab21.AssignmentUrl);
     }
 
     [Fact]
-    public void DemoSet_Submissions_ExactRulesWithTeacherStamp()
+    public async Task DemoSet_Submissions_ExactRulesWithTeacherStamp()
     {
         var storage = TestStorage.Create();
         var harness = CreateHarness(storage, environment: "Development", demoData: null);
-        harness.Runner.Run();
+        await harness.Runner.RunAsync();
 
-        var teacher = storage.Users.GetByLogin("teacher")!;
-        var student01 = storage.Users.GetByLogin("student01")!;
-        var student02 = storage.Users.GetByLogin("student02")!;
+        var teacher = (await storage.Users.GetByLoginAsync("teacher"))!;
+        var student01 = (await storage.Users.GetByLoginAsync("student01"))!;
+        var student02 = (await storage.Users.GetByLoginAsync("student02"))!;
         var expectedUpdatedAt = new DateTime(2026, 9, 11, 12, 0, 0, DateTimeKind.Utc);
 
-        var first = storage.Submissions.GetByStudentAndLab(student01.Id, storage.Labs.TryGetByPair(1, 1)!.Id)!;
+        var first = (await storage.Submissions.GetByStudentAndLabAsync(student01.Id, (await storage.Labs.TryGetByPairAsync(1, 1))!.Id))!;
         Assert.Equal(new DateOnly(2026, 9, 1), first.SubmitDate);
         Assert.Equal(new DateOnly(2026, 9, 11), first.DefenseDate);
         Assert.Equal(teacher.Id, first.UpdatedBy);
         Assert.Equal(expectedUpdatedAt, first.UpdatedAt);
 
-        var second = storage.Submissions.GetByStudentAndLab(student01.Id, storage.Labs.TryGetByPair(1, 2)!.Id)!;
+        var second = (await storage.Submissions.GetByStudentAndLabAsync(student01.Id, (await storage.Labs.TryGetByPairAsync(1, 2))!.Id))!;
         Assert.Equal(new DateOnly(2026, 9, 2), second.SubmitDate);
         Assert.Equal(new DateOnly(2026, 9, 12), second.DefenseDate);
         Assert.Equal(teacher.Id, second.UpdatedBy);
 
-        var third = storage.Submissions.GetByStudentAndLab(student01.Id, storage.Labs.TryGetByPair(1, 3)!.Id)!;
+        var third = (await storage.Submissions.GetByStudentAndLabAsync(student01.Id, (await storage.Labs.TryGetByPairAsync(1, 3))!.Id))!;
         Assert.Equal(new DateOnly(2026, 9, 3), third.SubmitDate);
         Assert.Null(third.DefenseDate);
         Assert.Equal(teacher.Id, third.UpdatedBy);
 
-        var fourth = storage.Submissions.GetByStudentAndLab(student02.Id, storage.Labs.TryGetByPair(1, 1)!.Id)!;
+        var fourth = (await storage.Submissions.GetByStudentAndLabAsync(student02.Id, (await storage.Labs.TryGetByPairAsync(1, 1))!.Id))!;
         Assert.Equal(new DateOnly(2026, 9, 1), fourth.SubmitDate);
         Assert.Null(fourth.DefenseDate);
         Assert.Equal(teacher.Id, fourth.UpdatedBy);
 
         // Ровно 4 сид-сдачи.
-        var allLabIds = storage.Labs.GetAll().Select(lab => lab.Id).ToList();
-        Assert.Equal(4, storage.Submissions.ListByLabIds(allLabIds).Count);
+        var allLabIds = (await storage.Labs.GetAllAsync()).Select(lab => lab.Id).ToList();
+        Assert.Equal(4, (await storage.Submissions.ListByLabIdsAsync(allLabIds)).Count);
 
         // У других студентов сдач нет.
-        Assert.Empty(storage.Submissions.ListByStudent(storage.Users.GetByLogin("student03")!.Id));
+        Assert.Empty(await storage.Submissions.ListByStudentAsync((await storage.Users.GetByLoginAsync("student03"))!.Id));
     }
 
     // ------------------------------------------------------------------
@@ -600,15 +600,15 @@ public sealed class SeedRunnerTests
         Pbkdf2PasswordHasher Hasher,
         KdfCounter Counter)
     {
-        public void Run() => Runner.Run();
+        public Task RunAsync() => Runner.RunAsync();
     }
 
     private static long Delta(IKdfCounter counter, IReadOnlyDictionary<string, long> before, string caller) =>
         counter.Snapshot().GetValueOrDefault(caller) - before.GetValueOrDefault(caller);
 
-    private static void AssertTeacher(TestStorage storage, Pbkdf2PasswordHasher hasher)
+    private static async Task AssertTeacherAsync(TestStorage storage, Pbkdf2PasswordHasher hasher)
     {
-        var teacher = storage.Users.GetByLogin("teacher");
+        var teacher = await storage.Users.GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
         Assert.Equal(UserRoles.Teacher, teacher.Role);
         Assert.Null(teacher.GroupId);
@@ -616,13 +616,13 @@ public sealed class SeedRunnerTests
         Assert.True(hasher.Verify("teacher123!", teacher.PasswordHash, KdfCallers.Login));
     }
 
-    private static void AssertDemoSet(TestStorage storage)
+    private static async Task AssertDemoSetAsync(TestStorage storage)
     {
-        Assert.Equal(32, storage.Users.ListStudents().Count);
-        Assert.Equal(3, storage.Groups.GetAll().Count);
-        Assert.Equal(23, storage.Labs.GetAll().Count);
-        var allLabIds = storage.Labs.GetAll().Select(lab => lab.Id).ToList();
-        Assert.Equal(4, storage.Submissions.ListByLabIds(allLabIds).Count);
+        Assert.Equal(32, (await storage.Users.ListStudentsAsync()).Count);
+        Assert.Equal(3, (await storage.Groups.GetAllAsync()).Count);
+        Assert.Equal(23, (await storage.Labs.GetAllAsync()).Count);
+        var allLabIds = (await storage.Labs.GetAllAsync()).Select(lab => lab.Id).ToList();
+        Assert.Equal(4, (await storage.Submissions.ListByLabIdsAsync(allLabIds)).Count);
     }
 
     private static SeedHarness CreateHarness(

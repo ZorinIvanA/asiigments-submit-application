@@ -25,7 +25,7 @@ public sealed class Ts096_LabInputValidationErrorPackageTests(B04LabsWebAppFacto
     [Fact]
     public async Task TS096_PostInvalidLabInput_ReturnsAllFieldErrorsAtOnce()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с пакетно невалидным телом (content — ровно 501 символ 'x').
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new
@@ -63,7 +63,7 @@ public sealed class Ts096_LabInputValidationErrorPackageTests(B04LabsWebAppFacto
     [InlineData("1.5")]
     public async Task TS096_PostLabWithInvalidNumberVariants_ReturnsSameNumberError(string number)
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с number='0' | '-3' | '1.5' (прочие поля валидны).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

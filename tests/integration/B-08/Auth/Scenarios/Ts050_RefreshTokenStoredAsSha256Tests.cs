@@ -31,7 +31,7 @@ public sealed class Ts050_RefreshTokenStoredAsSha256Tests
         using var client = B08AuthHost.CreateClient(factory);
 
         // given: пользователь существует и вошёл успешно; значение refresh-cookie известно тесту.
-        B08AuthHost.SeedUser(factory, Login, Email, "Рефреш Хэш", UserRoles.Student);
+        await B08AuthHost.SeedUserAsync(factory, Login, Email, "Рефреш Хэш", UserRoles.Student);
         using var login = await client.PostAsync(
             B08AuthHost.LoginEndpoint,
             "{\"login\":\"" + Login + "\",\"password\":\"" + B08AuthHost.TestUserPassword + "\"}");
@@ -44,7 +44,7 @@ public sealed class Ts050_RefreshTokenStoredAsSha256Tests
         // when: инспекция записей RefreshToken — поиск по SHA-256 значения cookie
         // (зеркало контракта IF-003: в хранилище — только SHA-256 hex значения).
         var expectedHash = B08AuthHost.Sha256Hex(refreshCookie.Value);
-        var record = securityTokens.FindLiveByHash(expectedHash);
+        var record = await securityTokens.FindLiveByHashAsync(expectedHash);
 
         // then: запись содержит SHA-256 (hex, 64 символа) значения токена.
         Assert.NotNull(record);
@@ -54,6 +54,6 @@ public sealed class Ts050_RefreshTokenStoredAsSha256Tests
         // then: …но не само значение: в записи значением является хэш, а не
         // токен; поиск по «сырому» значению не находит записи.
         Assert.NotEqual(refreshCookie.Value, record.TokenHash);
-        Assert.Null(securityTokens.FindLiveByHash(refreshCookie.Value));
+        Assert.Null( await securityTokens.FindLiveByHashAsync(refreshCookie.Value) );
     }
 }

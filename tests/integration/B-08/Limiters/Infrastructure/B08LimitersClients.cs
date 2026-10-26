@@ -84,6 +84,6 @@ public static class B08LimitersClients
     }
 
     /// <summary>Пользователь по логину (ci) из хранилища тестового хоста (IF-015).</summary>
-    public static User? FindUserByLogin(B08LimitersWebAppFactory factory, string login) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login);
+    public static async Task<User?> FindUserByLoginAsync(B08LimitersWebAppFactory factory, string login) =>
+        await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login);
 }

@@ -109,7 +109,7 @@ public static class B08Host
     }
 
     /// <summary>DI-сид пользователя с реальным PBKDF2-хэшем пароля (IF-002).</summary>
-    public static User SeedUser(
+    public static async Task<User> SeedUserAsync(
         B08WebAppFactory factory,
         string login,
         string email,
@@ -135,20 +135,20 @@ public static class B08Host
             GroupId = groupId,
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        await users.AddAsync(user);
         return user;
     }
 
     /// <summary>DI-сид студента (роль student).</summary>
-    public static User SeedStudent(B08WebAppFactory factory, string login, string email, string fullName, Guid? groupId = null) =>
-        SeedUser(factory, login, email, fullName, UserRoles.Student, groupId);
+    public static Task<User> SeedStudentAsync(B08WebAppFactory factory, string login, string email, string fullName, Guid? groupId = null) =>
+        SeedUserAsync(factory, login, email, fullName, UserRoles.Student, groupId);
 
     /// <summary>DI-сид преподавателя (роль teacher).</summary>
-    public static User SeedTeacher(B08WebAppFactory factory, string login, string email, string fullName) =>
-        SeedUser(factory, login, email, fullName, UserRoles.Teacher);
+    public static Task<User> SeedTeacherAsync(B08WebAppFactory factory, string login, string email, string fullName) =>
+        SeedUserAsync(factory, login, email, fullName, UserRoles.Teacher);
 
     /// <summary>DI-сид группы (IGroupRepository.Add).</summary>
-    public static Group SeedGroup(B08WebAppFactory factory, string name)
+    public static async Task<Group> SeedGroupAsync(B08WebAppFactory factory, string name)
     {
         var groups = factory.Services.GetRequiredService<IGroupRepository>();
         var clock = factory.Services.GetRequiredService<TimeProvider>();
@@ -159,7 +159,7 @@ public static class B08Host
             Name = name,
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
-        groups.Add(group);
+        await groups.AddAsync(group);
         return group;
     }
 
@@ -169,7 +169,7 @@ public static class B08Host
     /// (консолидированное хранилище токенов, IF-015); возвращает
     /// grant (значение cookie и TokenHash — для инспекции отзыва в тестах).
     /// </summary>
-    public static RefreshTokenGrant EstablishSession(B08WebAppFactory factory, Client client, Guid userId, string role)
+    public static async Task<RefreshTokenGrant> EstablishSessionAsync(B08WebAppFactory factory, Client client, Guid userId, string role)
     {
         var tokens = factory.Services.GetRequiredService<ITokenService>();
         var refreshTokens = factory.Services.GetRequiredService<ISecurityTokenRepository>();
@@ -178,7 +178,7 @@ public static class B08Host
         client.Cookies.Set(AuthCoreDefaults.AccessTokenCookieName, tokens.IssueAccessToken(userId, role));
 
         var grant = tokens.CreateRefreshToken(userId);
-        refreshTokens.Add(new RefreshToken
+        await refreshTokens.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,

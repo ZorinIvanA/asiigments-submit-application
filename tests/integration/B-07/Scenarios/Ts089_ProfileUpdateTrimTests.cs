@@ -42,7 +42,7 @@ public sealed class Ts089_ProfileUpdateTrimTests : IClassFixture<B07WebAppFactor
         BodyAssertions.StringPropertyIs(root, "email", "n@e.ru");
 
         // then: и в хранилище значения триммяты (контракт IF-015: чтение — копия-снимок).
-        var stored = HostClients.ResolveUserByEmail(_factory, "n@e.ru");
+        var stored = await HostClients.ResolveUserByEmailAsync(_factory, "n@e.ru");
         Assert.Equal("Новое Имя", stored.FullName);
         Assert.Equal("n@e.ru", stored.Email);
     }

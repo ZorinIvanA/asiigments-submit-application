@@ -47,7 +47,7 @@ public sealed class Ts026_KdfVerifyReadsStoredHashParametersTests
         B08AuthHost.AssertStatus(legacyRegister, HttpStatusCode.Created, "регистрация пользователя при 1000 итерациях");
 
         var users = factory.Services.GetRequiredService<LabsApp.Storage.IUserRepository>();
-        var legacyHash = users.GetByLogin(LegacyLogin)!.PasswordHash;
+        var legacyHash = (await users.GetByLoginAsync(LegacyLogin))!.PasswordHash;
         Assert.StartsWith("pbkdf2-sha256$1000$", legacyHash);
 
         // given: конфигурация изменена на 2000 в рамках одного процесса;
@@ -72,7 +72,7 @@ public sealed class Ts026_KdfVerifyReadsStoredHashParametersTests
         Assert.Equal(LegacyLogin, B08AuthHost.StringProperty(loginBody, "login"));
 
         B08AuthHost.AssertStatus(newRegister, HttpStatusCode.Created, "регистрация нового пользователя при 2000 итерациях");
-        var newHash = users.GetByLogin(NewLogin)!.PasswordHash;
+        var newHash = (await users.GetByLoginAsync(NewLogin))!.PasswordHash;
         Assert.StartsWith("pbkdf2-sha256$2000$", newHash);
 
         // Проверка структуры хэша-результата (детерминизм формата IF-002: ровно 4 сегмента).

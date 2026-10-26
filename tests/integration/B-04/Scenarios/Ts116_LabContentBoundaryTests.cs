@@ -19,7 +19,7 @@ public sealed class Ts116_LabContentBoundaryTests(B04LabsWebAppFactory factory) 
     [Fact]
     public async Task TS116_PostLabContentBoundaries_500Created501AndWhitespaceRejected()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when/then: content ровно 500 символов → 201.
         var content500 = new string('а', 500);

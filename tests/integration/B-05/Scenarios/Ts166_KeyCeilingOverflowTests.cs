@@ -59,7 +59,7 @@ public sealed class Ts166_KeyCeilingOverflowTests(B05CeilingWebAppFactory factor
         var limiter = _factory.Services.GetRequiredService<RecoveryRequestLimiter>();
         Assert.Equal(0, limiter.TrackedKeysCount);
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(users.GetByEmail(RecoveryEmail(0)));
+        Assert.Null( await users.GetByEmailAsync(RecoveryEmail(0)) );
         _factory.LogSink.Clear();
 
         // when: 10000 попыток с уникальными форматно-валидными

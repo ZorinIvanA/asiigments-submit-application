@@ -22,8 +22,8 @@ public sealed class Ts092_LabCreateNormalizationTests : IClassFixture<B03HostFac
     public async Task CreateLab_NormalizableFields_ReturnsNormalizedLabDto()
     {
         // given: сессия teacher; пара (1,21) не существует.
-        var (client, _) = B03TeacherSession.Create(_factory);
-        Assert.Null(_factory.Services.GetRequiredService<ILabRepository>().TryGetByPair(1, 21));
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
+        Assert.Null(await _factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(1, 21));
 
         // when: POST с number-строкой из цифр, content с краевыми пробелами и
         // пустой ссылкой (тело уходит на сервер дословно — нормализация серверная).

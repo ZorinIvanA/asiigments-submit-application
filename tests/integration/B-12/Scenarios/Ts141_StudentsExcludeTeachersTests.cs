@@ -20,14 +20,14 @@ public sealed class Ts141_StudentsExcludeTeachersTests(B12WebAppFactory factory)
         // given: в хранилище сид-teacher (FR-004) и ровно 5 студентов (DI-сид; демо-набор выключен).
         foreach (var index in Enumerable.Range(1, 5))
         {
-            B12Seed.EnsureStudent(
+            await B12Seed.EnsureStudentAsync(
                 _factory,
                 login: $"b12s141_{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}",
                 fullName: $"Студент Пятьсот {index}",
                 email: $"b12s141_{index}@x.ru");
         }
 
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /students без фильтров.
         using var response = await client.GetAsync("/api/v1/students");

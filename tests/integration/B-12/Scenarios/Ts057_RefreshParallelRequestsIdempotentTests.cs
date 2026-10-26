@@ -25,11 +25,11 @@ public sealed class Ts057_RefreshParallelRequestsIdempotentTests(B12WebAppFactor
     public async Task TenParallelRefreshes_AllNoContent_SingleActiveStoredRecord()
     {
         // given: одна валидная refresh-cookie (DI-минт, ADR-015: без POST /auth/login).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
-        var refreshTokenValue = B12AuthSessions.CreateLiveRefreshToken(_factory, teacher.Id);
-        var storedBefore = B12AuthSessions.RequireStoredToken(_factory, refreshTokenValue);
+        var refreshTokenValue = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, teacher.Id);
+        var storedBefore = await B12AuthSessions.RequireStoredTokenAsync(_factory, refreshTokenValue);
         var storedHash = storedBefore.TokenHash;
         var expiresAtBefore = storedBefore.ExpiresAt;
 
@@ -53,7 +53,7 @@ public sealed class Ts057_RefreshParallelRequestsIdempotentTests(B12WebAppFactor
 
         // then: в хранилище по-прежнему одна активная запись refresh-токена пользователя:
         // единственная DI-запись жива (не отозвана) и не переиздавалась (expiresAt прежний).
-        var storedAfter = B12AuthSessions.RequireStoredToken(_factory, refreshTokenValue);
+        var storedAfter = await B12AuthSessions.RequireStoredTokenAsync(_factory, refreshTokenValue);
         Assert.Equal(storedHash, storedAfter.TokenHash);
         Assert.Equal(expiresAtBefore, storedAfter.ExpiresAt);
         Assert.Null(storedAfter.RevokedAt);

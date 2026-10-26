@@ -21,12 +21,12 @@ public sealed class Ts147_PutStudentGroupNonStringGroupIdTests(B12WebAppFactory 
     public async Task TS147_NonStringGroupId_Returns404GroupNotFound()
     {
         // given: студент существует (DI-сид); сессия teacher.
-        var student = B12Seed.EnsureStudent(
+        var student = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s147",
             fullName: "Нестроковый Нестрок Нестрокович",
             email: "b12s147@x.ru");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: PUT /students/{id}/group с телом {groupId: 42} (JSON-число).
         using var put = await client.PutAsync(

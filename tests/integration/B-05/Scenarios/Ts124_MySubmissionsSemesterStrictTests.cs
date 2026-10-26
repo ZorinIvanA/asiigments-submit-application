@@ -26,7 +26,7 @@ public sealed class Ts124_MySubmissionsSemesterStrictTests : IClassFixture<B05We
     public async Task AboveRange_AndNonNumericSemester_AreRejectedWithFieldError()
     {
         // given: валидная сессия student01; MaxSemester=10.
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
         using var client = B05MintedSessions.Create(_factory);
         B05MintedSessions.MintAccessCookie(_factory, client, student01.Id, UserRoles.Student);
 

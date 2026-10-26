@@ -21,13 +21,13 @@ public sealed class Ts127_PutLabForbiddenBeforeValidationTests(B12WebAppFactory 
     {
         // given: сессия student; несуществующий uuid работы; тело с semester=0
         // (нарушает валидацию FR-017 — «Семестр — число от 1 до N»).
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12ts127.student",
             fullName: "Порядок Отказов Тестович",
             email: "b12-ts127@t.local");
         var unknownLabId = Guid.NewGuid();
-        using var client = HostClients.CreateStudentClient(_factory, "b12ts127.student");
+        using var client = await HostClients.CreateStudentClientAsync(_factory, "b12ts127.student");
 
         // when: PUT /api/v1/labs/<несуществующий-id> с невалидным телом.
         using var response = await client.PutAsync(

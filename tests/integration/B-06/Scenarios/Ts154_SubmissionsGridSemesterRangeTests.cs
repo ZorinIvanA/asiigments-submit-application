@@ -15,17 +15,23 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        errors.semester=['Семестр — число от 1 до 10'] — НЕ 200 с пустыми
 ///        массивами (FR-021 AC «Внедиапазонный semester — 400»).
 /// </summary>
-public sealed class Ts154_SubmissionsGridSemesterRangeTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts154_SubmissionsGridSemesterRangeTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly string _groupId;
+    private string _groupId = string.Empty;
 
     public Ts154_SubmissionsGridSemesterRangeTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _groupId = B06SubmissionsSessions.RequireGroup(factory, "ИК-221").Id.ToString();
     }
 
+    public async Task InitializeAsync()
+    {
+        _groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task GetGridWithOutOfRangeSemester_Returns400ForBothBounds()
     {
@@ -33,7 +39,7 @@ public sealed class Ts154_SubmissionsGridSemesterRangeTests : IClassFixture<B06S
         Assert.Equal(
             LabsOptions.DefaultMaxSemester,
             _factory.Services.GetRequiredService<IOptions<LabsOptions>>().Value.MaxSemester);
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when/then: semester=0 (ниже 1) — 400, не 200 с пустыми массивами.
         using var belowRange = await B06SubmissionsApi.GetGridAsync(client, _groupId, semester: "0", page: "1");

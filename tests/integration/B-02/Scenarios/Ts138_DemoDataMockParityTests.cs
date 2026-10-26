@@ -238,10 +238,10 @@ public sealed class Ts138_DemoDataMockParityTests
 
         // --- updatedBy = uuid преподавателя (проверка хранилища тестового хоста). ---
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        var teacher = users.GetByLogin("teacher") ?? throw new InvalidOperationException("Сид-преподаватель не найден.");
+        var teacher = (await users.GetByLoginAsync("teacher")) ?? throw new InvalidOperationException("Сид-преподаватель не найден.");
         var labsRepository = factory.Services.GetRequiredService<ILabRepository>();
         var submissionsRepository = factory.Services.GetRequiredService<ISubmissionRepository>();
-        var stored = submissionsRepository.ListByLabIds(labsRepository.GetAll().Select(lab => lab.Id).ToList());
+        var stored = await submissionsRepository.ListByLabIdsAsync((await labsRepository.GetAllAsync()).Select(lab => lab.Id).ToList());
         Assert.Equal(4, stored.Count);
         Assert.All(stored, submission => Assert.Equal((Guid?)teacher.Id, submission.UpdatedBy));
     }

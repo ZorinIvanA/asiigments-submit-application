@@ -27,26 +27,25 @@ public sealed class Ts150_SubmissionsGridFirstPageSeedTests : IClassFixture<B05W
     public async Task FirstPage_ReturnsFiveSeedStudentsTwentyLabsSeedSubmissionsTotal25()
     {
         // given: ИК-221 (в сиде student01..student25); семестр 1 — 20 работ; teacher.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
         var users = _factory.Services.GetRequiredService<IUserRepository>();
         var labsRepo = _factory.Services.GetRequiredService<ILabRepository>();
-        Assert.Equal(25, users.ListStudents().Count(user => user.GroupId == ik221.Id));
+        Assert.Equal(25, (await users.ListStudentsAsync()).Count(user => user.GroupId == ik221.Id));
 
         // Идентификаторы работ семестра 1 и ожидаемые сид-сдачи student01/02
         // (student01: работы 1, 2, 3; student02: работа 1).
-        string LabId(int number) =>
-            labsRepo.GetAll().Single(lab => lab.Semester == 1 && lab.Number == number).Id.ToString();
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
-        var student02 = B05SeedLookup.StudentByLogin(_factory, "student02");
-        var expectedSubmissions = new HashSet<(string StudentId, string LabId)>
-        {
-            (student01.Id.ToString(), LabId(1)),
-            (student01.Id.ToString(), LabId(2)),
-            (student01.Id.ToString(), LabId(3)),
-            (student02.Id.ToString(), LabId(1)),
-        };
+        async Task<string> LabId(int number) =>
+            (await labsRepo.GetAllAsync()).Single(lab => lab.Semester == 1 && lab.Number == number).Id.ToString();
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        var student02 = await B05SeedLookup.StudentByLoginAsync(_factory, "student02");
+        var expectedSubmissions = new HashSet<(string StudentId, string LabId)>();
+expectedSubmissions.Add((student01.Id.ToString(), await LabId(1)));
+expectedSubmissions.Add((student01.Id.ToString(), await LabId(2)));
+expectedSubmissions.Add((student01.Id.ToString(), await LabId(3)));
+expectedSubmissions.Add((student02.Id.ToString(), await LabId(1)));
+        
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: первая страница ведомости ИК-221 по семестру 1.
         using var response = await client.GetAsync(
@@ -73,18 +72,22 @@ public sealed class Ts150_SubmissionsGridFirstPageSeedTests : IClassFixture<B05W
             },
             students.Select(item => item.GetProperty("fullName").GetString()).ToList());
         var expectedPageLogins = new[] { "student01", "student02", "student03", "student04", "student05" };
+        var pageLogins = new List<string?>();
+        foreach (var item in students)
+        {
+            pageLogins.Add((await users.GetByIdAsync(Guid.Parse(item.GetProperty("id").GetString()!)))?.Login);
+        }
+
         Assert.Equal(
             expectedPageLogins,
-            students
-                .Select(item => users.GetById(Guid.Parse(item.GetProperty("id").GetString()!))?.Login)
-                .ToList());
+            pageLogins);
         foreach (var item in students)
         {
             BodyAssertions.HasExactlyProperties(item, "id", "fullName");
         }
 
         // then: labs — 20 строк {id, number, defenseRequired}, number↑ — работы семестра 1.
-        var semesterLabIds = labsRepo.GetAll()
+        var semesterLabIds = (await labsRepo.GetAllAsync())
             .Where(lab => lab.Semester == 1)
             .Select(lab => lab.Id.ToString())
             .ToHashSet();

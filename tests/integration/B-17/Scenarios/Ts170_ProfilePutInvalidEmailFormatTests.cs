@@ -72,7 +72,7 @@ public sealed class Ts170_ProfilePutInvalidEmailFormatTests : IClassFixture<B17W
             B17BodyAssertions.ErrorFieldEquals(root, "email", ErrorTexts.EmailFormat);
 
             // then: профиль не изменён — хранимые fullName/email прежние.
-            var stored = B17ProfileHost.StoredUser(_factory, user.Id);
+            var stored = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
             Assert.True(
                 string.Equals(stored.Email, Email, StringComparison.Ordinal),
                 $"email «{invalidEmail}»: ожидался неизменный хранимый email «{Email}», фактически «{stored.Email}».");

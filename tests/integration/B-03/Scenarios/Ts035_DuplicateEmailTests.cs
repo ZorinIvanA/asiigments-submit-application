@@ -18,10 +18,10 @@ public sealed class Ts035_DuplicateEmailTests : IClassFixture<B03HostFactory>
     public async Task Register_DuplicateEmailOtherCase_ReturnsEmailConflict()
     {
         // given: существует пользователь с email 'a@b.ru'; логин запроса свободен.
-        B03UserSeed.AddStudent(_factory, login: "ab-owner", email: "a@b.ru");
+        await B03UserSeed.AddStudentAsync(_factory, login: "ab-owner", email: "a@b.ru");
         var kdf = B03Kdf.Resolve(_factory.Services);
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.35.0.1");
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
 
         // when: регистрация с новым логином и email 'A@B.RU' (тот же email в другом регистре).
         var before = kdf.Snapshot();
@@ -43,7 +43,7 @@ public sealed class Ts035_DuplicateEmailTests : IClassFixture<B03HostFactory>
         Assert.Equal(0, B03Kdf.TotalDelta(before, after));
 
         // then: пользователь с новым логином не создан.
-        Assert.Equal(studentsBefore, B03UserSeed.CountStudents(_factory));
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "email-case-check"));
+        Assert.Equal(studentsBefore, await B03UserSeed.CountStudentsAsync(_factory));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "email-case-check"));
     }
 }

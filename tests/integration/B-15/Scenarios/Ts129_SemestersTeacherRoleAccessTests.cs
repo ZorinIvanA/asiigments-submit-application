@@ -83,7 +83,7 @@ public sealed class Ts129_SemestersTeacherRoleAccessTests : IClassFixture<B15Web
             CreatedAt = DateTime.UtcNow,
         };
 
-        _factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        _factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 }

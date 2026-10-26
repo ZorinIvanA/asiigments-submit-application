@@ -95,7 +95,7 @@ public sealed class SetPasswordFailureRepository(InMemoryUserRepository inner) :
     }
 
     /// <inheritdoc/>
-    public bool SetPassword(Guid userId, string passwordHash)
+    public async Task<bool> SetPasswordAsync(Guid userId, string passwordHash)
     {
         if (_armed && userId == _watchId)
         {
@@ -103,41 +103,41 @@ public sealed class SetPasswordFailureRepository(InMemoryUserRepository inner) :
             return false;
         }
 
-        return inner.SetPassword(userId, passwordHash);
+        return await inner.SetPasswordAsync(userId, passwordHash);
     }
 
     /// <inheritdoc/>
-    public void Add(User user) => inner.Add(user);
+    public async Task AddAsync(User user) => await inner.AddAsync(user);
 
     /// <inheritdoc/>
-    public User? GetById(Guid id) => inner.GetById(id);
+    public async Task<User?> GetByIdAsync(Guid id) => await inner.GetByIdAsync(id);
 
     /// <inheritdoc/>
-    public User? GetByLogin(string login) => inner.GetByLogin(login);
+    public async Task<User?> GetByLoginAsync(string login) => await inner.GetByLoginAsync(login);
 
     /// <inheritdoc/>
-    public User? GetByEmail(string email) => inner.GetByEmail(email);
+    public async Task<User?> GetByEmailAsync(string email) => await inner.GetByEmailAsync(email);
 
     /// <inheritdoc/>
-    public void Update(User user) => inner.Update(user);
+    public async Task UpdateAsync(User user) => await inner.UpdateAsync(user);
 
     /// <inheritdoc/>
-    public UpdateProfileResult UpdateProfile(Guid userId, string fullName, string email) =>
-        inner.UpdateProfile(userId, fullName, email);
+    public async Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email) =>
+        await inner.UpdateProfileAsync(userId, fullName, email);
 
     /// <inheritdoc/>
-    public SetGroupResult SetGroup(Guid userId, Guid? groupId, Func<Guid, bool>? groupExists) =>
-        inner.SetGroup(userId, groupId, groupExists);
+    public async Task<SetGroupResult> SetGroupAsync(Guid userId, Guid? groupId, Func<Guid, Task<bool>>? groupExists) =>
+        await inner.SetGroupAsync(userId, groupId, groupExists);
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListStudents(string? search = null, string? groupIdFilter = null) =>
-        inner.ListStudents(search, groupIdFilter);
+    public async Task<IReadOnlyList<User>> ListStudentsAsync(string? search = null, string? groupIdFilter = null) =>
+        await inner.ListStudentsAsync(search, groupIdFilter);
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListByGroup(Guid groupId) => inner.ListByGroup(groupId);
+    public async Task<IReadOnlyList<User>> ListByGroupAsync(Guid groupId) => await inner.ListByGroupAsync(groupId);
 
     /// <inheritdoc/>
-    public int CountByGroup(Guid groupId) => inner.CountByGroup(groupId);
+    public async Task<int> CountByGroupAsync(Guid groupId) => await inner.CountByGroupAsync(groupId);
 }
 
 /// <summary>
@@ -156,9 +156,9 @@ public sealed class ResetPasswordProtectiveBranchTests(ResetPasswordProtectiveFi
     {
         // given: пользователь с реальным хэшем; живые reset- и refresh-токены;
         // шов NOT_FOUND взведён; база Δkdf.
-        var user = Cr001GateHarness.SeedHashedUser(_factory, "reset-protective");
-        var resetToken = Cr001GateHarness.SeedResetToken(_factory, user.Id);
-        var refreshToken = Cr001GateHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await Cr001GateHarness.SeedHashedUser(_factory, "reset-protective");
+        var resetToken = await Cr001GateHarness.SeedResetToken(_factory, user.Id);
+        var refreshToken = await Cr001GateHarness.SeedRefreshToken(_factory, user.Id);
         var hasher = _factory.Services.GetRequiredService<IPasswordHasher>();
         var before = Cr001GateHarness.KdfSnapshot(_factory);
 
@@ -190,9 +190,9 @@ public sealed class ResetPasswordProtectiveBranchTests(ResetPasswordProtectiveFi
 
         // then: без побочных эффектов — токен НЕ погашен, refresh НЕ отозван,
         // пароль в хранилище прежний.
-        Assert.NotNull(Cr001GateHarness.ResetTokenRecord(_factory, resetToken));
-        Assert.NotNull(Cr001GateHarness.RefreshTokenRecord(_factory, refreshToken));
-        var stored = Cr001GateHarness.StoredUser(_factory, user.Id);
+        Assert.NotNull(await Cr001GateHarness.ResetTokenRecordAsync(_factory, resetToken));
+        Assert.NotNull(await Cr001GateHarness.RefreshTokenRecordAsync(_factory, refreshToken));
+        var stored = await Cr001GateHarness.StoredUserAsync(_factory, user.Id);
         Assert.True(hasher.Verify(
             Cr001GateHarness.TestUserPassword, stored.PasswordHash, KdfCallers.ResetPassword));
         Assert.False(hasher.Verify(

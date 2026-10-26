@@ -24,12 +24,12 @@ public sealed class StorageUniquenessParallelStressTests
         using var startGate = new ManualResetEventSlim();
 
         var tasks = Enumerable.Range(0, Contenders)
-            .Select(contenderIndex => Task.Run(() =>
+            .Select(contenderIndex => Task.Run(async () =>
             {
                 startGate.Wait();
                 try
                 {
-                    users.Add(TestEntities.User(
+                    await users.AddAsync(TestEntities.User(
                         $"same-LOGIN",
                         $"unique-email-{contenderIndex}@example.com"));
                     return true;
@@ -45,8 +45,8 @@ public sealed class StorageUniquenessParallelStressTests
         await Task.WhenAll(tasks);
 
         Assert.Equal(1, tasks.Count(task => task.Result));
-        Assert.Single(users.ListStudents());
-        Assert.NotNull(users.GetByLogin("SAME-login"));
+        Assert.Single(await users.ListStudentsAsync());
+        Assert.NotNull(await await users.GetByLoginAsync("SAME-login"));
     }
 
     [Fact]
@@ -56,12 +56,12 @@ public sealed class StorageUniquenessParallelStressTests
         using var startGate = new ManualResetEventSlim();
 
         var tasks = Enumerable.Range(0, Contenders)
-            .Select(contenderIndex => Task.Run(() =>
+            .Select(contenderIndex => Task.Run(async () =>
             {
                 startGate.Wait();
                 try
                 {
-                    users.Add(TestEntities.User(
+                    await users.AddAsync(TestEntities.User(
                         $"unique-login-{contenderIndex}",
                         $"Same@Example.COM"));
                     return true;
@@ -77,8 +77,8 @@ public sealed class StorageUniquenessParallelStressTests
         await Task.WhenAll(tasks);
 
         Assert.Equal(1, tasks.Count(task => task.Result));
-        Assert.Single(users.ListStudents());
-        Assert.NotNull(users.GetByEmail("same@example.com"));
+        Assert.Single(await users.ListStudentsAsync());
+        Assert.NotNull(await await users.GetByEmailAsync("same@example.com"));
     }
 
     [Fact]
@@ -88,12 +88,12 @@ public sealed class StorageUniquenessParallelStressTests
         using var startGate = new ManualResetEventSlim();
 
         var tasks = Enumerable.Range(0, Contenders)
-            .Select(_ => Task.Run(() =>
+            .Select(_ => Task.Run(async () =>
             {
                 startGate.Wait();
                 try
                 {
-                    storage.Groups.Add(TestEntities.Group("ИК-221"));
+                    await storage.Groups.AddAsync(TestEntities.Group("ИК-221"));
                     return true;
                 }
                 catch (StorageConflictException)
@@ -107,9 +107,9 @@ public sealed class StorageUniquenessParallelStressTests
         await Task.WhenAll(tasks);
 
         Assert.Equal(1, tasks.Count(task => task.Result));
-        Assert.Single(storage.Groups.List());
-        Assert.NotNull(storage.Groups.GetByName("ик-221"));
-        Assert.True(storage.Groups.ExistsNameCi("ИК-221"));
+        Assert.Single(await storage.Groups.ListAsync());
+        Assert.NotNull(await await storage.Groups.GetByNameAsync("ик-221"));
+        Assert.True(await storage.Groups.ExistsNameCiAsync("ИК-221"));
     }
 
     /// <summary>
@@ -124,12 +124,12 @@ public sealed class StorageUniquenessParallelStressTests
         using var startGate = new ManualResetEventSlim();
 
         var tasks = Enumerable.Range(0, Contenders)
-            .Select(_ => Task.Run(() =>
+            .Select(_ => Task.Run(async () =>
             {
                 startGate.Wait();
                 try
                 {
-                    storage.Labs.Add(TestEntities.Lab(1, 1));
+                    await storage.Labs.AddAsync(TestEntities.Lab(1, 1));
                     return true;
                 }
                 catch (StorageConflictException)
@@ -143,12 +143,12 @@ public sealed class StorageUniquenessParallelStressTests
         await Task.WhenAll(tasks);
 
         Assert.Equal(1, tasks.Count(task => task.Result));
-        var winner = storage.Labs.TryGetByPair(1, 1);
+        var winner = await storage.Labs.TryGetByPairAsync(1, 1);
         Assert.NotNull(winner);
-        Assert.Single(storage.Labs.GetAll());
-        Assert.True(storage.Labs.ExistsPair(1, 1));
-        Assert.False(storage.Labs.ExistsPair(1, 1, winner.Id));
-        Assert.Equal(1, storage.Labs.Semesters().Single());
+        Assert.Single(await storage.Labs.GetAllAsync());
+        Assert.True(await storage.Labs.ExistsPairAsync(1, 1));
+        Assert.False(await storage.Labs.ExistsPairAsync(1, 1, winner.Id));
+        Assert.Equal(1, (await storage.Labs.SemestersAsync()).Single());
     }
 
     /// <summary>
@@ -174,10 +174,10 @@ public sealed class StorageUniquenessParallelStressTests
             .ToHashSet();
 
         var tasks = Enumerable.Range(0, Contenders)
-            .Select(i => Task.Run(() =>
+            .Select(i => Task.Run(async () =>
             {
                 startGate.Wait();
-                return submissions.Upsert(
+                return await submissions.UpsertAsync(
                     studentId,
                     labId,
                     new DateOnly(2026, 9, 1).AddDays(i),
@@ -191,8 +191,8 @@ public sealed class StorageUniquenessParallelStressTests
         var results = await Task.WhenAll(tasks);
 
         Assert.All(results, Assert.NotNull);
-        Assert.Single(submissions.ListByStudent(studentId));
-        var stored = submissions.GetByStudentAndLab(studentId, labId)!;
+        Assert.Single(await submissions.ListByStudentAsync(studentId));
+        var stored = (await submissions.GetByStudentAndLabAsync(studentId, labId))!;
         Assert.All(results, result => Assert.Equal(stored.Id, result!.Id));
         Assert.Contains((stored.SubmitDate, stored.DefenseDate, stored.UpdatedBy), referenceTuples);
     }
@@ -217,11 +217,11 @@ public sealed class StorageUniquenessParallelStressTests
             .ToHashSet();
 
         var tasks = Enumerable.Range(0, Contenders)
-            .Select(i => Task.Run(() =>
+            .Select(i => Task.Run(async () =>
             {
                 startGate.Wait();
                 var reset = i % 2 == 1;
-                return submissions.Upsert(
+                return await submissions.UpsertAsync(
                     studentId,
                     labId,
                     reset ? null : new DateOnly(2026, 9, 1).AddDays(i),
@@ -234,8 +234,8 @@ public sealed class StorageUniquenessParallelStressTests
         startGate.Set();
         await Task.WhenAll(tasks);
 
-        var remaining = submissions.ListByStudent(studentId);
-        var stored = submissions.GetByStudentAndLab(studentId, labId);
+        var remaining = await submissions.ListByStudentAsync(studentId);
+        var stored = await submissions.GetByStudentAndLabAsync(studentId, labId);
         Assert.NotNull(stored);
         Assert.Single(remaining);
         Assert.Equal(stored!.Id, remaining[0].Id);

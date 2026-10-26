@@ -44,8 +44,8 @@ public sealed class Ts034_PasswordHashUniquenessTests(B05SecurityWebAppFactory f
 
         // when: инспекция двух passwordHash.
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var hashA = users.GetByLogin("ts034-user-a")?.PasswordHash;
-        var hashB = users.GetByLogin("ts034-user-b")?.PasswordHash;
+        var hashA = (await users.GetByLoginAsync("ts034-user-a"))?.PasswordHash;
+        var hashB = (await users.GetByLoginAsync("ts034-user-b"))?.PasswordHash;
         Assert.False(
             string.IsNullOrEmpty(hashA) || string.IsNullOrEmpty(hashB),
             "Предусловие кейса: оба пользователя обязаны иметь passwordHash в хранилище.");

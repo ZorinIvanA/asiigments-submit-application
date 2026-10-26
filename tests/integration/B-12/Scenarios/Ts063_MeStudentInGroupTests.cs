@@ -18,14 +18,14 @@ public sealed class Ts063_MeStudentInGroupTests(B12WebAppFactory factory)
     public async Task Me_ForStudentInGroup_ReturnsExactMeDto()
     {
         // given: student01 состоит в ИК-221 (DI-сид); валидный access-cookie student01.
-        var group = B12Seed.EnsureGroup(_factory, "ИК-221");
-        B12Seed.EnsureStudent(
+        var group = await B12Seed.EnsureGroupAsync(_factory, "ИК-221");
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "student01",
             fullName: "Иванов Иван Иванович 01",
             email: "s01@x.ru",
             groupId: group.Id);
-        using var client = HostClients.CreateStudentClient(_factory, "student01");
+        using var client = await HostClients.CreateStudentClientAsync(_factory, "student01");
 
         // when: GET /auth/me.
         using var response = await client.GetAsync(B12AuthEndpoints.Me);

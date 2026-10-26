@@ -57,7 +57,7 @@ public sealed class Ts090_ProfilePutLoginFieldIgnoredTests : IClassFixture<B16We
         var root = await B16Assertions.ReadRootObjectAsync(response);
         B16Assertions.StringPropertyIs(root, "login", Login);
 
-        var stored = B16Harness.StoredUser(_factory, user.Id);
+        var stored = await B16Harness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}» (поле login во входе должно игнорироваться).");

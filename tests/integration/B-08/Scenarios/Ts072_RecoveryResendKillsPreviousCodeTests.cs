@@ -38,7 +38,7 @@ public sealed class Ts072_RecoveryResendKillsPreviousCodeTests : IClassFixture<B
     {
         // given: Development; живой код пользователя существует (извлечён из Email.Dev).
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
         var codes = _factory.Services.GetRequiredService<ISecurityTokenRepository>();
 
         using var first = await client.PostAsync(B08Host.RecoveryRequestEndpoint, RequestBody);
@@ -47,7 +47,7 @@ public sealed class Ts072_RecoveryResendKillsPreviousCodeTests : IClassFixture<B
         var firstRecord = _factory.LogSink.OfCategory(DevEmailSender.LogCategory).Single();
         var previousCode = ResponseAssertions.ExtractSixDigitRun(firstRecord);
         Assert.NotNull(previousCode);
-        var previousLive = codes.FindLiveForUser(user.Id);
+        var previousLive = await codes.FindLiveForUserAsync(user.Id);
         Assert.NotNull(previousLive);
 
         // when: повторный POST /auth/recovery/request того же email.
@@ -58,7 +58,7 @@ public sealed class Ts072_RecoveryResendKillsPreviousCodeTests : IClassFixture<B
         Assert.Equal(HttpStatusCode.OK, resend.StatusCode);
         var resentBody = await resend.Content.ReadAsStringAsync();
         ResponseAssertions.AssertEmptyBody(resentBody, "recovery/request (переотправка)");
-        var currentLive = codes.FindLiveForUser(user.Id);
+        var currentLive = await codes.FindLiveForUserAsync(user.Id);
         Assert.NotNull(currentLive);
         Assert.True(
             currentLive.Id != previousLive.Id,

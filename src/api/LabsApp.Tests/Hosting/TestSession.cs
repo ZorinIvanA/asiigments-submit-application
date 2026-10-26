@@ -88,11 +88,11 @@ public sealed class TestSession : IDisposable
     // ------------------------------------------------------------------
 
     /// <summary>Сессия студента: DI-сид + минт access-cookie (без POST /auth/login).</summary>
-    public static TestSession CreateStudent(WebApplicationFactory<Program> factory, TestUserSeed? seed = null) =>
+    public static Task<TestSession> CreateStudent(WebApplicationFactory<Program> factory, TestUserSeed? seed = null) =>
         Create(factory, UserRoles.Student, seed);
 
     /// <summary>Сессия преподавателя: DI-сид + минт access-cookie (без POST /auth/login).</summary>
-    public static TestSession CreateTeacher(WebApplicationFactory<Program> factory, TestUserSeed? seed = null)
+    public static Task<TestSession> CreateTeacher(WebApplicationFactory<Program> factory, TestUserSeed? seed = null)
     {
         if (seed?.GroupName is not null)
         {
@@ -109,11 +109,11 @@ public sealed class TestSession : IDisposable
     // ------------------------------------------------------------------
 
     /// <summary>DI-сид студента без создания клиента (пароль — настоящий хэш хоста).</summary>
-    public static User SeedStudent(WebApplicationFactory<Program> factory, TestUserSeed? seed = null) =>
+    public static Task<User> SeedStudent(WebApplicationFactory<Program> factory, TestUserSeed? seed = null) =>
         Seed(factory, UserRoles.Student, seed);
 
     /// <summary>DI-сид преподавателя без создания клиента (пароль — настоящий хэш хоста).</summary>
-    public static User SeedTeacher(WebApplicationFactory<Program> factory, TestUserSeed? seed = null)
+    public static Task<User> SeedTeacher(WebApplicationFactory<Program> factory, TestUserSeed? seed = null)
     {
         if (seed?.GroupName is not null)
         {
@@ -125,9 +125,9 @@ public sealed class TestSession : IDisposable
         return Seed(factory, UserRoles.Teacher, seed);
     }
 
-    private static TestSession Create(WebApplicationFactory<Program> factory, string role, TestUserSeed? seed)
+    private static async Task<TestSession> Create(WebApplicationFactory<Program> factory, string role, TestUserSeed? seed)
     {
-        var user = Seed(factory, role, seed);
+        var user = await Seed(factory, role, seed);
 
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -160,7 +160,7 @@ public sealed class TestSession : IDisposable
         cookies.Set(AuthCoreDefaults.AccessTokenCookieName, jwt);
     }
 
-    private static User Seed(WebApplicationFactory<Program> factory, string role, TestUserSeed? seed)
+    private static async Task<User> Seed(WebApplicationFactory<Program> factory, string role, TestUserSeed? seed)
     {
         ArgumentNullException.ThrowIfNull(factory);
         seed ??= new TestUserSeed();
@@ -173,7 +173,7 @@ public sealed class TestSession : IDisposable
 
         var login = seed.Login ?? $"{role}-{Guid.NewGuid().ToString("N")[..8]}";
         var groupId = seed.GroupName is { } groupName
-            ? ResolveGroupId(groups, groupName, timeProvider)
+            ? await ResolveGroupId(groups, groupName, timeProvider)
             : (Guid?)null;
 
         var user = new User
@@ -189,17 +189,17 @@ public sealed class TestSession : IDisposable
             GroupId = groupId,
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        await users.AddAsync(user);
 
         // Копия-снимок из репозитория (мутации — только через IUserRepository.Update).
-        return users.GetByLogin(login)
+        return (await users.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 
     /// <summary>Группа по имени (ci-правило) либо созданная; Id для GroupId студента.</summary>
-    private static Guid ResolveGroupId(IGroupRepository groups, string groupName, TimeProvider timeProvider)
+    private static async Task<Guid> ResolveGroupId(IGroupRepository groups, string groupName, TimeProvider timeProvider)
     {
-        if (groups.GetByName(groupName) is { } existing)
+        if (await groups.GetByNameAsync(groupName) is { } existing)
         {
             return existing.Id;
         }
@@ -210,7 +210,7 @@ public sealed class TestSession : IDisposable
             Name = groupName,
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
         };
-        groups.Add(group);
+        await groups.AddAsync(group);
         return group.Id;
     }
 }

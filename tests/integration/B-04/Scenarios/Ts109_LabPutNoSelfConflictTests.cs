@@ -21,9 +21,9 @@ public sealed class Ts109_LabPutNoSelfConflictTests(B04LabsWebAppFactory factory
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
 
         // given: лабораторная (semester=1, number=5) существует.
-        var lab = B04DomainSeed.AddLab(labs, semester: 1, number: 5);
+        var lab = await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 5);
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT той же записи с той же парой и новым content.
         using var response = await client.PutAsJsonAsync($"/api/v1/labs/{lab.Id}", new

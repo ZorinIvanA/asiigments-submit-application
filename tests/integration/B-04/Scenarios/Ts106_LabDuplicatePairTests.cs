@@ -21,10 +21,10 @@ public sealed class Ts106_LabDuplicatePairTests(B04LabsWebAppFactory factory) : 
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
 
         // given: лабораторная (semester=1, number=1) существует.
-        B04DomainSeed.AddLab(labs, semester: 1, number: 1);
-        Assert.NotNull(labs.TryGetByPair(semester: 1, number: 1));
+        await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 1);
+        Assert.NotNull( await labs.TryGetByPairAsync(semester: 1, number: 1) );
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST с той же парой (semester=1, number=1).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

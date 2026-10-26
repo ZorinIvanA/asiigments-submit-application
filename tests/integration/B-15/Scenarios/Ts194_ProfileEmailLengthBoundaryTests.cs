@@ -49,7 +49,7 @@ public sealed class Ts194_ProfileEmailLengthBoundaryTests : IClassFixture<B15Web
 
         // then: граница включительно — 200, email в хранилище обновлён.
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var stored = B15Harness.UserById(_factory, seeded.Id);
+        var stored = await B15Harness.UserByIdAsync(_factory, seeded.Id);
         Assert.Equal(email254, stored.Email);
     }
 

@@ -124,9 +124,9 @@ public sealed class RecoveryController(
 
         // (3) Существующий email: прежние живые коды гасятся атомарно в той же
         // критической секции, что и вставка нового (IF-015, resend).
-        if (_users.GetByEmail(trimmedEmail) is { } user)
+        if (await _users.GetByEmailAsync(trimmedEmail) is { } user)
         {
-            _securityTokens.AddLive(new RecoveryCode
+            await _securityTokens.AddLiveAsync(new RecoveryCode
             {
                 Id = Guid.NewGuid(),
                 UserId = user.Id,
@@ -184,13 +184,13 @@ public sealed class RecoveryController(
         var code = (body.GetStringOrNull(CodeField) ?? string.Empty).Trim();
 
         // (3) Пользователь не найден → единый 400 без раскрытия существования.
-        if (_users.GetByEmail(email) is not { } user)
+        if (await _users.GetByEmailAsync(email) is not { } user)
         {
             return CodeRejected();
         }
 
         // (4) Живой код (usedAt=null и expiresAt>now) — максимум один (инвариант AddLive).
-        if (_securityTokens.FindLiveForUser(user.Id) is not { } live)
+        if (await _securityTokens.FindLiveForUserAsync(user.Id) is not { } live)
         {
             return CodeRejected();
         }
@@ -199,15 +199,15 @@ public sealed class RecoveryController(
         // хранилище, IF-015) — тот же единый 400.
         if (!_tokens.VerifyRecoveryCode(code, live.CodeHash))
         {
-            _securityTokens.IncrementAttemptsOnLive(live.Id);
+            await _securityTokens.IncrementAttemptsOnLiveAsync(live.Id);
             return CodeRejected();
         }
 
         // (6) Успех: код гасится, выпускается reset-токен (непрозрачный, в
         // хранилище только SHA-256, TTL 15 минут — ASM-002).
-        _securityTokens.MarkUsed(live.Id);
+        await _securityTokens.MarkUsedAsync(live.Id);
         var grant = _tokens.CreatePasswordResetToken(user.Id);
-        _securityTokens.Add(new PasswordResetToken
+        await _securityTokens.AddAsync(new PasswordResetToken
         {
             TokenHash = grant.TokenHash,
             UserId = user.Id,
@@ -244,10 +244,10 @@ public sealed class RecoveryController(
         // отсутствие операции, FR-014). Пользователь, удалённый из хранилища,
         // делает токен неприменимым — та же ветка отказа.
         var tokenHash = Sha256Hex(resetToken);
-        if (_securityTokens.FindLiveResetByHash(tokenHash) is not { } record
-            || _users.GetById(record.UserId) is not { } user)
+        if (await _securityTokens.FindLiveResetByHashAsync(tokenHash) is not { } record
+            || await _users.GetByIdAsync(record.UserId) is not { } user)
         {
-            _securityTokens.MarkUsed(tokenHash);
+            await _securityTokens.MarkUsedAsync(tokenHash);
             return ResetLinkInvalid();
         }
 
@@ -266,7 +266,7 @@ public sealed class RecoveryController(
         // PasswordHash: конкурентные правка профиля (fullName/email) и группа
         // студента не откатываются устаревшим снимком. Затем гашение ВСЕХ
         // reset-токенов пользователя и отзыв ВСЕХ его refresh-токенов (FR-014).
-        if (!_users.SetPassword(user.Id, _hasher.Hash(password, KdfCallers.ResetPassword)))
+        if (!await _users.SetPasswordAsync(user.Id, _hasher.Hash(password, KdfCallers.ResetPassword)))
         {
             // Защитная ветка IF-015 NOT_FOUND (зеркало MePasswordController/ProfileController):
             // запись исчезла между проверкой (3) и мутацией — пароль не применён, 401
@@ -279,8 +279,8 @@ public sealed class RecoveryController(
             return UnauthorizedEnvelope();
         }
 
-        _securityTokens.ConsumeAllForUser(user.Id);
-        _securityTokens.RevokeAllForUserExcept(user.Id, exceptTokenHash: null);
+        await _securityTokens.ConsumeAllForUserAsync(user.Id);
+        await _securityTokens.RevokeAllForUserExceptAsync(user.Id, exceptTokenHash: null);
 
         // Факты безопасности (IF-016/ADR-034) — после фактического сброса пароля
         // и отзыва, до ответа 204; значения/хэши токенов не логируются (NFR-006).

@@ -37,7 +37,7 @@ public sealed class Ts074_RecoveryResendSuppressesPreviousCodeTests(B13RecoveryD
         using var firstRequest = await B13RecoveryApi.RecoveryRequestAsync(client, StudentEmail);
         await B13RecoveryApi.AssertEmptyBodyOkAsync(firstRequest);
         var c1 = _factory.LogSink.GetLastRecoveryCodeForEmail(StudentEmail);
-        var firstLive = securityTokens.FindLiveForUser(user.Id);
+        var firstLive = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(firstLive);
         Assert.Null(firstLive.UsedAt);
 
@@ -52,7 +52,7 @@ public sealed class Ts074_RecoveryResendSuppressesPreviousCodeTests(B13RecoveryD
         var suppressed = B13RecoveryCodeSeam.FindByIdIncludingUsed(_factory, firstLive.Id);
         Assert.NotNull(suppressed);
         Assert.NotNull(suppressed.UsedAt);
-        var secondLive = securityTokens.FindLiveForUser(user.Id);
+        var secondLive = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(secondLive);
         Assert.Null(secondLive.UsedAt);
         Assert.NotEqual(firstLive.Id, secondLive.Id);

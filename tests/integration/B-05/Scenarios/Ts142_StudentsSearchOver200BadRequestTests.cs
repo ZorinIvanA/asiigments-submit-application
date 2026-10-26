@@ -20,7 +20,7 @@ public sealed class Ts142_StudentsSearchOver200BadRequestTests : IClassFixture<B
     public async Task SearchOf201Chars_IsRejectedWithDictionaryFieldError()
     {
         // given: teacher авторизован.
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search из 201 символа.
         var search = Uri.EscapeDataString(new string('и', 201));

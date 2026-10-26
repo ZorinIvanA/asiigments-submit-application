@@ -48,7 +48,7 @@ public static class B13ScopeHost
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -66,10 +66,10 @@ public static class B13ScopeHost
     }
 
     /// <summary>Клиент с сессией сид-преподавателя (учётка создана сидом FR-004).</summary>
-    public static HttpClient CreateTeacherClient(WebApplicationFactory<Program> factory)
+    public static async Task<HttpClient> CreateTeacherClientAsync(WebApplicationFactory<Program> factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сид-преподаватель не найден — шаг given «сессия teacher» неисполним.");
         var client = CreateClient(factory);
@@ -87,7 +87,7 @@ public static class B13ScopeHost
         var tokens = factory.Services.GetRequiredService<ITokenService>();
         var refreshTokens = factory.Services.GetRequiredService<ISecurityTokenRepository>();
         var grant = tokens.CreateRefreshToken(userId);
-        refreshTokens.Add(new RefreshToken
+        refreshTokens.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -103,10 +103,10 @@ public static class B13ScopeHost
     /// либо null: отозванный/истёкший токен не жив. Для кейса TS-197 чувствительность
     /// сохранена: ротация/отзыв исходного токена → null → проверка NotNull падает.
     /// </summary>
-    public static RefreshToken? FindStoredRefreshToken(
+    public static async Task<RefreshToken?> FindStoredRefreshTokenAsync(
         WebApplicationFactory<Program> factory,
         RefreshTokenGrant grant) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveByHash(grant.TokenHash);
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveByHashAsync(grant.TokenHash);
 
     /// <summary>
     /// POST /auth/refresh с ЯВНО заданной refresh-cookie (сырое значение в заголовке

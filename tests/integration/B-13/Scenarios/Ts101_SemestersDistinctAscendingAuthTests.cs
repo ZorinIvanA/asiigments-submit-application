@@ -23,7 +23,7 @@ public sealed class Ts101_SemestersDistinctAscendingAuthTests(B13WebAppFactory f
         B13Seed.AddLab(_factory, 1, 2);
         B13Seed.AddLab(_factory, 2, 1);
         B13Seed.AddStudent(_factory, "ts101-student", "Сидоров", groupId: null);
-        using var client = HostClients.CreateStudentClient(_factory, "ts101-student");
+        using var client = await HostClients.CreateStudentClientAsync(_factory, "ts101-student");
 
         // when: GET /api/v1/semesters.
         using var response = await client.GetAsync("/api/v1/semesters");

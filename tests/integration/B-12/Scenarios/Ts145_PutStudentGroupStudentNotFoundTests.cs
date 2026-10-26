@@ -19,9 +19,9 @@ public sealed class Ts145_PutStudentGroupStudentNotFoundTests(B12WebAppFactory f
     public async Task TS145_TeacherUuid_Returns404StudentNotFound()
     {
         // given: uuid преподавателя; группа X существует; сессия teacher.
-        var teacherId = B12Seed.TeacherId(_factory);
-        var groupX = B12Seed.EnsureGroup(_factory, "B12-X");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        var teacherId = await B12Seed.TeacherIdAsync(_factory);
+        var groupX = await B12Seed.EnsureGroupAsync(_factory, "B12-X");
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: PUT /students/<uuid-преподавателя>/group {groupId:X}.
         using var put = await client.PutAsync(
@@ -41,8 +41,8 @@ public sealed class Ts145_PutStudentGroupStudentNotFoundTests(B12WebAppFactory f
     {
         // given: случайный uuid (пользователя нет); группа X существует; сессия teacher.
         var unknownId = Guid.NewGuid();
-        var groupX = B12Seed.EnsureGroup(_factory, "B12-X");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        var groupX = await B12Seed.EnsureGroupAsync(_factory, "B12-X");
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: PUT /students/<случайный-uuid>/group {groupId:X}.
         using var put = await client.PutAsync(

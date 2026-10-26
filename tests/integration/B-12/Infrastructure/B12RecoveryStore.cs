@@ -83,7 +83,7 @@ public static class B12RecoveryStore
             UsedAt = null,
             CreatedAt = now,
         };
-        services.GetRequiredService<ISecurityTokenRepository>().AddLive(record);
+        services.GetRequiredService<ISecurityTokenRepository>().AddLiveAsync(record);
         return record;
     }
 

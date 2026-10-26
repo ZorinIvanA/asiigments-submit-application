@@ -9,6 +9,8 @@ namespace LabsApp.Storage.InMemory;
 /// (FR-021): null = сброс значения, запись с обеими null-датами сохраняется
 /// (upsert пары никогда не удаляет запись). Хранилище хранит и отдаёт
 /// КОПИИ-снимки сущностей.
+/// Реализация асинхронна по контракту интерфейса, но не выполняет ввода-вывода:
+/// все задачи завершаются синхронно (Task.FromResult).
 /// </summary>
 public sealed class InMemorySubmissionRepository(StorageLock lockObject) : ISubmissionRepository
 {
@@ -16,7 +18,7 @@ public sealed class InMemorySubmissionRepository(StorageLock lockObject) : ISubm
     private readonly Dictionary<(Guid StudentId, Guid LabId), Guid> _byPair = new();
 
     /// <inheritdoc/>
-    public Submission? Upsert(
+    public Task<Submission?> UpsertAsync(
         Guid studentId,
         Guid labId,
         DateOnly? submitDate,
@@ -36,7 +38,7 @@ public sealed class InMemorySubmissionRepository(StorageLock lockObject) : ISubm
                 existing.DefenseDate = defenseDate;
                 existing.UpdatedBy = updatedBy;
                 existing.UpdatedAt = updatedAt;
-                return Clone(existing);
+                return Task.FromResult<Submission?>(Clone(existing));
             }
 
             var created = new Submission
@@ -51,50 +53,50 @@ public sealed class InMemorySubmissionRepository(StorageLock lockObject) : ISubm
             };
             _submissions[created.Id] = created;
             _byPair[(studentId, labId)] = created.Id;
-            return Clone(created);
+            return Task.FromResult<Submission?>(Clone(created));
         }
     }
 
     /// <inheritdoc/>
-    public Submission? GetByStudentAndLab(Guid studentId, Guid labId)
+    public Task<Submission?> GetByStudentAndLabAsync(Guid studentId, Guid labId)
     {
         lock (lockObject.SyncRoot)
         {
-            return _byPair.TryGetValue((studentId, labId), out var id)
+            return Task.FromResult(_byPair.TryGetValue((studentId, labId), out var id)
                 ? Clone(_submissions[id])
-                : null;
+                : null);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> ListByLabIds(IReadOnlyCollection<Guid> labIds)
+    public Task<IReadOnlyList<Submission>> ListByLabIdsAsync(IReadOnlyCollection<Guid> labIds)
     {
         ArgumentNullException.ThrowIfNull(labIds);
 
         lock (lockObject.SyncRoot)
         {
             var labIdSet = new HashSet<Guid>(labIds);
-            return _submissions.Values
+            return Task.FromResult<IReadOnlyList<Submission>>(_submissions.Values
                 .Where(submission => labIdSet.Contains(submission.LabId))
                 .Select(Clone)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> ListByStudent(Guid studentId)
+    public Task<IReadOnlyList<Submission>> ListByStudentAsync(Guid studentId)
     {
         lock (lockObject.SyncRoot)
         {
-            return _submissions.Values
+            return Task.FromResult<IReadOnlyList<Submission>>(_submissions.Values
                 .Where(submission => submission.StudentId == studentId)
                 .Select(Clone)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> GetByPairs(IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> labIds)
+    public Task<IReadOnlyList<Submission>> GetByPairsAsync(IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> labIds)
     {
         ArgumentNullException.ThrowIfNull(studentIds);
         ArgumentNullException.ThrowIfNull(labIds);
@@ -103,7 +105,7 @@ public sealed class InMemorySubmissionRepository(StorageLock lockObject) : ISubm
         {
             if (studentIds.Count == 0 || labIds.Count == 0)
             {
-                return [];
+                return Task.FromResult<IReadOnlyList<Submission>>([]);
             }
 
             var result = new List<Submission>();
@@ -126,12 +128,12 @@ public sealed class InMemorySubmissionRepository(StorageLock lockObject) : ISubm
                 }
             }
 
-            return result;
+            return Task.FromResult<IReadOnlyList<Submission>>(result);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> ListForStudentAndSemester(Guid studentId, IReadOnlyCollection<Guid> semesterLabIds)
+    public Task<IReadOnlyList<Submission>> ListForStudentAndSemesterAsync(Guid studentId, IReadOnlyCollection<Guid> semesterLabIds)
     {
         ArgumentNullException.ThrowIfNull(semesterLabIds);
 
@@ -139,29 +141,31 @@ public sealed class InMemorySubmissionRepository(StorageLock lockObject) : ISubm
         {
             if (semesterLabIds.Count == 0)
             {
-                return [];
+                return Task.FromResult<IReadOnlyList<Submission>>([]);
             }
 
             var labIdSet = new HashSet<Guid>(semesterLabIds);
-            return _submissions.Values
+            return Task.FromResult<IReadOnlyList<Submission>>(_submissions.Values
                 .Where(submission => submission.StudentId == studentId && labIdSet.Contains(submission.LabId))
                 .Select(Clone)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public void DeleteByLabId(Guid labId)
+    public Task DeleteByLabIdAsync(Guid labId)
     {
         lock (lockObject.SyncRoot)
         {
             DeleteByLabIdCore(labId);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
     /// Каскад удаления сдач работы. ВЫЗЫВАЕТСЯ ТОЛЬКО из
-    /// <see cref="InMemoryLabRepository.Delete"/> под уже удерживаемой блокировкой
+    /// <see cref="InMemoryLabRepository.DeleteAsync"/> под уже удерживаемой блокировкой
     /// хранилища — отдельную блокировку не берёт.
     /// </summary>
     internal void DeleteByLabIdCore(Guid labId)

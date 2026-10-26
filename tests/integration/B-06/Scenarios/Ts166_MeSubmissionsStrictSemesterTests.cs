@@ -28,7 +28,7 @@ public sealed class Ts166_MeSubmissionsStrictSemesterTests : IClassFixture<B06Su
         Assert.Equal(
             LabsOptions.DefaultMaxSemester,
             _factory.Services.GetRequiredService<IOptions<LabsOptions>>().Value.MaxSemester);
-        using var client = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
 
         // when/then: semester=11 (вне 1..10) — 400, не 200 с пустыми массивами.
         using var outOfRange = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "11");

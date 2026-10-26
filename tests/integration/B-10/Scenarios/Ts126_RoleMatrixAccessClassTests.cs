@@ -36,10 +36,10 @@ public sealed class Ts126_RoleMatrixAccessClassTests(B10NoDemoWebAppFactory fact
     public async Task TS126_ClassA_UserEndpoints_Anonymous401_AnyRoleAllowed()
     {
         // given: сессии student и teacher (role=user — обе роли авторизованы).
-        B10Seed.AddStudent(_factory, "b10ts126a.student");
+        await B10Seed.AddStudentAsync(_factory, "b10ts126a.student");
         using var anonymous = HostClients.Create(_factory);
-        using var student = HostClients.CreateStudentClient(_factory, "b10ts126a.student");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var student = await HostClients.CreateStudentClient(_factory, "b10ts126a.student");
+        using var teacher = await HostClients.CreateTeacherClient(_factory);
 
         var operations = new[]
         {
@@ -64,13 +64,13 @@ public sealed class Ts126_RoleMatrixAccessClassTests(B10NoDemoWebAppFactory fact
     {
         // given: сессии teacher и student; известны uuid студента и группы,
         // несуществующий uuid работы.
-        B10Seed.AddStudent(_factory, "b10ts126b.student");
-        var studentId = B10Seed.AddStudent(_factory, "b10ts126b.target").Id;
-        var groupId = B10Seed.AddGroup(_factory, "Б10-ТС126-Б").Id;
+        await B10Seed.AddStudentAsync(_factory, "b10ts126b.student");
+        var studentId = (await B10Seed.AddStudentAsync(_factory, "b10ts126b.target")).Id;
+        var groupId = (await B10Seed.AddGroupAsync(_factory, "Б10-ТС126-Б")).Id;
         var unknownLabId = Guid.NewGuid();
         using var anonymous = HostClients.Create(_factory);
-        using var student = HostClients.CreateStudentClient(_factory, "b10ts126b.student");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var student = await HostClients.CreateStudentClient(_factory, "b10ts126b.student");
+        using var teacher = await HostClients.CreateTeacherClient(_factory);
 
         var operations = new[]
         {
@@ -103,10 +103,10 @@ public sealed class Ts126_RoleMatrixAccessClassTests(B10NoDemoWebAppFactory fact
     public async Task TS126_ClassC_StudentOnlyEndpoints_Anonymous401_Teacher403_StudentAllowed()
     {
         // given: сессии student и teacher.
-        B10Seed.AddStudent(_factory, "b10ts126c.student");
+        await B10Seed.AddStudentAsync(_factory, "b10ts126c.student");
         using var anonymous = HostClients.Create(_factory);
-        using var student = HostClients.CreateStudentClient(_factory, "b10ts126c.student");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var student = await HostClients.CreateStudentClient(_factory, "b10ts126c.student");
+        using var teacher = await HostClients.CreateTeacherClient(_factory);
 
         var operations = new[]
         {

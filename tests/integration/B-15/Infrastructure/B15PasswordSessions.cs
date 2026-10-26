@@ -89,7 +89,7 @@ public static class B15PasswordSessions
             CreatedAt = DateTime.UtcNow,
         };
 
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -101,7 +101,7 @@ public static class B15PasswordSessions
     public static string MintRefreshToken(B15WebAppFactory factory, Guid userId)
     {
         var grant = factory.Services.GetRequiredService<ITokenService>().CreateRefreshToken(userId);
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,

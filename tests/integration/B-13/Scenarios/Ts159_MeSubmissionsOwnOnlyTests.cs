@@ -25,9 +25,9 @@ public sealed class Ts159_MeSubmissionsOwnOnlyTests(B13WebAppFactory factory) : 
         var foreign = B13Seed.AddStudent(_factory, "ts159-foreign", "Борисов", group.Id);
         var lab1 = B13Seed.AddLab(_factory, 1, 1);
         var lab2 = B13Seed.AddLab(_factory, 1, 2);
-        B13Seed.AddSubmission(_factory, student.Id, lab1.Id, "2025-04-01", null);
-        B13Seed.AddSubmission(_factory, foreign.Id, lab2.Id, "2025-04-02", "2025-04-09");
-        using var client = HostClients.CreateStudentClient(_factory, "ts159-student");
+        await B13Seed.AddSubmissionAsync(_factory, student.Id, lab1.Id, "2025-04-01", null);
+        await B13Seed.AddSubmissionAsync(_factory, foreign.Id, lab2.Id, "2025-04-02", "2025-04-09");
+        using var client = await HostClients.CreateStudentClientAsync(_factory, "ts159-student");
 
         // when: GET /api/v1/me/submissions?semester=1.
         using var response = await client.GetAsync("/api/v1/me/submissions?semester=1");

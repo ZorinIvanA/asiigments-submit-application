@@ -22,7 +22,7 @@ public sealed class Ts135_GroupRosterUnknownGroup404Tests : IClassFixture<B16Gro
     public async Task GetRosterOfUnknownGroup_Returns404WithExactMessage()
     {
         // given: сессия teacher; случайный uuid, не принадлежащий никакой группе.
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: GET /groups/<случайный-uuid>/students.

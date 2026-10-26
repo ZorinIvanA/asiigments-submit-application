@@ -49,7 +49,7 @@ public sealed class Ts106_GroupRosterPaginationAndUnknownTests : IClassFixture<B
     public async Task GetRoster_PagesAndRuOrder_UnknownGroupNotFound()
     {
         // given: сессия teacher; id группы ИК-221 (25 сид-студентов).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // given: «Авроров Иван» (avrorov) и «Ёлкин Пётр» (elkin) созданы
@@ -162,7 +162,7 @@ public sealed class Ts106_GroupRosterPaginationAndUnknownTests : IClassFixture<B
         Assert.Equal(login, B16GroupsApi.ReadString(body.RootElement, "login"));
         Assert.Equal(fullName, B16GroupsApi.ReadString(body.RootElement, "fullName"));
 
-        var user = _factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login);
+        var user = await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login);
         Assert.True(
             user is not null,
             $"Зарегистрированный студент «{login}» не найден в DI-хранилище тестового хоста (шаг given неисполним).");

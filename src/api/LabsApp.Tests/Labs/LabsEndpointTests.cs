@@ -49,16 +49,16 @@ internal static class LabsEndpointHarness
     public const string LabsEndpoint = "/api/v1/labs";
     public const string SemestersEndpoint = "/api/v1/semesters";
 
-    public static HttpClient CreateTeacherClient(TestWebAppFactory factory)
+    public static async Task<HttpClient> CreateTeacherClient(TestWebAppFactory factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("teacher");
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
         return CreateSessionClient(factory, teacher.Id, UserRoles.Teacher);
     }
 
-    public static HttpClient CreateStudentClient(TestWebAppFactory factory)
+    public static async Task<HttpClient> CreateStudentClient(TestWebAppFactory factory)
     {
-        var student = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("student01");
+        var student = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("student01");
         Assert.NotNull(student);
         return CreateSessionClient(factory, student.Id, UserRoles.Student);
     }
@@ -70,12 +70,12 @@ internal static class LabsEndpointHarness
             HandleCookies = false,
         });
 
-    public static Lab LabByPair(TestWebAppFactory factory, int semester, int number) =>
-        factory.Services.GetRequiredService<ILabRepository>().TryGetByPair(semester, number)
+    public static async Task<Lab> LabByPairAsync(TestWebAppFactory factory, int semester, int number) =>
+        await factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(semester, number)
         ?? throw new InvalidOperationException($"Работы {semester}:{number} нет в сид-данных тестового хоста.");
 
-    public static IReadOnlyList<Submission> SubmissionsOfLab(TestWebAppFactory factory, Guid labId) =>
-        factory.Services.GetRequiredService<ISubmissionRepository>().ListByLabIds([labId]);
+    public static async Task<IReadOnlyList<Submission>> SubmissionsOfLabAsync(TestWebAppFactory factory, Guid labId) =>
+        await factory.Services.GetRequiredService<ISubmissionRepository>().ListByLabIdsAsync([labId]);
 
     public static StringContent Json(string json) => new(json, Encoding.UTF8, "application/json");
 
@@ -131,7 +131,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [Fact]
     public async Task List_DefaultSeed_FirstPageContractShape()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(LabsEndpointHarness.LabsEndpoint);
 
@@ -152,7 +152,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [InlineData("2.5")]
     public async Task List_SoftSemester_NonIntegerNoFilter(string rawSemester)
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{LabsEndpointHarness.LabsEndpoint}?semester={Uri.EscapeDataString(rawSemester)}");
@@ -166,7 +166,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [Fact]
     public async Task List_OutOfRangeSemester_EmptyResultNotBadRequest()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{LabsEndpointHarness.LabsEndpoint}?semester=99");
 
@@ -180,7 +180,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [Fact]
     public async Task List_Semester2_NumberDescending()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{LabsEndpointHarness.LabsEndpoint}?semester=2&sortField=number&sortDir=desc");
@@ -202,7 +202,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [InlineData("2.5")]
     public async Task List_InvalidPage_NormalizedToOne(string rawPage)
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{LabsEndpointHarness.LabsEndpoint}?page={Uri.EscapeDataString(rawPage)}");
@@ -217,7 +217,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [Fact]
     public async Task List_PageBeyondLast_EmptyItemsWithCorrectTotal()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{LabsEndpointHarness.LabsEndpoint}?page=99");
 
@@ -238,7 +238,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
         // int, заворачивалось в отрицательное — Skip отдавал ПЕРВУЮ страницу вместо
         // пустой. Страница правее последней обязана быть пустой при корректном
         // total (IF-009), ответ эхом отдаёт нормализованный номер страницы.
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{LabsEndpointHarness.LabsEndpoint}?page={rawPage}");
 
@@ -253,7 +253,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [Fact]
     public async Task List_SortFieldOutsideDictionary_NormalizesToDefaultSemesterAscending()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         // «xyz» вне словаря ('number'|'semester') → дефолт semester↑,number↑, без ошибки.
         using var response = await client.GetAsync(
@@ -269,7 +269,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [Fact]
     public async Task List_SortDirOutsideDictionary_NormalizesToAscending()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         // «sideways» вне словаря ('asc'|'desc') → asc: number↑,semester↑ →
         // сначала (1,1), затем (2,1) — вторичный semester всегда asc.
@@ -284,7 +284,7 @@ public sealed class LabsListEndpointTests(LabsApiFixture fixture) : IClassFixtur
     [Fact]
     public async Task List_GarbageSortFieldWithDesc_PrimarySemesterDescendingSecondaryNumberAscending()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         // sortField вне словаря → semester; sortDir=desc валиден → semester↓,
         // вторичный number всегда asc: (2,1), (2,2), (2,3), затем (1,1)…
@@ -312,8 +312,8 @@ public sealed class LabsGetByIdEndpointTests(LabsApiFixture fixture) : IClassFix
     [Fact]
     public async Task GetById_SeededLab_ReturnsDto()
     {
-        var lab = LabsEndpointHarness.LabByPair(_factory, 1, 1);
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        var lab = await LabsEndpointHarness.LabByPairAsync(_factory, 1, 1);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}");
 
@@ -328,7 +328,7 @@ public sealed class LabsGetByIdEndpointTests(LabsApiFixture fixture) : IClassFix
     [Fact]
     public async Task GetById_NonexistentGuid_Returns404NotFoundText()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{LabsEndpointHarness.LabsEndpoint}/{Guid.NewGuid()}");
 
@@ -339,7 +339,7 @@ public sealed class LabsGetByIdEndpointTests(LabsApiFixture fixture) : IClassFix
     [Fact]
     public async Task GetById_NonGuidRouteValue_TreatedAsNotFound()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{LabsEndpointHarness.LabsEndpoint}/not-a-guid");
 
@@ -360,7 +360,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [Fact]
     public async Task Create_ValidInput_Returns201WithNormalizedDto()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -385,7 +385,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [Fact]
     public async Task Create_NumberAndSemesterAsDigitStrings_NormalizedToIntegers()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -401,7 +401,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [Fact]
     public async Task Create_NumberAsString21_IsAcceptedWithInteger201()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         // Строковый number «21» (семестр 2: пара (2,21) вне сид-данных) → 201 c int.
         using var response = await client.PostAsync(
@@ -423,7 +423,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [InlineData("abc")]
     public async Task Create_NumberInvalidValue_ReturnsNumberFieldError(string rawNumber)
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -445,7 +445,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
         string rawDefense, int number)
     {
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         // defenseRequired — строго boolean (TS-114): нестроковое/нечисловое/null
         // значения отклоняются полевой валидацией, работа не создаётся.
@@ -457,7 +457,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var errors = await LabsEndpointHarness.ErrorsAsync(response);
         Assert.NotEmpty(LabsEndpointHarness.ErrorOf(errors, "defenseRequired"));
-        Assert.Null(labs.TryGetByPair(semester: 3, number: number));
+        Assert.Null(await await labs.TryGetByPairAsync(semester: 3, number: number));
     }
 
     [Fact]
@@ -466,7 +466,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
         // TS-114 (3): тело без поля defenseRequired вовсе — 400 (POST требует
         // явного boolean), работа не создана.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -476,13 +476,13 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var errors = await LabsEndpointHarness.ErrorsAsync(response);
         Assert.Equal(new[] { "Заполните поле" }, LabsEndpointHarness.ErrorOf(errors, "defenseRequired"));
-        Assert.Null(labs.TryGetByPair(semester: 3, number: 704));
+        Assert.Null(await await labs.TryGetByPairAsync(semester: 3, number: 704));
     }
 
     [Fact]
     public async Task Create_ExistingPair_Returns409DuplicateText()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -503,7 +503,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     public async Task Create_SemesterBoundaries_TemplateTextFromMaxSemester(
         int semester, bool expectedCreated)
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -527,7 +527,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [Fact]
     public async Task Create_AssignmentUrlLengthBoundary_1000Valid1001Rejected()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
         const string prefix = "https://example.com/";
 
         // Ровно 1000 символов после трима — валидно (граница включительно).
@@ -554,7 +554,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [Fact]
     public async Task Create_AllFieldsInvalid_ReturnsAllFieldErrorsAtOnce()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -581,7 +581,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [Fact]
     public async Task Create_MissingRequiredFields_ReturnsRequiredErrors()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -598,7 +598,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
     [Fact]
     public async Task Create_SyntacticallyBrokenJson_Returns400MessageWithoutErrors()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
@@ -622,8 +622,8 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
     [Fact]
     public async Task Update_SamePairSelfConflict_Returns200KeepsId()
     {
-        var lab = LabsEndpointHarness.LabByPair(_factory, 1, 5);
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        var lab = await LabsEndpointHarness.LabByPairAsync(_factory, 1, 5);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}",
@@ -641,7 +641,7 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
     [Fact]
     public async Task Update_NonexistentIdValidBody_Returns404()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{LabsEndpointHarness.LabsEndpoint}/{Guid.NewGuid()}",
@@ -655,7 +655,7 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
     [Fact]
     public async Task Update_NonexistentIdInvalidBody_ValidationBeforeExistence()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         // Порядок 400 → 404: невалидное тело на несуществующем id даёт 400.
         using var response = await client.PutAsync(
@@ -675,10 +675,10 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
     {
         // PUT наследует строгость boolean при наличии поля (TS-114): строка — 400.
         // Сид (1,2): defenseRequired=true — отказ обязан НЕ изменить запись.
-        var lab = LabsEndpointHarness.LabByPair(_factory, 1, 2);
+        var lab = await LabsEndpointHarness.LabByPairAsync(_factory, 1, 2);
         Assert.True(lab.DefenseRequired);
         var contentBefore = lab.Content;
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}",
@@ -689,7 +689,7 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
         var errors = await LabsEndpointHarness.ErrorsAsync(response);
         Assert.NotEmpty(LabsEndpointHarness.ErrorOf(errors, "defenseRequired"));
 
-        var stored = _factory.Services.GetRequiredService<ILabRepository>().GetById(lab.Id);
+        var stored = await _factory.Services.GetRequiredService<ILabRepository>().GetByIdAsync(lab.Id);
         Assert.NotNull(stored);
         Assert.True(stored.DefenseRequired);
         Assert.Equal(contentBefore, stored.Content);
@@ -703,9 +703,9 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
         // Сид (1,2): defenseRequired=true — гард предусловия делает финальный
         // false наблюдаемой НОРМАЛИЗАЦИЕЙ, а не унаследованным значением
         // (реворк CR-004: сид-работа (1,5) имела false до запроса).
-        var lab = LabsEndpointHarness.LabByPair(_factory, 1, 2);
+        var lab = await LabsEndpointHarness.LabByPairAsync(_factory, 1, 2);
         Assert.True(lab.DefenseRequired);
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}",
@@ -716,7 +716,7 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
         using var body = await LabsEndpointHarness.ReadJsonAsync(response);
         Assert.Equal("Обновление без поля", body.RootElement.GetProperty("content").GetString());
         Assert.False(body.RootElement.GetProperty("defenseRequired").GetBoolean());
-        var stored = _factory.Services.GetRequiredService<ILabRepository>().GetById(lab.Id);
+        var stored = await _factory.Services.GetRequiredService<ILabRepository>().GetByIdAsync(lab.Id);
         Assert.NotNull(stored);
         Assert.False(stored.DefenseRequired);
     }
@@ -726,7 +726,7 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
     {
         // Свои записи вместо сид-пар: тест не зависит от порядка тестов класса
         // (каскадное удаление сид-работы (1,1) не должно ломать сценарий).
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
         using var first = await client.PostAsync(
             LabsEndpointHarness.LabsEndpoint,
             LabsEndpointHarness.Json(
@@ -757,15 +757,15 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
     [Fact]
     public async Task Delete_SeededLabWithSubmission_CascadesSubmissions()
     {
-        var lab = LabsEndpointHarness.LabByPair(_factory, 1, 1);
+        var lab = await LabsEndpointHarness.LabByPairAsync(_factory, 1, 1);
         // Предусловие: по работе (1,1) есть сид-сдача (каскаду есть что удалять).
-        Assert.NotEmpty(LabsEndpointHarness.SubmissionsOfLab(_factory, lab.Id));
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        Assert.NotEmpty(await LabsEndpointHarness.SubmissionsOfLabAsync(_factory, lab.Id));
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.DeleteAsync($"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Empty(LabsEndpointHarness.SubmissionsOfLab(_factory, lab.Id));
+        Assert.Empty(await LabsEndpointHarness.SubmissionsOfLabAsync(_factory, lab.Id));
         using var readBack = await client.GetAsync($"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}");
         Assert.Equal(HttpStatusCode.NotFound, readBack.StatusCode);
     }
@@ -773,7 +773,7 @@ public sealed class LabsUpdateDeleteEndpointTests(LabsApiFixture fixture) : ICla
     [Fact]
     public async Task Delete_NonexistentId_Returns404()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.DeleteAsync($"{LabsEndpointHarness.LabsEndpoint}/{Guid.NewGuid()}");
 
@@ -804,7 +804,7 @@ public sealed class LabsRolesEndpointTests(LabsApiFixture fixture) : IClassFixtu
     [Fact]
     public async Task GetList_Student_Returns403ForbiddenEnvelope()
     {
-        using var client = LabsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await LabsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.GetAsync(LabsEndpointHarness.LabsEndpoint);
 
@@ -815,7 +815,7 @@ public sealed class LabsRolesEndpointTests(LabsApiFixture fixture) : IClassFixtu
     [Fact]
     public async Task Put_StudentNonexistentIdInvalidBody_403Before400And404()
     {
-        using var client = LabsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await LabsEndpointHarness.CreateStudentClient(_factory);
 
         // Роль проверяется раньше валидации тела и существования записи (FR-022).
         using var response = await client.PutAsync(
@@ -830,21 +830,21 @@ public sealed class LabsRolesEndpointTests(LabsApiFixture fixture) : IClassFixtu
     [Fact]
     public async Task Delete_Student_Returns403()
     {
-        var lab = LabsEndpointHarness.LabByPair(_factory, 1, 1);
-        using var client = LabsEndpointHarness.CreateStudentClient(_factory);
+        var lab = await LabsEndpointHarness.LabByPairAsync(_factory, 1, 1);
+        using var client = await LabsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.DeleteAsync($"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}");
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal("Доступ запрещён", await LabsEndpointHarness.MessageAsync(response));
         // Работа не удалена — отказ произошёл до бизнес-логики.
-        Assert.NotNull(_factory.Services.GetRequiredService<ILabRepository>().GetById(lab.Id));
+        Assert.NotNull(await _factory.Services.GetRequiredService<ILabRepository>().GetByIdAsync(lab.Id));
     }
 
     [Fact]
     public async Task GetList_Teacher_BusinessStatus()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(LabsEndpointHarness.LabsEndpoint);
 
@@ -861,7 +861,7 @@ public sealed class SemestersEndpointTests(LabsApiFixture fixture) : IClassFixtu
     [Fact]
     public async Task Semesters_UnderStudent_DistinctAscending()
     {
-        using var client = LabsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await LabsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.GetAsync(LabsEndpointHarness.SemestersEndpoint);
 
@@ -876,7 +876,7 @@ public sealed class SemestersEndpointTests(LabsApiFixture fixture) : IClassFixtu
     [Fact]
     public async Task Semesters_UnderTeacher_Returns200()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(LabsEndpointHarness.SemestersEndpoint);
 
@@ -903,7 +903,7 @@ public sealed class SemestersEmptyEndpointTests(NoDemoLabsApiFixture fixture) : 
     [Fact]
     public async Task Semesters_WithoutLabs_ReturnsEmptyArray()
     {
-        using var client = LabsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(LabsEndpointHarness.SemestersEndpoint);
 

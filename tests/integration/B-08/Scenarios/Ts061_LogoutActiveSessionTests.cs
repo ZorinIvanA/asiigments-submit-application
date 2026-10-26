@@ -33,8 +33,8 @@ public sealed class Ts061_LogoutActiveSessionTests : IClassFixture<B08WebAppFact
     {
         // given: вход выполнен (обе cookie установлены).
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
-        var grant = B08Host.EstablishSession(_factory, client, user.Id, UserRoles.Student);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
+        var grant = await B08Host.EstablishSessionAsync(_factory, client, user.Id, UserRoles.Student);
         Assert.True(client.Cookies.Contains(AuthCoreDefaults.AccessTokenCookieName), "Предусловие: access-cookie установлена.");
         Assert.True(client.Cookies.Contains(AuthCoreDefaults.RefreshTokenCookieName), "Предусловие: refresh-cookie установлена.");
 

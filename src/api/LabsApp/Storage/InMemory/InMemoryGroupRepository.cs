@@ -8,6 +8,8 @@ namespace LabsApp.Storage.InMemory;
 /// имени (ключ <see cref="Collation.Key"/>, сравнение Ordinal), составные операции
 /// атомарны под общим <see cref="StorageLock"/> (IF-015). Delete выполняет каскад «сначала группа, затем пользователи»
 /// под общей блокировкой. Хранилище хранит и отдаёт КОПИИ-снимки сущностей.
+/// Реализация асинхронна по контракту интерфейса, но не выполняет ввода-вывода:
+/// все задачи завершаются синхронно (Task.FromResult).
 /// </summary>
 public sealed class InMemoryGroupRepository(
     StorageLock lockObject,
@@ -17,7 +19,7 @@ public sealed class InMemoryGroupRepository(
     private readonly Dictionary<string, Guid> _byName = new(StringComparer.Ordinal);
 
     /// <inheritdoc/>
-    public void Add(Group group)
+    public Task AddAsync(Group group)
     {
         ArgumentNullException.ThrowIfNull(group);
 
@@ -33,51 +35,53 @@ public sealed class InMemoryGroupRepository(
             _groups[group.Id] = Clone(group);
             _byName[nameKey] = group.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Group? GetById(Guid id)
+    public Task<Group?> GetByIdAsync(Guid id)
     {
         lock (lockObject.SyncRoot)
         {
-            return _groups.TryGetValue(id, out var group) ? Clone(group) : null;
+            return Task.FromResult(_groups.TryGetValue(id, out var group) ? Clone(group) : null);
         }
     }
 
     /// <inheritdoc/>
-    public Group? GetByName(string name)
+    public Task<Group?> GetByNameAsync(string name)
     {
         lock (lockObject.SyncRoot)
         {
-            return _byName.TryGetValue(Collation.Key(name), out var id)
+            return Task.FromResult(_byName.TryGetValue(Collation.Key(name), out var id)
                 ? Clone(_groups[id])
-                : null;
+                : null);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Group> GetAll()
+    public Task<IReadOnlyList<Group>> GetAllAsync()
     {
         lock (lockObject.SyncRoot)
         {
-            return _groups.Values.Select(Clone).ToList();
+            return Task.FromResult<IReadOnlyList<Group>>(_groups.Values.Select(Clone).ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Group> List() => GetAll();
+    public Task<IReadOnlyList<Group>> ListAsync() => GetAllAsync();
 
     /// <inheritdoc/>
-    public bool ExistsNameCi(string name)
+    public Task<bool> ExistsNameCiAsync(string name)
     {
         lock (lockObject.SyncRoot)
         {
-            return _byName.ContainsKey(Collation.Key(name));
+            return Task.FromResult(_byName.ContainsKey(Collation.Key(name)));
         }
     }
 
     /// <inheritdoc/>
-    public void Update(Group group)
+    public Task UpdateAsync(Group group)
     {
         ArgumentNullException.ThrowIfNull(group);
 
@@ -99,10 +103,12 @@ public sealed class InMemoryGroupRepository(
             _groups[group.Id] = Clone(group);
             _byName[nameKey] = group.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void Delete(Guid id)
+    public Task DeleteAsync(Guid id)
     {
         lock (lockObject.SyncRoot)
         {
@@ -110,12 +116,14 @@ public sealed class InMemoryGroupRepository(
             // затем сброс GroupId у её студентов.
             if (!_groups.Remove(id, out var group))
             {
-                return;
+                return Task.CompletedTask;
             }
 
             _byName.Remove(Collation.Key(group.Name));
             users.ClearGroupMembership(id);
         }
+
+        return Task.CompletedTask;
     }
 
     private static Group Clone(Group group) => new()

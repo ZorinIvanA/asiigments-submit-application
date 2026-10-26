@@ -34,12 +34,12 @@ public sealed class ResetPasswordAtomicityTests(Cr001GateFixture fixture) : ICla
     {
         // given: пользователь; ДВА живых reset-токена (оба обязаны погаситься);
         // конкурентные цели — новое ФИО/email и группа ИК-222.
-        var groupB = Cr001GateHarness.SeedGroup(_factory, "ИК-222");
-        var user = Cr001GateHarness.SeedHashedUser(_factory, "reset-atomic");
-        var resetToken = Cr001GateHarness.SeedResetToken(_factory, user.Id);
-        var secondResetToken = Cr001GateHarness.SeedResetToken(_factory, user.Id);
-        Assert.NotNull(Cr001GateHarness.ResetTokenRecord(_factory, resetToken));
-        Assert.NotNull(Cr001GateHarness.ResetTokenRecord(_factory, secondResetToken));
+        var groupB = await Cr001GateHarness.SeedGroup(_factory, "ИК-222");
+        var user = await Cr001GateHarness.SeedHashedUser(_factory, "reset-atomic");
+        var resetToken = await Cr001GateHarness.SeedResetToken(_factory, user.Id);
+        var secondResetToken = await Cr001GateHarness.SeedResetToken(_factory, user.Id);
+        Assert.NotNull(await Cr001GateHarness.ResetTokenRecordAsync(_factory, resetToken));
+        Assert.NotNull(await Cr001GateHarness.ResetTokenRecordAsync(_factory, secondResetToken));
 
         var hasher = _factory.Services.GetRequiredService<IPasswordHasher>();
         var users = Cr001GateHarness.Users(_factory);
@@ -62,8 +62,8 @@ public sealed class ResetPasswordAtomicityTests(Cr001GateFixture fixture) : ICla
         await arrived.Task.WaitAsync(TimeSpan.FromSeconds(30));
         Assert.Equal(
             UpdateProfileResult.Success,
-            users.UpdateProfile(user.Id, "Новое ФИО", "reset-atomic-new@example.com"));
-        Assert.Equal(SetGroupResult.Success, users.SetGroup(user.Id, groupB.Id, _ => true));
+            await users.UpdateProfileAsync(user.Id, "Новое ФИО", "reset-atomic-new@example.com"));
+        Assert.Equal(SetGroupResult.Success, await users.SetGroupAsync(user.Id, groupB.Id, _ => Task.FromResult(true)));
         release.TrySetResult();
 
         using var response = await postTask;
@@ -79,12 +79,12 @@ public sealed class ResetPasswordAtomicityTests(Cr001GateFixture fixture) : ICla
                 KdfCallers.ResetPassword));
 
         // then: ВСЕ reset-токены пользователя погашены (регресс FR-014).
-        Assert.Null(Cr001GateHarness.ResetTokenRecord(_factory, resetToken));
-        Assert.Null(Cr001GateHarness.ResetTokenRecord(_factory, secondResetToken));
+        Assert.Null(await Cr001GateHarness.ResetTokenRecordAsync(_factory, resetToken));
+        Assert.Null(await Cr001GateHarness.ResetTokenRecordAsync(_factory, secondResetToken));
 
         // then: пароль сброшен (verify новым), конкурентные правка профиля и
         // группа НЕ откатаны узкой мутацией (суть CR-001 для C-006).
-        var stored = Cr001GateHarness.StoredUser(_factory, user.Id);
+        var stored = await Cr001GateHarness.StoredUserAsync(_factory, user.Id);
         Assert.True(hasher.Verify(Cr001GateHarness.NewPassword, stored.PasswordHash, KdfCallers.ResetPassword));
         Assert.False(hasher.Verify(Cr001GateHarness.TestUserPassword, stored.PasswordHash, KdfCallers.ResetPassword));
         Assert.Equal("Новое ФИО", stored.FullName);
@@ -117,12 +117,12 @@ public sealed class ResetPasswordProfileEndpointAtomicityTests(Cr001GateFixture 
     {
         // given: пользователь; ДВА живых reset-токена (оба погасятся успехом);
         // refresh-токен устройства (отзывается сбросом, FR-014).
-        var user = Cr001GateHarness.SeedHashedUser(_factory, "reset-prof-atomic");
-        var resetToken = Cr001GateHarness.SeedResetToken(_factory, user.Id);
-        var secondResetToken = Cr001GateHarness.SeedResetToken(_factory, user.Id);
-        var device = Cr001GateHarness.SeedRefreshToken(_factory, user.Id);
-        Assert.NotNull(Cr001GateHarness.ResetTokenRecord(_factory, resetToken));
-        Assert.NotNull(Cr001GateHarness.ResetTokenRecord(_factory, secondResetToken));
+        var user = await Cr001GateHarness.SeedHashedUser(_factory, "reset-prof-atomic");
+        var resetToken = await Cr001GateHarness.SeedResetToken(_factory, user.Id);
+        var secondResetToken = await Cr001GateHarness.SeedResetToken(_factory, user.Id);
+        var device = await Cr001GateHarness.SeedRefreshToken(_factory, user.Id);
+        Assert.NotNull(await Cr001GateHarness.ResetTokenRecordAsync(_factory, resetToken));
+        Assert.NotNull(await Cr001GateHarness.ResetTokenRecordAsync(_factory, secondResetToken));
 
         var hasher = _factory.Services.GetRequiredService<IPasswordHasher>();
         var before = Cr001GateHarness.KdfSnapshot(_factory);
@@ -169,7 +169,7 @@ public sealed class ResetPasswordProfileEndpointAtomicityTests(Cr001GateFixture 
 
         // then: пароль применён (verify новым), профильные поля — ОТ PUT /me/profile
         // (не откатаны сбросом), прочие поля записи не тронуты.
-        var stored = Cr001GateHarness.StoredUser(_factory, user.Id);
+        var stored = await Cr001GateHarness.StoredUserAsync(_factory, user.Id);
         Assert.True(hasher.Verify(Cr001GateHarness.NewPassword, stored.PasswordHash, KdfCallers.ResetPassword));
         Assert.False(hasher.Verify(Cr001GateHarness.TestUserPassword, stored.PasswordHash, KdfCallers.ResetPassword));
         Assert.Equal(profileFullName, stored.FullName);
@@ -177,8 +177,8 @@ public sealed class ResetPasswordProfileEndpointAtomicityTests(Cr001GateFixture 
         Assert.Equal(user.Login, stored.Login);
 
         // then: ВСЕ reset-токены пользователя погашены; refresh-токен отозван.
-        Assert.Null(Cr001GateHarness.ResetTokenRecord(_factory, resetToken));
-        Assert.Null(Cr001GateHarness.ResetTokenRecord(_factory, secondResetToken));
-        Assert.Null(Cr001GateHarness.RefreshTokenRecord(_factory, device));
+        Assert.Null(await Cr001GateHarness.ResetTokenRecordAsync(_factory, resetToken));
+        Assert.Null(await Cr001GateHarness.ResetTokenRecordAsync(_factory, secondResetToken));
+        Assert.Null(await Cr001GateHarness.RefreshTokenRecordAsync(_factory, device));
     }
 }

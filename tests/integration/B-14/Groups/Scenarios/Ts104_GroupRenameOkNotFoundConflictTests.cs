@@ -26,7 +26,7 @@ public sealed class Ts104_GroupRenameOkNotFoundConflictTests : IClassFixture<B14
     public async Task PutGroup_Renames_UnknownIdNotFound_ForeignNameConflicts()
     {
         // given: сессия teacher; G1 = существующая группа (ИК-221 демо-сида).
-        using var client = B14GroupsSession.CreateTeacher(_factory);
+        using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var g1Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: PUT /groups/{G1.id} {name:'Новое имя'}.
@@ -61,7 +61,7 @@ public sealed class Ts104_GroupRenameOkNotFoundConflictTests : IClassFixture<B14
     public async Task PutGroup_OwnNameIsNotAConflict()
     {
         // given: сессия teacher; группа с известным именем (ИК-222 демо-сида).
-        using var client = B14GroupsSession.CreateTeacher(_factory);
+        using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var groupId = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 
         // when: PUT /groups/{id} {name:'ИК-222'} — переименование в СОБСТВЕННОЕ имя.

@@ -34,10 +34,10 @@ public static class B05MintedSessions
     }
 
     /// <summary>Клиент с сессией сид-преподавателя (учётка создана сидом FR-004).</summary>
-    public static HttpClient CreateTeacherClient(B05WebAppFactory factory)
+    public static async Task<HttpClient> CreateTeacherClient(B05WebAppFactory factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сид-преподаватель не найден — шаг given «сессия teacher» неисполним.");
         var client = Create(factory);

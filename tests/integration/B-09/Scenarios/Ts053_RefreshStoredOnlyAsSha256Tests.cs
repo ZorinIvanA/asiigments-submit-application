@@ -44,7 +44,7 @@ public sealed class Ts053_RefreshStoredOnlyAsSha256Tests(B09TimedWebAppFactory f
         // when: инспекция хранилища — поиск записи refresh-токена по SHA-256
         // значения cookie (зеркало IF-003: в хранилище только хэш значения).
         var expectedHash = B09AuthSupport.Sha256Hex(refreshCookie.Value);
-        var record = securityTokens.FindLiveByHash(expectedHash);
+        var record = await securityTokens.FindLiveByHashAsync(expectedHash);
 
         // then: запись содержит SHA-256 (hex, 64 символа) значения токена.
         Assert.NotNull(record);
@@ -53,7 +53,7 @@ public sealed class Ts053_RefreshStoredOnlyAsSha256Tests(B09TimedWebAppFactory f
 
         // then: …и НЕ содержит само значение.
         Assert.NotEqual(refreshCookie.Value, record.TokenHash);
-        Assert.Null(securityTokens.FindLiveByHash(refreshCookie.Value));
+        Assert.Null( await securityTokens.FindLiveByHashAsync(refreshCookie.Value) );
 
         // then: expiresAt = now + 7 дней (Auth__RefreshTtlDays=7; часы фикстуры
         // стоят — момент создания и момент инспекции совпадают).

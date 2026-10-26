@@ -28,7 +28,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     public async Task PostGroup_TrimsName_ThenCiDuplicateConflicts()
     {
         // given: сессия teacher; группы ИК-224 нет.
-        using var client = B14GroupsSession.CreateTeacher(_factory);
+        using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
 
         // when: POST /groups {name:'  ИК-224  '}.
         using var created = await B14GroupsApi.PostGroupAsync(client, "  ИК-224  ");
@@ -53,7 +53,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     {
         // given: сессия teacher; имена граничной длины без пробельных символов
         // (после трима длина сохраняется); в хранилище таких имён нет.
-        using var client = B14GroupsSession.CreateTeacher(_factory);
+        using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var name100 = new string('Г', 100);
         var name101 = new string('Г', 101);
 

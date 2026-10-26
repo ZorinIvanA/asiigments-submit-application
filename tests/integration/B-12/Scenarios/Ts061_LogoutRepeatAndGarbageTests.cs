@@ -31,18 +31,18 @@ public sealed class Ts061_LogoutRepeatAndGarbageTests(B12WebAppFactory factory)
     {
         // given: пользователь, чей logout будет повторяться, и ДРУГОЙ пользователь
         // с валидной живой refresh-сессией (контрольное значение).
-        var exiting = B12Seed.EnsureStudent(
+        var exiting = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12-ts061-exiting",
             fullName: "Повтор Выхода Тестович",
             email: "b12-ts061-exiting@t.local");
-        var foreign = B12Seed.EnsureStudent(
+        var foreign = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12-ts061-foreign",
             fullName: "Чужой Токен Тестович",
             email: "b12-ts061-foreign@t.local");
-        var exitingRefresh = B12AuthSessions.CreateLiveRefreshToken(_factory, exiting.Id);
-        var foreignRefresh = B12AuthSessions.CreateLiveRefreshToken(_factory, foreign.Id);
+        var exitingRefresh = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, exiting.Id);
+        var foreignRefresh = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, foreign.Id);
 
         using var client = B12AuthSessions.CreateClient(_factory);
 
@@ -66,7 +66,7 @@ public sealed class Ts061_LogoutRepeatAndGarbageTests(B12WebAppFactory factory)
         // then: refresh-токен другого пользователя продолжает действовать —
         // запись жива в хранилище и его /auth/refresh — 204 (чужие/несуществующие
         // токены не отозваны, FR-010).
-        Assert.Null(B12AuthSessions.RequireStoredToken(_factory, foreignRefresh).RevokedAt);
+        Assert.Null((await B12AuthSessions.RequireStoredTokenAsync(_factory, foreignRefresh)).RevokedAt);
         using var foreignRefreshResponse = await client.SendAsync(
             B12AuthSessions.CreateRefreshRequest(foreignRefresh));
         Assert.Equal(HttpStatusCode.NoContent, foreignRefreshResponse.StatusCode);

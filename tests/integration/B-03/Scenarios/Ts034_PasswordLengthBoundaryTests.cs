@@ -74,7 +74,7 @@ public sealed class Ts034_PasswordLengthBoundaryTests : IClassFixture<B03HostFac
         }
 
         // then: пользователь не создан, Δkdf=0 (KDF только при успешном создании).
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "pw129boundary"));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "pw129boundary"));
         Assert.Equal(0, B03Kdf.TotalDelta(before129, after129));
     }
 }

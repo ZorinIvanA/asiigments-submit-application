@@ -16,12 +16,12 @@ public sealed class InMemorySubmissionRepositoryTests
     private readonly Guid _updaterId = Guid.NewGuid();
 
     [Fact]
-    public void Upsert_BothDatesSet_Creates()
+    public async Task Upsert_BothDatesSet_Creates()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
         var updatedAt = DateTime.UtcNow;
 
-        var created = submissions.Upsert(
+        var created = await submissions.UpsertAsync(
             _studentId, _labId, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 11), _updaterId, updatedAt);
 
         Assert.NotNull(created);
@@ -30,15 +30,15 @@ public sealed class InMemorySubmissionRepositoryTests
         Assert.Equal(new DateOnly(2026, 9, 11), created.DefenseDate);
         Assert.Equal(_updaterId, created.UpdatedBy);
         Assert.Equal(updatedAt, created.UpdatedAt);
-        Assert.Equal(created.Id, submissions.GetByStudentAndLab(_studentId, _labId)!.Id);
+        Assert.Equal(created.Id, (await submissions.GetByStudentAndLabAsync(_studentId, _labId))!.Id);
     }
 
     [Fact]
-    public void Upsert_DefenseOnly_Creates_RecordWithoutSubmitDate()
+    public async Task Upsert_DefenseOnly_Creates_RecordWithoutSubmitDate()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
 
-        var created = submissions.Upsert(_studentId, _labId, null, new DateOnly(2026, 9, 11), _updaterId, DateTime.UtcNow);
+        var created = await submissions.UpsertAsync(_studentId, _labId, null, new DateOnly(2026, 9, 11), _updaterId, DateTime.UtcNow);
 
         Assert.NotNull(created);
         Assert.Null(created.SubmitDate);
@@ -46,15 +46,15 @@ public sealed class InMemorySubmissionRepositoryTests
     }
 
     [Fact]
-    public void Upsert_Existing_FullyReplacesBothDates_KeepsId()
+    public async Task Upsert_Existing_FullyReplacesBothDates_KeepsId()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
-        var created = submissions.Upsert(
+        var created = await submissions.UpsertAsync(
             _studentId, _labId, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 11), _updaterId, DateTime.UtcNow);
         var secondUpdater = Guid.NewGuid();
         var secondUpdateAt = DateTime.UtcNow.AddMinutes(1);
 
-        var replaced = submissions.Upsert(_studentId, _labId, new DateOnly(2026, 9, 2), null, secondUpdater, secondUpdateAt);
+        var replaced = await submissions.UpsertAsync(_studentId, _labId, new DateOnly(2026, 9, 2), null, secondUpdater, secondUpdateAt);
 
         Assert.NotNull(replaced);
         Assert.Equal(created!.Id, replaced.Id); // та же логическая запись
@@ -65,18 +65,18 @@ public sealed class InMemorySubmissionRepositoryTests
     }
 
     [Fact]
-    public void Upsert_BothDatesNull_KeepsRecord_ResetsDates_StableId()
+    public async Task Upsert_BothDatesNull_KeepsRecord_ResetsDates_StableId()
     {
         // data_design (FR-021): обе даты null = сброс дат, запись пары сохраняется;
         // Id стабилен, метки UpdatedBy/UpdatedAt заменяются переданными.
         var submissions = new InMemorySubmissionRepository(new StorageLock());
         var createdAt = DateTime.UtcNow;
-        var created = submissions.Upsert(
+        var created = await submissions.UpsertAsync(
             _studentId, _labId, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 11), _updaterId, createdAt);
         var resetUpdater = Guid.NewGuid();
         var resetAt = createdAt.AddMinutes(1);
 
-        var reset = submissions.Upsert(_studentId, _labId, null, null, resetUpdater, resetAt);
+        var reset = await submissions.UpsertAsync(_studentId, _labId, null, null, resetUpdater, resetAt);
 
         Assert.NotNull(created);
         Assert.NotNull(reset);
@@ -86,89 +86,89 @@ public sealed class InMemorySubmissionRepositoryTests
         Assert.Equal(resetUpdater, reset.UpdatedBy);
         Assert.Equal(resetAt, reset.UpdatedAt);
 
-        var stored = submissions.GetByStudentAndLab(_studentId, _labId);
+        var stored = await submissions.GetByStudentAndLabAsync(_studentId, _labId);
         Assert.NotNull(stored);
         Assert.Equal(created.Id, stored!.Id);
         Assert.Null(stored.SubmitDate);
         Assert.Null(stored.DefenseDate);
-        Assert.Single(submissions.ListByStudent(_studentId));
+        Assert.Single(await submissions.ListByStudentAsync(_studentId));
     }
 
     [Fact]
-    public void Upsert_BothDatesNull_OnEmptyStore_CreatesRecordWithNullDates()
+    public async Task Upsert_BothDatesNull_OnEmptyStore_CreatesRecordWithNullDates()
     {
         // data_design (FR-021): записи с обеими null-датами сохраняются —
         // upsert пустой пары создаёт запись с датами null.
         var submissions = new InMemorySubmissionRepository(new StorageLock());
 
-        var result = submissions.Upsert(_studentId, _labId, null, null, null, DateTime.UtcNow);
+        var result = await submissions.UpsertAsync(_studentId, _labId, null, null, null, DateTime.UtcNow);
 
         Assert.NotNull(result);
         Assert.Null(result!.SubmitDate);
         Assert.Null(result.DefenseDate);
-        var stored = submissions.GetByStudentAndLab(_studentId, _labId);
+        var stored = await submissions.GetByStudentAndLabAsync(_studentId, _labId);
         Assert.NotNull(stored);
         Assert.Equal(result.Id, stored!.Id);
-        Assert.Single(submissions.ListByStudent(_studentId));
+        Assert.Single(await submissions.ListByStudentAsync(_studentId));
     }
 
     [Fact]
-    public void GetByStudentAndLab_Miss_ReturnsNull()
+    public async Task GetByStudentAndLab_Miss_ReturnsNull()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
 
-        Assert.Null(submissions.GetByStudentAndLab(_studentId, _labId));
+        Assert.Null(await await submissions.GetByStudentAndLabAsync(_studentId, _labId));
     }
 
     [Fact]
-    public void ListByLabIds_FiltersAcrossStudents()
+    public async Task ListByLabIds_FiltersAcrossStudents()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
         var otherLab = Guid.NewGuid();
-        submissions.Upsert(Guid.NewGuid(), _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
-        submissions.Upsert(Guid.NewGuid(), _labId, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
-        submissions.Upsert(Guid.NewGuid(), otherLab, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(Guid.NewGuid(), _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(Guid.NewGuid(), _labId, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(Guid.NewGuid(), otherLab, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow);
 
-        var result = submissions.ListByLabIds([_labId]);
+        var result = await submissions.ListByLabIdsAsync([_labId]);
 
         Assert.Equal(2, result.Count);
         Assert.All(result, submission => Assert.Equal(_labId, submission.LabId));
     }
 
     [Fact]
-    public void ListByLabIds_EmptyCollection_ReturnsEmpty()
+    public async Task ListByLabIds_EmptyCollection_ReturnsEmpty()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
-        submissions.Upsert(Guid.NewGuid(), _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(Guid.NewGuid(), _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
 
-        Assert.Empty(submissions.ListByLabIds([]));
+        Assert.Empty(await submissions.ListByLabIdsAsync([]));
     }
 
     [Fact]
-    public void ListByStudent_FiltersByStudent()
+    public async Task ListByStudent_FiltersByStudent()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
         var otherStudent = Guid.NewGuid();
-        submissions.Upsert(_studentId, Guid.NewGuid(), new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
-        submissions.Upsert(_studentId, Guid.NewGuid(), new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
-        submissions.Upsert(otherStudent, _labId, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, Guid.NewGuid(), new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, Guid.NewGuid(), new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(otherStudent, _labId, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow);
 
-        Assert.Equal(2, submissions.ListByStudent(_studentId).Count);
-        Assert.Single(submissions.ListByStudent(otherStudent));
+        Assert.Equal(2, (await submissions.ListByStudentAsync(_studentId)).Count);
+        Assert.Single(await submissions.ListByStudentAsync(otherStudent));
     }
 
     [Fact]
-    public void DeleteByLabId_RemovesOnlyTargetLabSubmissions()
+    public async Task DeleteByLabId_RemovesOnlyTargetLabSubmissions()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
         var otherLab = Guid.NewGuid();
-        submissions.Upsert(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
-        submissions.Upsert(_studentId, otherLab, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, otherLab, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
 
-        submissions.DeleteByLabId(_labId);
+        await submissions.DeleteByLabIdAsync(_labId);
 
-        Assert.Null(submissions.GetByStudentAndLab(_studentId, _labId));
-        Assert.NotNull(submissions.GetByStudentAndLab(_studentId, otherLab));
+        Assert.Null(await await submissions.GetByStudentAndLabAsync(_studentId, _labId));
+        Assert.NotNull(await await submissions.GetByStudentAndLabAsync(_studentId, otherLab));
     }
 
     [Fact]
@@ -188,7 +188,7 @@ public sealed class InMemorySubmissionRepositoryTests
             .ToHashSet();
 
         var tasks = Enumerable.Range(0, 100)
-            .Select(i => Task.Run(() => submissions.Upsert(
+            .Select(i => Task.Run(() => submissions.UpsertAsync(
                 _studentId,
                 _labId,
                 new DateOnly(2026, 1, 1).AddDays(i),
@@ -200,9 +200,9 @@ public sealed class InMemorySubmissionRepositoryTests
         var results = await Task.WhenAll(tasks);
 
         // Ровно одна запись пары; все попытки отдали один и тот же Id.
-        var stored = submissions.GetByStudentAndLab(_studentId, _labId);
+        var stored = await submissions.GetByStudentAndLabAsync(_studentId, _labId);
         Assert.NotNull(stored);
-        Assert.Single(submissions.ListByStudent(_studentId));
+        Assert.Single(await submissions.ListByStudentAsync(_studentId));
         Assert.All(results, result => Assert.Equal(stored!.Id, result!.Id));
 
         // Запись согласована: тройка полей целиком из одного атомарного варианта.
@@ -217,7 +217,7 @@ public sealed class InMemorySubmissionRepositoryTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void GetByPairs_ReturnsOnlyRequestedPairs()
+    public async Task GetByPairs_ReturnsOnlyRequestedPairs()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
         var student1 = Guid.NewGuid();
@@ -226,12 +226,12 @@ public sealed class InMemorySubmissionRepositoryTests
         var lab1 = Guid.NewGuid();
         var lab2 = Guid.NewGuid();
         var lab3 = Guid.NewGuid();
-        submissions.Upsert(student1, lab1, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
-        submissions.Upsert(student2, lab1, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
-        submissions.Upsert(student1, lab2, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow);
-        submissions.Upsert(student3, lab3, new DateOnly(2026, 9, 4), null, null, DateTime.UtcNow); // вне запроса
+        await submissions.UpsertAsync(student1, lab1, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(student2, lab1, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(student1, lab2, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(student3, lab3, new DateOnly(2026, 9, 4), null, null, DateTime.UtcNow); // вне запроса
 
-        var found = submissions.GetByPairs([student1, student2], [lab1, lab2]);
+        var found = await submissions.GetByPairsAsync([student1, student2], [lab1, lab2]);
 
         Assert.Equal(3, found.Count);
         Assert.All(found, submission =>
@@ -242,12 +242,12 @@ public sealed class InMemorySubmissionRepositoryTests
     }
 
     [Fact]
-    public void GetByPairs_MissingPairs_ReturnsOnlyExisting()
+    public async Task GetByPairs_MissingPairs_ReturnsOnlyExisting()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
-        submissions.Upsert(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
 
-        var found = submissions.GetByPairs([_studentId, Guid.NewGuid()], [_labId, Guid.NewGuid()]);
+        var found = await submissions.GetByPairsAsync([_studentId, Guid.NewGuid()], [_labId, Guid.NewGuid()]);
 
         Assert.Single(found);
         Assert.Equal(_studentId, found[0].StudentId);
@@ -255,41 +255,41 @@ public sealed class InMemorySubmissionRepositoryTests
     }
 
     [Fact]
-    public void GetByPairs_EmptyInput_ReturnsEmpty()
+    public async Task GetByPairs_EmptyInput_ReturnsEmpty()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
-        submissions.Upsert(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
 
-        Assert.Empty(submissions.GetByPairs([], [_labId]));
-        Assert.Empty(submissions.GetByPairs([_studentId], []));
-        Assert.Empty(submissions.GetByPairs([], []));
+        Assert.Empty(await submissions.GetByPairsAsync([], [_labId]));
+        Assert.Empty(await submissions.GetByPairsAsync([_studentId], []));
+        Assert.Empty(await submissions.GetByPairsAsync([], []));
     }
 
     [Fact]
-    public void GetByPairs_DuplicateInput_NoDuplicates()
+    public async Task GetByPairs_DuplicateInput_NoDuplicates()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
-        submissions.Upsert(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
 
-        var found = submissions.GetByPairs([_studentId, _studentId], [_labId, _labId]);
+        var found = await submissions.GetByPairsAsync([_studentId, _studentId], [_labId, _labId]);
 
         Assert.Single(found);
     }
 
     [Fact]
-    public void ListForStudentAndSemester_ProjectsStudentSubmissionsOntoSemesterLabs()
+    public async Task ListForStudentAndSemester_ProjectsStudentSubmissionsOntoSemesterLabs()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
         var otherStudent = Guid.NewGuid();
         var sem1Lab1 = Guid.NewGuid();
         var sem1Lab2 = Guid.NewGuid();
         var sem2Lab = Guid.NewGuid();
-        submissions.Upsert(_studentId, sem1Lab1, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
-        submissions.Upsert(_studentId, sem1Lab2, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
-        submissions.Upsert(_studentId, sem2Lab, new DateOnly(2026, 10, 1), null, null, DateTime.UtcNow); // другой семестр
-        submissions.Upsert(otherStudent, sem1Lab1, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow); // чужая
+        await submissions.UpsertAsync(_studentId, sem1Lab1, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, sem1Lab2, new DateOnly(2026, 9, 2), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, sem2Lab, new DateOnly(2026, 10, 1), null, null, DateTime.UtcNow); // другой семестр
+        await submissions.UpsertAsync(otherStudent, sem1Lab1, new DateOnly(2026, 9, 3), null, null, DateTime.UtcNow); // чужая
 
-        var found = submissions.ListForStudentAndSemester(_studentId, [sem1Lab1, sem1Lab2]);
+        var found = await submissions.ListForStudentAndSemesterAsync(_studentId, [sem1Lab1, sem1Lab2]);
 
         Assert.Equal(2, found.Count);
         Assert.All(found, submission =>
@@ -300,20 +300,20 @@ public sealed class InMemorySubmissionRepositoryTests
     }
 
     [Fact]
-    public void ListForStudentAndSemester_EmptyLabSet_ReturnsEmpty()
+    public async Task ListForStudentAndSemester_EmptyLabSet_ReturnsEmpty()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
-        submissions.Upsert(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
 
-        Assert.Empty(submissions.ListForStudentAndSemester(_studentId, []));
+        Assert.Empty(await submissions.ListForStudentAndSemesterAsync(_studentId, []));
     }
 
     [Fact]
-    public void ListForStudentAndSemester_UnknownStudent_ReturnsEmpty()
+    public async Task ListForStudentAndSemester_UnknownStudent_ReturnsEmpty()
     {
         var submissions = new InMemorySubmissionRepository(new StorageLock());
-        submissions.Upsert(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
+        await submissions.UpsertAsync(_studentId, _labId, new DateOnly(2026, 9, 1), null, null, DateTime.UtcNow);
 
-        Assert.Empty(submissions.ListForStudentAndSemester(Guid.NewGuid(), [_labId]));
+        Assert.Empty(await submissions.ListForStudentAndSemesterAsync(Guid.NewGuid(), [_labId]));
     }
 }

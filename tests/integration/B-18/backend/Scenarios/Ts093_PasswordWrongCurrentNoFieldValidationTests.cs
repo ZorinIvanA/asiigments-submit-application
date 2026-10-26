@@ -47,7 +47,7 @@ public sealed class Ts093_PasswordWrongCurrentNoFieldValidationTests : IClassFix
 
         // given: хранимый passwordHash зафиксирован (снимок репозитория до запроса);
         // «счётчик KDF обнулён» — база Δkdf ровно вокруг PUT.
-        var storedBefore = B18ProfileHarness.StoredUser(_factory, user.Id);
+        var storedBefore = await B18ProfileHarness.StoredUserAsync(_factory, user.Id);
         var before = B18ProfileKdfProbe.Snapshot(_factory.Services);
 
         // when: НЕВЕРНЫЙ currentPassword вместе с НЕВАЛИДНЫМ новым ('abc' — короче
@@ -77,7 +77,7 @@ public sealed class Ts093_PasswordWrongCurrentNoFieldValidationTests : IClassFix
             $"Ожидался Δkdf=1 (только Verify текущего пароля, без деривации нового), фактически {delta}.");
 
         // then: хранимый passwordHash неизменен (снимок после запроса совпадает).
-        var storedAfter = B18ProfileHarness.StoredUser(_factory, user.Id);
+        var storedAfter = await B18ProfileHarness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(storedAfter.PasswordHash, storedBefore.PasswordHash, StringComparison.Ordinal),
             "Ожидался неизменный хранимый passwordHash (неверный currentPassword — до каких-либо " +

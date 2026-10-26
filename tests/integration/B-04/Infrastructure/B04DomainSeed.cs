@@ -15,7 +15,7 @@ public static class B04DomainSeed
     private static readonly DateTime SeedMoment = new(2026, 2, 1, 8, 0, 0, DateTimeKind.Utc);
 
     /// <summary>Добавляет группу в IGroupRepository и возвращает её (метка SeedMoment).</summary>
-    public static Group AddGroup(IGroupRepository groups, string name)
+    public static async Task<Group> AddGroupAsync(IGroupRepository groups, string name)
     {
         var group = new Group
         {
@@ -23,7 +23,7 @@ public static class B04DomainSeed
             Name = name,
             CreatedAt = SeedMoment,
         };
-        groups.Add(group);
+        await groups.AddAsync(group);
         return group;
     }
 
@@ -31,7 +31,7 @@ public static class B04DomainSeed
     /// Добавляет пользователя role=student в IUserRepository и возвращает его;
     /// необязательная groupId переводит студента в указанную группу.
     /// </summary>
-    public static User AddStudent(IUserRepository users, string login, Guid? groupId = null)
+    public static async Task<User> AddStudentAsync(IUserRepository users, string login, Guid? groupId = null)
     {
         var user = new User
         {
@@ -44,12 +44,12 @@ public static class B04DomainSeed
             GroupId = groupId,
             CreatedAt = SeedMoment,
         };
-        users.Add(user);
+        await users.AddAsync(user);
         return user;
     }
 
     /// <summary>Добавляет работу (семестр, номер) в ILabRepository и возвращает её.</summary>
-    public static Lab AddLab(ILabRepository labs, int semester, int number)
+    public static async Task<Lab> AddLabAsync(ILabRepository labs, int semester, int number)
     {
         var lab = new Lab
         {
@@ -62,7 +62,7 @@ public static class B04DomainSeed
             CreatedAt = SeedMoment,
             UpdatedAt = SeedMoment,
         };
-        labs.Add(lab);
+        await labs.AddAsync(lab);
         return lab;
     }
 }

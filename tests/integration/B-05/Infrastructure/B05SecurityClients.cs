@@ -101,7 +101,7 @@ public static class B05SecurityClients
             GroupId = null,
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        await users.AddAsync(user);
         return user;
     }
 

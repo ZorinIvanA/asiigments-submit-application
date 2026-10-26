@@ -21,32 +21,38 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        уникальность пары).
 /// </summary>
 public sealed class Ts144_SubmissionUpsertResetsDatesAndPairUniquenessTests :
-    IClassFixture<B06SubmissionsWebAppFactory>
+    IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _studentId;
-    private readonly Guid _labId;
+    private Guid _studentId;
+    private Guid _labId;
 
     public Ts144_SubmissionUpsertResetsDatesAndPairUniquenessTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _studentId = B06SubmissionsSessions.RequireUser(factory, "student01").Id;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 1).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _studentId = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student01")).Id;
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 1)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task RepeatedPutWithNullDates_ResetsDatesWithoutCreatingDuplicate()
     {
         // given: запись пары с submitDate='2026-09-01', defenseDate='2026-09-11' существует.
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        var given = submissions.GetByStudentAndLab(_studentId, _labId);
+        var given = await submissions.GetByStudentAndLabAsync(_studentId, _labId);
         Assert.NotNull(given);
         Assert.Equal(new DateOnly(2026, 9, 1), given!.SubmitDate);
         Assert.Equal(new DateOnly(2026, 9, 11), given.DefenseDate);
         var previousUpdatedAt = given.UpdatedAt;
         var givenId = given.Id;
 
-        var (client, _) = B06SubmissionsSessions.CreateTeacherSession(_factory);
+        var (client, _) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
         using var _client = client;
 
         // when: PUT /submissions {та же пара, submitDate:null, defenseDate:null}.
@@ -73,7 +79,7 @@ public sealed class Ts144_SubmissionUpsertResetsDatesAndPairUniquenessTests :
         Assert.Equal(JsonValueKind.Null, secondBody.GetProperty("submitDate").ValueKind);
         Assert.Equal(JsonValueKind.Null, secondBody.GetProperty("defenseDate").ValueKind);
 
-        var pairRecords = submissions.GetByPairs(
+        var pairRecords = await submissions.GetByPairsAsync(
             new[] { _studentId }, new[] { _labId });
         Assert.True(
             pairRecords.Count == 1,

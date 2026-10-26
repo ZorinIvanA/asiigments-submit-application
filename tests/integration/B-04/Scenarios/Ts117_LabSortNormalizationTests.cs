@@ -18,7 +18,7 @@ public sealed class Ts117_LabSortNormalizationTests(B04DemoSeedWebAppFactory fac
     [Fact]
     public async Task TS117_GetLabsWithForeignSortParams_FallsBackToDefaultOrder()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: GET /labs с sortField/sortDir вне словаря.
         using var response = await client.GetAsync("/api/v1/labs?sortField=color&sortDir=sideways");

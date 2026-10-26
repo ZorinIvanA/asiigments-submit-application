@@ -23,10 +23,10 @@ public sealed class Ts061_LogoutTwiceIdempotentTests(B12FakeTimeWebAppFactory fa
     public async Task DoubleLogout_BothNoContent_RevokedExactlyOnce()
     {
         // given: пользователь вошёл (живой refresh-cookie).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
-        var refreshToken = B12AuthSessions.CreateLiveRefreshToken(_factory, teacher.Id);
+        var refreshToken = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, teacher.Id);
 
         using var client = B12AuthSessions.CreateClient(_factory);
 

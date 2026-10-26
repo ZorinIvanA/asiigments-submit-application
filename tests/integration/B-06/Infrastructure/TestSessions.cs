@@ -49,7 +49,7 @@ public static class TestSessions
             GroupId = null,
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        users.AddAsync(user);
         return user;
     }
 

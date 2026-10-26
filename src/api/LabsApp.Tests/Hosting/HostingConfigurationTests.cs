@@ -50,7 +50,7 @@ public sealed class HostingConfigurationTests
     [InlineData("   ")]
     [InlineData("k")]
     [InlineData("kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk")]
-    public void Production_MissingOrShortJwtKey_FailsFastWithVariableName(string? jwtKey)
+    public async Task Production_MissingOrShortJwtKey_FailsFastWithVariableName(string? jwtKey)
     {
         var factory = new TestWebAppFactory(
             Environments.Production,
@@ -65,7 +65,7 @@ public sealed class HostingConfigurationTests
     // NFR-007: отказ старта при невалидной конфигурации Production — ≤ 5 с,
     // исключение называет переменную.
     [Fact]
-    public void Production_InvalidJwtKey_StartupRefusedWithinFiveSeconds()
+    public async Task Production_InvalidJwtKey_StartupRefusedWithinFiveSeconds()
     {
         var factory = new TestWebAppFactory(
             Environments.Production,
@@ -160,7 +160,7 @@ public sealed class HostingConfigurationTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("abc")]
-    public void Pbkdf2Iterations_NonNumeric_FailsFastWithVariableName(string value)
+    public async Task Pbkdf2Iterations_NonNumeric_FailsFastWithVariableName(string value)
     {
         var factory = new TestWebAppFactory(
             settings: Settings((AuthOptions.Pbkdf2IterationsVariable, value)));
@@ -176,7 +176,7 @@ public sealed class HostingConfigurationTests
     [InlineData("0")]
     [InlineData("-5")]
     [InlineData("10000001")]
-    public void Pbkdf2Iterations_OutOfRange_FailsFastWithVariableName(string value)
+    public async Task Pbkdf2Iterations_OutOfRange_FailsFastWithVariableName(string value)
     {
         var factory = new TestWebAppFactory(
             settings: Settings((AuthOptions.Pbkdf2IterationsVariable, value)));
@@ -214,7 +214,7 @@ public sealed class HostingConfigurationTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("teacher123!")]
-    public void Production_MissingOrDefaultTeacherPassword_FailsFastWithVariableName(string? password)
+    public async Task Production_MissingOrDefaultTeacherPassword_FailsFastWithVariableName(string? password)
     {
         var factory = new TestWebAppFactory(
             Environments.Production,
@@ -231,7 +231,7 @@ public sealed class HostingConfigurationTests
     // пароль) и попадает в учётную запись дословно, а не обрезанным до значения,
     // которому проверка не предъявлялась.
     [Fact]
-    public void Production_PaddedTeacherPassword_GuardAndSeederUseSameValue()
+    public async Task Production_PaddedTeacherPassword_GuardAndSeederUseSameValue()
     {
         const string padded = " padded-teacher-pass1 ";
         using var factory = new TestWebAppFactory(
@@ -239,7 +239,7 @@ public sealed class HostingConfigurationTests
             Settings((SeedOptions.TeacherPasswordVariable, padded)));
         _ = factory.Services; // построение приложения: guard FR-006 + сид
 
-        var teacher = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("teacher");
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         var hasher = factory.Services.GetRequiredService<IPasswordHasher>();
 
         Assert.NotNull(teacher);
@@ -252,7 +252,7 @@ public sealed class HostingConfigurationTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Production_TtlNonPositive_FailsFastWithVariableName()
+    public async Task Production_TtlNonPositive_FailsFastWithVariableName()
     {
         var factory = new TestWebAppFactory(
             Environments.Production,
@@ -265,7 +265,7 @@ public sealed class HostingConfigurationTests
     }
 
     [Fact]
-    public void Production_MaxSemesterOutOfRange_FailsFastWithVariableName()
+    public async Task Production_MaxSemesterOutOfRange_FailsFastWithVariableName()
     {
         var factory = new TestWebAppFactory(
             Environments.Production,
@@ -300,7 +300,7 @@ public sealed class HostingConfigurationTests
     }
 
     [Fact]
-    public void Development_Defaults_Applied()
+    public async Task Development_Defaults_Applied()
     {
         // Умолчания харнеса отключены (T-006): проверяются умолчания ПРИЛОЖЕНИЯ
         // (композиция-корень/окружение), а не умолчания тестовой фабрики.
@@ -323,7 +323,7 @@ public sealed class HostingConfigurationTests
     // Единый источник бизнес-времени: TimeProvider зарегистрирован в DI
     // композиция-корня и переопределяется тестами подменой (tech solution «время»).
     [Fact]
-    public void TimeProvider_RegisteredAsSystem_InCompositionRoot()
+    public async Task TimeProvider_RegisteredAsSystem_InCompositionRoot()
     {
         using var factory = new TestWebAppFactory();
 

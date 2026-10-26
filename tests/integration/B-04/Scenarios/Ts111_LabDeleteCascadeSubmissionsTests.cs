@@ -28,11 +28,11 @@ public sealed class Ts111_LabDeleteCascadeSubmissionsTests(B04LabsWebAppFactory 
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
 
-        var group = B04DomainSeed.AddGroup(groups, "Б-04 ИК-111");
-        var student = B04DomainSeed.AddStudent(users, "b04-ts111-student", group.Id);
-        var lab = B04DomainSeed.AddLab(labs, semester: 3, number: 7);
+        var group = await B04DomainSeed.AddGroupAsync(groups, "Б-04 ИК-111");
+        var student = await B04DomainSeed.AddStudentAsync(users, "b04-ts111-student", group.Id);
+        var lab = await B04DomainSeed.AddLabAsync(labs, semester: 3, number: 7);
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         using var created = await client.PutAsJsonAsync("/api/v1/submissions", new
         {
@@ -49,7 +49,7 @@ public sealed class Ts111_LabDeleteCascadeSubmissionsTests(B04LabsWebAppFactory 
         // единственный оракул каскада — контроллер собирает её из хранилища
         // работ, и при сломанном каскаде осиротевшая запись всё равно не
         // попала бы в выдачу (CR-001).
-        var beforeDelete = submissions.ListByLabIds([lab.Id]);
+        var beforeDelete = await submissions.ListByLabIdsAsync([lab.Id]);
         var record = Assert.Single(beforeDelete);
         Assert.Equal(student.Id, record.StudentId);
         Assert.Equal(lab.Id, record.LabId);
@@ -60,7 +60,7 @@ public sealed class Ts111_LabDeleteCascadeSubmissionsTests(B04LabsWebAppFactory 
         // then: 204; записей сдач с labId=L.id в хранилище больше нет
         // (каскад, проверено напрямую).
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
-        Assert.Empty(submissions.ListByLabIds([lab.Id]));
+        Assert.Empty( await submissions.ListByLabIdsAsync([lab.Id]) );
 
         // then: и на странице ведомости, где сдача была (страница 1: студент —
         // единственный в группе), записей с labId=L.id нет (HTTP-срез каскада).

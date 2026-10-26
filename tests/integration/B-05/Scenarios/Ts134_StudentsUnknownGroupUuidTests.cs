@@ -22,7 +22,7 @@ public sealed class Ts134_StudentsUnknownGroupUuidTests : IClassFixture<B05WebAp
     {
         // given: uuid, которого нет среди сид-групп; teacher авторизован.
         var unknownGroupId = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: фильтр по неизвестной группе.
         using var response = await client.GetAsync($"/api/v1/students?groupId={unknownGroupId}");

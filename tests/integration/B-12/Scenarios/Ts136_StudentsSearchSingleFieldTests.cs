@@ -17,12 +17,12 @@ public sealed class Ts136_StudentsSearchSingleFieldTests(B12WebAppFactory factor
     public async Task TS136_Search_TwoTokensOfFullName_FindsStudent()
     {
         // given: студент с заданными кейсом полями (DI-сид, ADR-010); сессия teacher.
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "student01",
             fullName: "Иванов Иван Иванович 01",
             email: "s01@x.ru");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /students?search=иванов 01 (оба токена — ci-подстроки fullName).
         using var response = await client.GetAsync(

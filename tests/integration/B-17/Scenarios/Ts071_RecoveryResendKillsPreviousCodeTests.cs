@@ -49,7 +49,7 @@ public sealed class Ts071_RecoveryResendKillsPreviousCodeTests : IClassFixture<B
         var sent = _factory.EmailSpy.SentRecoveryEmails;
         Assert.True(sent.Count == 1, $"Ожидался один вызов IEmailSender, фактически {sent.Count}.");
         var codeC1 = sent[0].Code;
-        var liveC1 = codes.FindLiveForUser(user.Id);
+        var liveC1 = await codes.FindLiveForUserAsync(user.Id);
         Assert.NotNull(liveC1);
         Assert.Null(liveC1.UsedAt);
         var c1RecordId = liveC1.Id;
@@ -69,7 +69,7 @@ public sealed class Ts071_RecoveryResendKillsPreviousCodeTests : IClassFixture<B
         Assert.True(
             c1Record.UsedAt is not null,
             $"Ожидалось C1.usedAt≠null после переотправки, фактически usedAt={c1Record.UsedAt:O}.");
-        var liveC2 = codes.FindLiveForUser(user.Id);
+        var liveC2 = await codes.FindLiveForUserAsync(user.Id);
         Assert.NotNull(liveC2);
         Assert.True(
             liveC2.Id != c1RecordId,

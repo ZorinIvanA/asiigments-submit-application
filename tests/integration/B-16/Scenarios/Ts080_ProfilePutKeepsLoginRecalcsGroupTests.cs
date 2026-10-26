@@ -72,7 +72,7 @@ public sealed class Ts080_ProfilePutKeepsLoginRecalcsGroupTests : IClassFixture<
 
         // given (продолжение кейса): ПОСЛЕ обновления группа пользователя
         // переименована в 'ИК-999' (DI-правка текущего состояния групп).
-        B16Harness.RenameGroup(_factory, group, RenamedGroupName);
+        await B16Harness.RenameGroupAsync(_factory, group, RenamedGroupName);
 
         // when (продолжение): GET /me/profile.
         using var getResponse = await client.GetAsync(B16Harness.ProfileEndpoint);
@@ -91,7 +91,7 @@ public sealed class Ts080_ProfilePutKeepsLoginRecalcsGroupTests : IClassFixture<
 
         // then: в хранилище обновлены только fullName/email — login/роль/группа
         // прежние, поле login:'hacker' проигнорировано.
-        var stored = B16Harness.StoredUser(_factory, user.Id);
+        var stored = await B16Harness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}».");

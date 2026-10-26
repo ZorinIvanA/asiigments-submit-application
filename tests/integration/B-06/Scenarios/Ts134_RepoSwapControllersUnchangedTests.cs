@@ -41,7 +41,7 @@ public sealed class Ts134_RepoSwapControllersUnchangedTests : IClassFixture<B06R
         Assert.Same(_factory.RateLimitStore, services.GetRequiredService<IRateLimitStore>());
 
         // Сид-преподаватель (FR-006) создан SeedRunner'ом в подмене IUserRepository.
-        var teacher = _factory.Users.GetByLogin(SeedOptions.DefaultTeacherLogin);
+        var teacher = await _factory.Users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin);
         Assert.NotNull(teacher);
 
         // when (1): POST /auth/register — регистрация на подменных хранилищах.
@@ -61,7 +61,7 @@ public sealed class Ts134_RepoSwapControllersUnchangedTests : IClassFixture<B06R
         Assert.Equal(Login, registered.GetProperty("login").GetString());
         Assert.Equal("student", registered.GetProperty("role").GetString());
 
-        var stored = _factory.Users.GetByLogin(Login);
+        var stored = await _factory.Users.GetByLoginAsync(Login);
         Assert.NotNull(stored);
         Assert.Equal(Email, stored!.Email);
         Assert.Equal("Подменённый Студент", stored.FullName);
@@ -90,10 +90,10 @@ public sealed class Ts134_RepoSwapControllersUnchangedTests : IClassFixture<B06R
         var page = await BodyAssertions.ReadRootObjectAsync(labsResponse);
         BodyAssertions.HasExactlyProperties(page, "items", "total", "page", "pageSize");
         Assert.Equal(0, page.GetProperty("total").GetInt32());
-        Assert.Empty(_factory.Labs.GetAll());
+        Assert.Empty( await _factory.Labs.GetAllAsync() );
 
         // then: запись refresh-сессии жива в подмене (ленивая живость по TimeProvider).
-        Assert.NotNull(_factory.SecurityTokens.FindLiveByHash(sessionToken.TokenHash));
+        Assert.NotNull( await _factory.SecurityTokens.FindLiveByHashAsync(sessionToken.TokenHash) );
 
         // then: состояние регистрационного лимитера осело в подмене IRateLimitStore
         // (политика register: попытка регистрации учтена в подменном хранилище).

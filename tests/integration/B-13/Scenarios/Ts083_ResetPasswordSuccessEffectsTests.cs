@@ -42,7 +42,7 @@ public sealed class Ts083_ResetPasswordSuccessEffectsTests(B13RecoveryTimedHost 
         var securityTokens = services.GetRequiredService<ISecurityTokenRepository>();
         var now = _factory.Time.GetUtcNow().UtcDateTime;
         var refreshGrant = tokens.CreateRefreshToken(user.Id);
-        securityTokens.Add(new RefreshToken
+        await securityTokens.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
@@ -50,7 +50,7 @@ public sealed class Ts083_ResetPasswordSuccessEffectsTests(B13RecoveryTimedHost 
             ExpiresAt = refreshGrant.ExpiresAt,
             CreatedAt = now,
         });
-        var resetToken = B13RecoveryHarness.SeedLiveResetToken(_factory, user.Id);
+        var resetToken = await B13RecoveryHarness.SeedLiveResetTokenAsync(_factory, user.Id);
         var kdfBefore = B13RecoveryHarness.KdfSnapshot(_factory);
 
         // when: POST /auth/reset-password {resetToken, password, confirmPassword}.
@@ -72,7 +72,7 @@ public sealed class Ts083_ResetPasswordSuccessEffectsTests(B13RecoveryTimedHost 
 
         // then: все reset-токены пользователя погашены (предъявленный токен
         // неживой; запись погашена — usedAt≠null, шов хранилища).
-        Assert.Null(securityTokens.FindLiveResetByHash(B13RecoverySeed.Sha256Hex(resetToken)));
+        Assert.Null( await securityTokens.FindLiveResetByHashAsync(B13RecoverySeed.Sha256Hex(resetToken)) );
         var consumed = B13RecoverySeed.ResetTokenByHash(_factory, B13RecoverySeed.Sha256Hex(resetToken));
         Assert.NotNull(consumed);
         Assert.NotNull(consumed.UsedAt);

@@ -75,7 +75,7 @@ public static partial class B17Host
             GroupId = null,
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        users.AddAsync(user);
         return user;
     }
 

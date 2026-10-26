@@ -89,9 +89,9 @@ public sealed class GatedUserRepository(InMemoryUserRepository inner) : IUserRep
     }
 
     /// <inheritdoc/>
-    public User? GetById(Guid id)
+    public async Task<User?> GetByIdAsync(Guid id)
     {
-        var user = inner.GetById(id);
+        var user = await inner.GetByIdAsync(id);
         if (_armed && id == _watchId)
         {
             _armed = false;
@@ -106,38 +106,38 @@ public sealed class GatedUserRepository(InMemoryUserRepository inner) : IUserRep
     }
 
     /// <inheritdoc/>
-    public void Add(User user) => inner.Add(user);
+    public async Task AddAsync(User user) => await inner.AddAsync(user);
 
     /// <inheritdoc/>
-    public User? GetByLogin(string login) => inner.GetByLogin(login);
+    public async Task<User?> GetByLoginAsync(string login) => await inner.GetByLoginAsync(login);
 
     /// <inheritdoc/>
-    public User? GetByEmail(string email) => inner.GetByEmail(email);
+    public async Task<User?> GetByEmailAsync(string email) => await inner.GetByEmailAsync(email);
 
     /// <inheritdoc/>
-    public void Update(User user) => inner.Update(user);
+    public async Task UpdateAsync(User user) => await inner.UpdateAsync(user);
 
     /// <inheritdoc/>
-    public bool SetPassword(Guid userId, string passwordHash) =>
-        inner.SetPassword(userId, passwordHash);
+    public async Task<bool> SetPasswordAsync(Guid userId, string passwordHash) =>
+        await inner.SetPasswordAsync(userId, passwordHash);
 
     /// <inheritdoc/>
-    public UpdateProfileResult UpdateProfile(Guid userId, string fullName, string email) =>
-        inner.UpdateProfile(userId, fullName, email);
+    public async Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email) =>
+        await inner.UpdateProfileAsync(userId, fullName, email);
 
     /// <inheritdoc/>
-    public SetGroupResult SetGroup(Guid userId, Guid? groupId, Func<Guid, bool>? groupExists) =>
-        inner.SetGroup(userId, groupId, groupExists);
+    public async Task<SetGroupResult> SetGroupAsync(Guid userId, Guid? groupId, Func<Guid, Task<bool>>? groupExists) =>
+        await inner.SetGroupAsync(userId, groupId, groupExists);
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListStudents(string? search = null, string? groupIdFilter = null) =>
-        inner.ListStudents(search, groupIdFilter);
+    public async Task<IReadOnlyList<User>> ListStudentsAsync(string? search = null, string? groupIdFilter = null) =>
+        await inner.ListStudentsAsync(search, groupIdFilter);
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListByGroup(Guid groupId) => inner.ListByGroup(groupId);
+    public async Task<IReadOnlyList<User>> ListByGroupAsync(Guid groupId) => await inner.ListByGroupAsync(groupId);
 
     /// <inheritdoc/>
-    public int CountByGroup(Guid groupId) => inner.CountByGroup(groupId);
+    public async Task<int> CountByGroupAsync(Guid groupId) => await inner.CountByGroupAsync(groupId);
 }
 
 /// <summary>
@@ -158,10 +158,10 @@ public sealed class StudentsSetGroupAtomicityEndpointTests(StudentsSetGroupGateF
         // (полная замена записи через Update — тот же примитив, что и в
         // PUT /me/password). Узкая мутация группы обязана сохранить новый хэш
         // и назначить группу; снимок, снятый ДО смены пароля, не перезаписывается.
-        var ik223 = StudentsEndpointHarness.GroupByName(_factory, "ИК-223");
-        var student31 = StudentsEndpointHarness.StudentByLogin(_factory, "student31");
+        var ik223 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
+        var student31 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student31");
         var (arrived, release) = fixture.Gate.Arm(student31.Id);
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         var putTask = client.PutAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}/{student31.Id}/group",
@@ -171,16 +171,16 @@ public sealed class StudentsSetGroupAtomicityEndpointTests(StudentsSetGroupGateF
         // окне выполняется смена пароля.
         await arrived.Task.WaitAsync(TimeSpan.FromSeconds(30));
         var users = StudentsEndpointHarness.Users(_factory);
-        var current = users.GetById(student31.Id)
+        var current = (await users.GetByIdAsync(student31.Id))
             ?? throw new InvalidOperationException("Студент student31 потерян из хранилища.");
         current.PasswordHash = "new-password-hash";
-        users.Update(current);
+        await users.UpdateAsync(current);
         release.TrySetResult();
 
         using var response = await putTask;
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var stored = users.GetById(student31.Id)!;
+        var stored = (await users.GetByIdAsync(student31.Id))!;
         Assert.Equal("new-password-hash", stored.PasswordHash);
         Assert.Equal(ik223.Id, stored.GroupId);
     }
@@ -192,22 +192,22 @@ public sealed class StudentsSetGroupAtomicityEndpointTests(StudentsSetGroupGateF
         // существует + смена» обязана увидеть отсутствие и ответить
         // 404 «Группа не найдена», не оставив студенту GroupId на несуществующую
         // группу (IF-011: groupId студента не меняется).
-        var ik222 = StudentsEndpointHarness.GroupByName(_factory, "ИК-222");
-        var student32 = StudentsEndpointHarness.StudentByLogin(_factory, "student32");
+        var ik222 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-222");
+        var student32 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student32");
         var (arrived, release) = fixture.Gate.Arm(student32.Id);
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         var putTask = client.PutAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}/{student32.Id}/group",
             StudentsEndpointHarness.Json($$"""{"groupId":"{{ik222.Id}}"}"""));
 
         await arrived.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        StudentsEndpointHarness.Groups(_factory).Delete(ik222.Id);
+        await StudentsEndpointHarness.Groups(_factory).DeleteAsync(ik222.Id);
         release.TrySetResult();
 
         using var response = await putTask;
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("Группа не найдена", await StudentsEndpointHarness.MessageAsync(response));
-        Assert.Null(StudentsEndpointHarness.StudentByLogin(_factory, "student32").GroupId);
+        Assert.Null((await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student32")).GroupId);
     }
 }

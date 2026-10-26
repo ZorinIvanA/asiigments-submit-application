@@ -14,165 +14,165 @@ namespace LabsApp.Tests.Storage;
 public sealed class InMemoryUserRepositoryTests
 {
     [Fact]
-    public void Add_AndFindByLoginAndEmail_CaseInsensitive()
+    public async Task Add_AndFindByLoginAndEmail_CaseInsensitive()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var user = TestEntities.User("Ivanov", "Ivanov@Example.COM");
-        users.Add(user);
+        await users.AddAsync(user);
 
-        Assert.Equal(user.Id, users.GetById(user.Id)!.Id);
-        Assert.Equal(user.Id, users.GetByLogin("ivanov")!.Id);
-        Assert.Equal(user.Id, users.GetByLogin("IVANOV")!.Id);
-        Assert.Equal(user.Id, users.GetByEmail("ivanov@example.com")!.Id);
-        Assert.Equal(user.Id, users.GetByEmail("IVANOV@EXAMPLE.COM")!.Id);
+        Assert.Equal(user.Id, (await users.GetByIdAsync(user.Id))!.Id);
+        Assert.Equal(user.Id, (await users.GetByLoginAsync("ivanov"))!.Id);
+        Assert.Equal(user.Id, (await users.GetByLoginAsync("IVANOV"))!.Id);
+        Assert.Equal(user.Id, (await users.GetByEmailAsync("ivanov@example.com"))!.Id);
+        Assert.Equal(user.Id, (await users.GetByEmailAsync("IVANOV@EXAMPLE.COM"))!.Id);
     }
 
     [Fact]
-    public void Add_ReturnsSnapshot_ExternalMutationNotTracked()
+    public async Task Add_ReturnsSnapshot_ExternalMutationNotTracked()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var user = TestEntities.User("a", "a@example.com");
-        users.Add(user);
+        await users.AddAsync(user);
 
         // Хранилище отдаёт копии-снимки: мутация копии не влияет на хранилище.
         user.FullName = "Испорчено снаружи";
-        Assert.NotEqual("Испорчено снаружи", users.GetByLogin("a")!.FullName);
+        Assert.NotEqual("Испорчено снаружи", (await users.GetByLoginAsync("a"))!.FullName);
     }
 
     [Fact]
-    public void Add_DuplicateLoginDifferentCase_Conflict_UserNotInserted()
+    public async Task Add_DuplicateLoginDifferentCase_Conflict_UserNotInserted()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("student01", "a@example.com"));
+        await users.AddAsync(TestEntities.User("student01", "a@example.com"));
 
-        var conflict = Record.Exception(() =>
-            users.Add(TestEntities.User("STUDENT01", "other@example.com")));
+        var conflict = await Record.ExceptionAsync(async () =>
+            await users.AddAsync(TestEntities.User("STUDENT01", "other@example.com")));
 
         Assert.IsType<StorageConflictException>(conflict);
-        Assert.Null(users.GetByEmail("other@example.com"));
-        Assert.Single(users.ListStudents());
-        Assert.NotNull(users.GetByLogin("student01"));
+        Assert.Null(await await users.GetByEmailAsync("other@example.com"));
+        Assert.Single(await users.ListStudentsAsync());
+        Assert.NotNull(await await users.GetByLoginAsync("student01"));
     }
 
     [Fact]
-    public void Add_DuplicateEmailDifferentCase_Conflict()
+    public async Task Add_DuplicateEmailDifferentCase_Conflict()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("a", "Mail@Example.com"));
+        await users.AddAsync(TestEntities.User("a", "Mail@Example.com"));
 
-        Assert.Throws<StorageConflictException>(
-            () => users.Add(TestEntities.User("b", "mail@example.COM")));
+        await Assert.ThrowsAsync<StorageConflictException>(
+            async () => await users.AddAsync(TestEntities.User("b", "mail@example.COM")));
     }
 
     [Fact]
-    public void GetById_Missing_ReturnsNull()
+    public async Task GetById_Missing_ReturnsNull()
     {
         var users = new InMemoryUserRepository(new StorageLock());
 
-        Assert.Null(users.GetById(Guid.NewGuid()));
+        Assert.Null(await users.GetByIdAsync(Guid.NewGuid()));
     }
 
     [Fact]
-    public void Update_ChangedEmail_Reindexes()
+    public async Task Update_ChangedEmail_Reindexes()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var user = TestEntities.User("a", "old@example.com");
-        users.Add(user);
+        await users.AddAsync(user);
 
         user.Email = "new@example.com";
-        users.Update(user);
+        await users.UpdateAsync(user);
 
-        Assert.Null(users.GetByEmail("old@example.com"));
-        Assert.Equal(user.Id, users.GetByEmail("new@example.com")!.Id);
-        Assert.Equal(user.Id, users.GetByLogin("a")!.Id);
+        Assert.Null(await await users.GetByEmailAsync("old@example.com"));
+        Assert.Equal(user.Id, (await users.GetByEmailAsync("new@example.com"))!.Id);
+        Assert.Equal(user.Id, (await users.GetByLoginAsync("a"))!.Id);
     }
 
     [Fact]
-    public void Update_ChangedLogin_Reindexes()
+    public async Task Update_ChangedLogin_Reindexes()
     {
         // Смена логина на свободный: ветка «логин не занят» проходит без
         // конфликта, ci-индекс login перепривязывается.
         var users = new InMemoryUserRepository(new StorageLock());
         var user = TestEntities.User("old-login", "a@example.com");
-        users.Add(user);
+        await users.AddAsync(user);
 
         user.Login = "new-login";
-        users.Update(user);
+        await users.UpdateAsync(user);
 
-        Assert.Null(users.GetByLogin("old-login"));
-        Assert.Equal(user.Id, users.GetByLogin("new-login")!.Id);
-        Assert.Equal(user.Id, users.GetByEmail("a@example.com")!.Id);
+        Assert.Null(await await users.GetByLoginAsync("old-login"));
+        Assert.Equal(user.Id, (await users.GetByLoginAsync("new-login"))!.Id);
+        Assert.Equal(user.Id, (await users.GetByEmailAsync("a@example.com"))!.Id);
     }
 
     [Fact]
-    public void Update_SameLoginAndEmail_Succeeds()
+    public async Task Update_SameLoginAndEmail_Succeeds()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var user = TestEntities.User("a", "a@example.com");
-        users.Add(user);
+        await users.AddAsync(user);
 
         user.FullName = "Другое ФИО";
-        users.Update(user);
+        await users.UpdateAsync(user);
 
-        Assert.Equal("Другое ФИО", users.GetByLogin("a")!.FullName);
+        Assert.Equal("Другое ФИО", (await users.GetByLoginAsync("a"))!.FullName);
     }
 
     [Fact]
-    public void Update_EmailOfAnotherUser_Conflict_NoChanges()
+    public async Task Update_EmailOfAnotherUser_Conflict_NoChanges()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var first = TestEntities.User("a", "a@example.com");
         var second = TestEntities.User("b", "b@example.com");
-        users.Add(first);
-        users.Add(second);
+        await users.AddAsync(first);
+        await users.AddAsync(second);
 
         first.Email = "b@example.com";
-        var conflict = Record.Exception(() => users.Update(first));
+        var conflict = await Record.ExceptionAsync(async () => await users.UpdateAsync(first));
 
         Assert.IsType<StorageConflictException>(conflict);
-        Assert.Equal("a@example.com", users.GetByLogin("a")!.Email);
-        Assert.Equal("b@example.com", users.GetByLogin("b")!.Email);
+        Assert.Equal("a@example.com", (await users.GetByLoginAsync("a"))!.Email);
+        Assert.Equal("b@example.com", (await users.GetByLoginAsync("b"))!.Email);
     }
 
     [Fact]
-    public void Update_LoginOfAnotherUser_Conflict_NoChanges()
+    public async Task Update_LoginOfAnotherUser_Conflict_NoChanges()
     {
         // Зеркало Update_EmailOfAnotherUser_Conflict_NoChanges для ветки
         // конфликта Login (CONTRACT CONFLICT, IF-015): изменения не сохраняются.
         var users = new InMemoryUserRepository(new StorageLock());
         var first = TestEntities.User("a", "a@example.com");
         var second = TestEntities.User("b", "b@example.com");
-        users.Add(first);
-        users.Add(second);
+        await users.AddAsync(first);
+        await users.AddAsync(second);
 
         first.Login = "b";
-        var conflict = Record.Exception(() => users.Update(first));
+        var conflict = await Record.ExceptionAsync(async () => await users.UpdateAsync(first));
 
         Assert.IsType<StorageConflictException>(conflict);
-        Assert.Equal("a", users.GetByEmail("a@example.com")!.Login);
-        Assert.Equal("b", users.GetByEmail("b@example.com")!.Login);
-        Assert.Equal(first.Id, users.GetByLogin("a")!.Id);
-        Assert.Equal(second.Id, users.GetByLogin("b")!.Id);
+        Assert.Equal("a", (await users.GetByEmailAsync("a@example.com"))!.Login);
+        Assert.Equal("b", (await users.GetByEmailAsync("b@example.com"))!.Login);
+        Assert.Equal(first.Id, (await users.GetByLoginAsync("a"))!.Id);
+        Assert.Equal(second.Id, (await users.GetByLoginAsync("b"))!.Id);
     }
 
     [Fact]
-    public void Update_MissingUser_Throws()
+    public async Task Update_MissingUser_Throws()
     {
         var users = new InMemoryUserRepository(new StorageLock());
 
-        Assert.Throws<InvalidOperationException>(
-            () => users.Update(TestEntities.User("ghost")));
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await users.UpdateAsync(TestEntities.User("ghost")));
     }
 
     [Fact]
-    public void ListStudents_ReturnsOnlyStudents()
+    public async Task ListStudents_ReturnsOnlyStudents()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("teacher", role: UserRoles.Teacher));
-        users.Add(TestEntities.User("s1"));
-        users.Add(TestEntities.User("s2"));
+        await users.AddAsync(TestEntities.User("teacher", role: UserRoles.Teacher));
+        await users.AddAsync(TestEntities.User("s1"));
+        await users.AddAsync(TestEntities.User("s2"));
 
-        var students = users.ListStudents();
+        var students = await users.ListStudentsAsync();
 
         Assert.Equal(2, students.Count);
         Assert.All(students, student => Assert.Equal(UserRoles.Student, student.Role));
@@ -183,57 +183,57 @@ public sealed class InMemoryUserRepositoryTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void ListStudents_MultiWordSearch_AllTokensInFullName_Finds()
+    public async Task ListStudents_MultiWordSearch_AllTokensInFullName_Finds()
     {
         // AC T-104 «Многословный поиск», часть 1: оба токена — подстроки fullName.
         var users = new InMemoryUserRepository(new StorageLock());
         var student01 = TestEntities.User(
             "student01",
             fullName: "Иванов Иван Иванович 01");
-        users.Add(student01);
-        users.Add(TestEntities.User("student02", fullName: "Петров Пётр Петрович 02"));
+        await users.AddAsync(student01);
+        await users.AddAsync(TestEntities.User("student02", fullName: "Петров Пётр Петрович 02"));
 
-        var found = users.ListStudents("иван 01");
+        var found = await users.ListStudentsAsync("иван 01");
 
         Assert.Single(found);
         Assert.Equal(student01.Id, found[0].Id);
     }
 
     [Fact]
-    public void ListStudents_MultiWordSearch_TokensInDifferentFields_NoMatch()
+    public async Task ListStudents_MultiWordSearch_TokensInDifferentFields_NoMatch()
     {
         // AC T-104 «Многословный поиск», часть 2: «иванов» — только в fullName,
         // «student01@example.com» — только в email; ОДНОГО поля со всеми токенами нет.
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User(
+        await users.AddAsync(TestEntities.User(
             "student01",
             fullName: "Иванов Иван Иванович 01"));
 
-        Assert.Empty(users.ListStudents("иванов student01@example.com"));
+        Assert.Empty(await users.ListStudentsAsync("иванов student01@example.com"));
     }
 
     [Fact]
-    public void ListStudents_MultiWordSearch_TokenOrderIrrelevant()
+    public async Task ListStudents_MultiWordSearch_TokenOrderIrrelevant()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var student01 = TestEntities.User("student01", fullName: "Иванов Иван Иванович 01");
-        users.Add(student01);
+        await users.AddAsync(student01);
 
-        var found = users.ListStudents("01 иван");
+        var found = await users.ListStudentsAsync("01 иван");
 
         Assert.Single(found);
         Assert.Equal(student01.Id, found[0].Id);
     }
 
     [Fact]
-    public void ListStudents_Search_CaseInsensitive()
+    public async Task ListStudents_Search_CaseInsensitive()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var student01 = TestEntities.User("Student01", fullName: "Иванов Иван Иванович 01");
-        users.Add(student01);
+        await users.AddAsync(student01);
 
-        var byUpperQuery = users.ListStudents("ИВАНОВ");
-        var byMixedLogin = users.ListStudents("sTUDENT01");
+        var byUpperQuery = await users.ListStudentsAsync("ИВАНОВ");
+        var byMixedLogin = await users.ListStudentsAsync("sTUDENT01");
 
         Assert.Single(byUpperQuery);
         Assert.Equal(student01.Id, byUpperQuery[0].Id);
@@ -242,178 +242,178 @@ public sealed class InMemoryUserRepositoryTests
     }
 
     [Fact]
-    public void ListStudents_SingleToken_MatchesLoginOrEmail()
+    public async Task ListStudents_SingleToken_MatchesLoginOrEmail()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var student01 = TestEntities.User("student01", "student01@example.com");
-        users.Add(student01);
-        users.Add(TestEntities.User("petrov", fullName: "Иванов Пётр"));
+        await users.AddAsync(student01);
+        await users.AddAsync(TestEntities.User("petrov", fullName: "Иванов Пётр"));
 
         // Токен-подстрока login и email student01 — находится в каждом из полей.
-        Assert.Equal(student01.Id, users.ListStudents("student01").Single().Id);
-        Assert.Equal(student01.Id, users.ListStudents("STUDENT01@EXAMPLE.COM").Single().Id);
+        Assert.Equal(student01.Id, (await users.ListStudentsAsync("student01")).Single().Id);
+        Assert.Equal(student01.Id, (await users.ListStudentsAsync("STUDENT01@EXAMPLE.COM")).Single().Id);
         // Частичный токен (подстрока email) — тоже находит student01.
-        Assert.Equal(student01.Id, users.ListStudents("student01@example.co").Single().Id);
+        Assert.Equal(student01.Id, (await users.ListStudentsAsync("student01@example.co")).Single().Id);
         // Ничья подстрока — пусто.
-        Assert.Empty(users.ListStudents("student02@example.com"));
+        Assert.Empty(await users.ListStudentsAsync("student02@example.com"));
     }
 
     [Fact]
-    public void ListStudents_Search_EmptyOrWhitespace_NoFilter()
+    public async Task ListStudents_Search_EmptyOrWhitespace_NoFilter()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("s1", fullName: "Иванов Иван"));
-        users.Add(TestEntities.User("s2", fullName: "Петров Пётр"));
+        await users.AddAsync(TestEntities.User("s1", fullName: "Иванов Иван"));
+        await users.AddAsync(TestEntities.User("s2", fullName: "Петров Пётр"));
 
-        Assert.Equal(2, users.ListStudents(null).Count);
-        Assert.Equal(2, users.ListStudents(string.Empty).Count);
-        Assert.Equal(2, users.ListStudents("   ").Count);
+        Assert.Equal(2, (await users.ListStudentsAsync(null)).Count);
+        Assert.Equal(2, (await users.ListStudentsAsync(string.Empty)).Count);
+        Assert.Equal(2, (await users.ListStudentsAsync("   ")).Count);
     }
 
     [Fact]
-    public void ListStudents_Search_PaddedQuery_TrimmedTokensStillMatch()
+    public async Task ListStudents_Search_PaddedQuery_TrimmedTokensStillMatch()
     {
         // Требование T-104 (unit_test_requirements «трим»): крайние и повторные
         // пробелы не порождают лишних токенов — «  иван   01  » ≡ «иван 01».
         var users = new InMemoryUserRepository(new StorageLock());
         var student01 = TestEntities.User("student01", fullName: "Иванов Иван Иванович 01");
-        users.Add(student01);
-        users.Add(TestEntities.User("student02", fullName: "Петров Пётр 01"));
+        await users.AddAsync(student01);
+        await users.AddAsync(TestEntities.User("student02", fullName: "Петров Пётр 01"));
 
-        var found = users.ListStudents("  иван   01  ");
+        var found = await users.ListStudentsAsync("  иван   01  ");
 
         Assert.Single(found);
         Assert.Equal(student01.Id, found[0].Id);
     }
 
     [Fact]
-    public void ListStudents_Search_TeachersExcluded_EvenIfFullNameMatches()
+    public async Task ListStudents_Search_TeachersExcluded_EvenIfFullNameMatches()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("t1", role: UserRoles.Teacher, fullName: "Иванов Учитель Учителевич"));
+        await users.AddAsync(TestEntities.User("t1", role: UserRoles.Teacher, fullName: "Иванов Учитель Учителевич"));
 
-        Assert.Empty(users.ListStudents("иванов"));
+        Assert.Empty(await users.ListStudentsAsync("иванов"));
     }
 
     [Fact]
-    public void ListStudents_GroupFilterNone_ReturnsOnlyUngrouped()
+    public async Task ListStudents_GroupFilterNone_ReturnsOnlyUngrouped()
     {
         // AC T-104 «Фильтр группы», часть 1: ListStudents(null, 'none').
         var users = new InMemoryUserRepository(new StorageLock());
         var group = TestEntities.Group("ИК-221");
-        users.Add(TestEntities.User("g1", groupId: group.Id));
-        users.Add(TestEntities.User("g2", groupId: group.Id));
-        users.Add(TestEntities.User("free1"));
-        users.Add(TestEntities.User("free2"));
-        users.Add(TestEntities.User("t1", role: UserRoles.Teacher));
+        await users.AddAsync(TestEntities.User("g1", groupId: group.Id));
+        await users.AddAsync(TestEntities.User("g2", groupId: group.Id));
+        await users.AddAsync(TestEntities.User("free1"));
+        await users.AddAsync(TestEntities.User("free2"));
+        await users.AddAsync(TestEntities.User("t1", role: UserRoles.Teacher));
 
-        var ungrouped = users.ListStudents(null, "none");
+        var ungrouped = await users.ListStudentsAsync(null, "none");
 
         Assert.Equal(2, ungrouped.Count);
         Assert.All(ungrouped, student => Assert.Null(student.GroupId));
     }
 
     [Fact]
-    public void ListStudents_GroupFilterAbsent_NoGroupFiltering()
+    public async Task ListStudents_GroupFilterAbsent_NoGroupFiltering()
     {
         // AC T-104 «Фильтр группы»: null/пустой groupIdFilter — без фильтра:
         // и состоящие в группах, и свободные студенты в выдаче.
         var users = new InMemoryUserRepository(new StorageLock());
         var group = TestEntities.Group("ИК-221");
-        users.Add(TestEntities.User("g1", groupId: group.Id));
-        users.Add(TestEntities.User("free1"));
-        users.Add(TestEntities.User("t1", role: UserRoles.Teacher));
+        await users.AddAsync(TestEntities.User("g1", groupId: group.Id));
+        await users.AddAsync(TestEntities.User("free1"));
+        await users.AddAsync(TestEntities.User("t1", role: UserRoles.Teacher));
 
-        Assert.Equal(2, users.ListStudents(null, null).Count);
-        Assert.Equal(2, users.ListStudents(null, string.Empty).Count);
-        Assert.Equal(2, users.ListStudents(null, "   ").Count);
+        Assert.Equal(2, (await users.ListStudentsAsync(null, null)).Count);
+        Assert.Equal(2, (await users.ListStudentsAsync(null, string.Empty)).Count);
+        Assert.Equal(2, (await users.ListStudentsAsync(null, "   ")).Count);
     }
 
     [Fact]
-    public void ListStudents_GroupFilterByUuid_ReturnsOnlyThatGroup()
+    public async Task ListStudents_GroupFilterByUuid_ReturnsOnlyThatGroup()
     {
         // AC T-104 «Фильтр группы», часть 2: ListStudents(null, <uuid ИК-221>).
         var users = new InMemoryUserRepository(new StorageLock());
         var ik221 = TestEntities.Group("ИК-221");
         var ik222 = TestEntities.Group("ИК-222");
         var in221 = TestEntities.User("in221", groupId: ik221.Id);
-        users.Add(in221);
-        users.Add(TestEntities.User("in222", groupId: ik222.Id));
-        users.Add(TestEntities.User("free"));
+        await users.AddAsync(in221);
+        await users.AddAsync(TestEntities.User("in222", groupId: ik222.Id));
+        await users.AddAsync(TestEntities.User("free"));
 
-        var found = users.ListStudents(null, ik221.Id.ToString());
+        var found = await users.ListStudentsAsync(null, ik221.Id.ToString());
 
         Assert.Single(found);
         Assert.Equal(in221.Id, found[0].Id);
     }
 
     [Fact]
-    public void ListStudents_GroupFilterUnknownUuid_EmptyResult_NotError()
+    public async Task ListStudents_GroupFilterUnknownUuid_EmptyResult_NotError()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("s1", groupId: TestEntities.Group("ИК-221").Id));
+        await users.AddAsync(TestEntities.User("s1", groupId: TestEntities.Group("ИК-221").Id));
 
-        Assert.Empty(users.ListStudents(null, Guid.NewGuid().ToString()));
+        Assert.Empty(await users.ListStudentsAsync(null, Guid.NewGuid().ToString()));
     }
 
     [Fact]
-    public void ListStudents_GroupFilterNotUuidAndNotNone_EmptyResult()
+    public async Task ListStudents_GroupFilterNotUuidAndNotNone_EmptyResult()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("free"));
+        await users.AddAsync(TestEntities.User("free"));
 
-        Assert.Empty(users.ListStudents(null, "не-uuid"));
+        Assert.Empty(await users.ListStudentsAsync(null, "не-uuid"));
     }
 
     [Fact]
-    public void ListStudents_SearchAndGroupFilter_Combine()
+    public async Task ListStudents_SearchAndGroupFilter_Combine()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var group = TestEntities.Group("ИК-221");
-        users.Add(TestEntities.User("s1", fullName: "Иванов Иван", groupId: group.Id));
-        users.Add(TestEntities.User("s2", fullName: "Иванов Пётр", groupId: group.Id));
-        users.Add(TestEntities.User("s3", fullName: "Иванов Андрей"));
+        await users.AddAsync(TestEntities.User("s1", fullName: "Иванов Иван", groupId: group.Id));
+        await users.AddAsync(TestEntities.User("s2", fullName: "Иванов Пётр", groupId: group.Id));
+        await users.AddAsync(TestEntities.User("s3", fullName: "Иванов Андрей"));
 
-        var found = users.ListStudents("иван", group.Id.ToString());
+        var found = await users.ListStudentsAsync("иван", group.Id.ToString());
 
         Assert.Equal(2, found.Count);
         Assert.All(found, student => Assert.Equal(group.Id, student.GroupId));
     }
 
     [Fact]
-    public void ListByGroup_ReturnsOnlyStudentsOfGroup()
+    public async Task ListByGroup_ReturnsOnlyStudentsOfGroup()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var ik221 = TestEntities.Group("ИК-221");
         var ik222 = TestEntities.Group("ИК-222");
         var first = TestEntities.User("a", groupId: ik221.Id);
         var second = TestEntities.User("b", groupId: ik221.Id);
-        users.Add(first);
-        users.Add(second);
-        users.Add(TestEntities.User("c", groupId: ik222.Id));
-        users.Add(TestEntities.User("free"));
+        await users.AddAsync(first);
+        await users.AddAsync(second);
+        await users.AddAsync(TestEntities.User("c", groupId: ik222.Id));
+        await users.AddAsync(TestEntities.User("free"));
 
-        var byGroup = users.ListByGroup(ik221.Id);
+        var byGroup = await users.ListByGroupAsync(ik221.Id);
 
         Assert.Equal(2, byGroup.Count);
         Assert.Contains(byGroup, student => student.Id == first.Id);
         Assert.Contains(byGroup, student => student.Id == second.Id);
-        Assert.Empty(users.ListByGroup(Guid.NewGuid()));
+        Assert.Empty(await users.ListByGroupAsync(Guid.NewGuid()));
     }
 
     [Fact]
-    public void CountByGroup_CountsStudentsOfGroup()
+    public async Task CountByGroup_CountsStudentsOfGroup()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var ik221 = TestEntities.Group("ИК-221");
         var ik222 = TestEntities.Group("ИК-222");
-        users.Add(TestEntities.User("a", groupId: ik221.Id));
-        users.Add(TestEntities.User("b", groupId: ik221.Id));
-        users.Add(TestEntities.User("c", groupId: ik222.Id));
+        await users.AddAsync(TestEntities.User("a", groupId: ik221.Id));
+        await users.AddAsync(TestEntities.User("b", groupId: ik221.Id));
+        await users.AddAsync(TestEntities.User("c", groupId: ik222.Id));
 
-        Assert.Equal(2, users.CountByGroup(ik221.Id));
-        Assert.Equal(1, users.CountByGroup(ik222.Id));
-        Assert.Equal(0, users.CountByGroup(Guid.NewGuid()));
+        Assert.Equal(2, await users.CountByGroupAsync(ik221.Id));
+        Assert.Equal(1, await users.CountByGroupAsync(ik222.Id));
+        Assert.Equal(0, await users.CountByGroupAsync(Guid.NewGuid()));
     }
 
     // ------------------------------------------------------------------
@@ -423,7 +423,7 @@ public sealed class InMemoryUserRepositoryTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void SetGroup_Assign_OnlyGroupIdChanges_RestOfRecordUntouched()
+    public async Task SetGroup_Assign_OnlyGroupIdChanges_RestOfRecordUntouched()
     {
         // SEC-001: смена группы не перечитывает и не перезаписывает остальные поля
         // записи — конкурентная смена пароля/профиля не может быть откатана.
@@ -431,13 +431,13 @@ public sealed class InMemoryUserRepositoryTests
         var student = TestEntities.User("s1", fullName: "Старое ФИО");
         student.PasswordHash = "hash-v1";
         student.CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        users.Add(student);
+        await users.AddAsync(student);
         var group = TestEntities.Group("ИК-223");
 
-        var result = users.SetGroup(student.Id, group.Id, groupId => groupId == group.Id);
+        var result = await users.SetGroupAsync(student.Id, group.Id, groupId => Task.FromResult(groupId == group.Id));
 
         Assert.Equal(SetGroupResult.Success, result);
-        var stored = users.GetById(student.Id)!;
+        var stored = (await users.GetByIdAsync(student.Id))!;
         Assert.Equal(group.Id, stored.GroupId);
         Assert.Equal("hash-v1", stored.PasswordHash);
         Assert.Equal("Старое ФИО", stored.FullName);
@@ -447,115 +447,115 @@ public sealed class InMemoryUserRepositoryTests
     }
 
     [Fact]
-    public void SetGroup_Unassign_ClearsGroupId_NoDelegateCall()
+    public async Task SetGroup_Unassign_ClearsGroupId_NoDelegateCall()
     {
         // JsonNull (снятие группы): проверка группы не выполняется — делегат не вызывается.
         var users = new InMemoryUserRepository(new StorageLock());
         var group = TestEntities.Group("ИК-223");
         var student = TestEntities.User("s1", groupId: group.Id);
-        users.Add(student);
+        await users.AddAsync(student);
         var delegateCalls = 0;
 
-        var result = users.SetGroup(student.Id, null, _ =>
+        var result = await users.SetGroupAsync(student.Id, null, _ =>
         {
             delegateCalls++;
-            return true;
+            return Task.FromResult(true);
         });
 
         Assert.Equal(SetGroupResult.Success, result);
         Assert.Equal(0, delegateCalls);
-        Assert.Null(users.GetById(student.Id)!.GroupId);
+        Assert.Null((await users.GetByIdAsync(student.Id))!.GroupId);
     }
 
     [Fact]
-    public void SetGroup_Transfer_OldGroupReleased_NewGroupSet()
+    public async Task SetGroup_Transfer_OldGroupReleased_NewGroupSet()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var ik221 = TestEntities.Group("ИК-221");
         var ik222 = TestEntities.Group("ИК-222");
-        users.Add(TestEntities.User("s1", groupId: ik221.Id));
+        await users.AddAsync(TestEntities.User("s1", groupId: ik221.Id));
 
-        var result = users.SetGroup(
-            users.GetByLogin("s1")!.Id,
+        var result = await users.SetGroupAsync(
+            (await users.GetByLoginAsync("s1"))!.Id,
             ik222.Id,
-            groupId => groupId == ik222.Id);
+            groupId => Task.FromResult(groupId == ik222.Id));
 
         Assert.Equal(SetGroupResult.Success, result);
-        Assert.Equal(ik222.Id, users.GetByLogin("s1")!.GroupId);
-        Assert.Equal(0, users.CountByGroup(ik221.Id));
-        Assert.Equal(1, users.CountByGroup(ik222.Id));
+        Assert.Equal(ik222.Id, (await users.GetByLoginAsync("s1"))!.GroupId);
+        Assert.Equal(0, await users.CountByGroupAsync(ik221.Id));
+        Assert.Equal(1, await users.CountByGroupAsync(ik222.Id));
     }
 
     [Fact]
-    public void SetGroup_MissingUser_StudentNotFound()
+    public async Task SetGroup_MissingUser_StudentNotFound()
     {
         var users = new InMemoryUserRepository(new StorageLock());
 
-        Assert.Equal(SetGroupResult.StudentNotFound, users.SetGroup(Guid.NewGuid(), null, null));
+        Assert.Equal(SetGroupResult.StudentNotFound, await users.SetGroupAsync(Guid.NewGuid(), null, null));
         Assert.Equal(
             SetGroupResult.StudentNotFound,
-            users.SetGroup(Guid.NewGuid(), Guid.NewGuid(), _ => true));
+            await users.SetGroupAsync(Guid.NewGuid(), Guid.NewGuid(), _ => Task.FromResult(true)));
     }
 
     [Fact]
-    public void SetGroup_TeacherRole_StudentNotFound_RecordUntouched()
+    public async Task SetGroup_TeacherRole_StudentNotFound_RecordUntouched()
     {
         // Роль ≠ student приравнена к отсутствию (IF-011) — в обеих ветках (String и JsonNull).
         var users = new InMemoryUserRepository(new StorageLock());
         var group = TestEntities.Group("ИК-223");
         var teacher = TestEntities.User("t1", role: UserRoles.Teacher);
-        users.Add(teacher);
+        await users.AddAsync(teacher);
 
-        Assert.Equal(SetGroupResult.StudentNotFound, users.SetGroup(teacher.Id, group.Id, _ => true));
-        Assert.Equal(SetGroupResult.StudentNotFound, users.SetGroup(teacher.Id, null, null));
-        Assert.Null(users.GetById(teacher.Id)!.GroupId);
+        Assert.Equal(SetGroupResult.StudentNotFound, await users.SetGroupAsync(teacher.Id, group.Id, _ => Task.FromResult(true)));
+        Assert.Equal(SetGroupResult.StudentNotFound, await users.SetGroupAsync(teacher.Id, null, null));
+        Assert.Null((await users.GetByIdAsync(teacher.Id))!.GroupId);
     }
 
     [Fact]
-    public void SetGroup_UnknownGroup_GroupNotFound_RecordUnchanged()
+    public async Task SetGroup_UnknownGroup_GroupNotFound_RecordUnchanged()
     {
         // Проверка группы и запись — одна критическая секция (SEC-001): группа,
         // не прошедшая проверку, не оставляет студенту ни новой, ни висячей группы.
         var users = new InMemoryUserRepository(new StorageLock());
         var ik221 = TestEntities.Group("ИК-221");
         var student = TestEntities.User("s1", groupId: ik221.Id);
-        users.Add(student);
+        await users.AddAsync(student);
 
-        var result = users.SetGroup(student.Id, Guid.NewGuid(), _ => false);
+        var result = await users.SetGroupAsync(student.Id, Guid.NewGuid(), _ => Task.FromResult(false));
 
         Assert.Equal(SetGroupResult.GroupNotFound, result);
-        Assert.Equal(ik221.Id, users.GetById(student.Id)!.GroupId);
+        Assert.Equal(ik221.Id, (await users.GetByIdAsync(student.Id))!.GroupId);
     }
 
     [Fact]
-    public void SetGroup_NonNullGroupWithNullDelegate_ThrowsArgumentNull_NoChanges()
+    public async Task SetGroup_NonNullGroupWithNullDelegate_ThrowsArgumentNull_NoChanges()
     {
         var users = new InMemoryUserRepository(new StorageLock());
         var student = TestEntities.User("s1");
-        users.Add(student);
+        await users.AddAsync(student);
 
-        Assert.Throws<ArgumentNullException>(
-            () => users.SetGroup(student.Id, Guid.NewGuid(), null));
-        Assert.Null(users.GetById(student.Id)!.GroupId);
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            async () => await users.SetGroupAsync(student.Id, Guid.NewGuid(), null));
+        Assert.Null((await users.GetByIdAsync(student.Id))!.GroupId);
     }
 
     [Fact]
-    public void SetGroup_GroupDelegate_MayReadStorageUnderSameLock()
+    public async Task SetGroup_GroupDelegate_MayReadStorageUnderSameLock()
     {
         // Делегат вызывается под блокировкой мутации: единый замок реентерабелен,
         // чтение хранилища из делегата допустимо и видит состояние ДО записи.
         var users = new InMemoryUserRepository(new StorageLock());
         var student = TestEntities.User("s1");
-        users.Add(student);
+        await users.AddAsync(student);
         var group = TestEntities.Group("ИК-223");
 
-        var result = users.SetGroup(
+        var result = await users.SetGroupAsync(
             student.Id,
             group.Id,
-            _ => users.GetById(student.Id) is { GroupId: null });
+            async _ => await users.GetByIdAsync(student.Id) is { GroupId: null });
 
         Assert.Equal(SetGroupResult.Success, result);
-        Assert.Equal(group.Id, users.GetById(student.Id)!.GroupId);
+        Assert.Equal(group.Id, (await users.GetByIdAsync(student.Id))!.GroupId);
     }
 
     // ------------------------------------------------------------------
@@ -565,7 +565,7 @@ public sealed class InMemoryUserRepositoryTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void SetPassword_OnlyPasswordHashChanges_FullSnapshotCompared()
+    public async Task SetPassword_OnlyPasswordHashChanges_FullSnapshotCompared()
     {
         // AC T-204 «Узость SetPassword»: сравнение ПОЛНЫХ снимков записи до/после —
         // изменился ровно один член (PasswordHash).
@@ -574,13 +574,13 @@ public sealed class InMemoryUserRepositoryTests
         var student = TestEntities.User("s1", "S1@Example.com", groupId: group.Id);
         student.PasswordHash = "hash-v1";
         student.CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        users.Add(student);
-        var before = users.GetById(student.Id)!;
+        await users.AddAsync(student);
+        var before = (await users.GetByIdAsync(student.Id))!;
 
-        var result = users.SetPassword(student.Id, "hash-v2");
+        var result = await users.SetPasswordAsync(student.Id, "hash-v2");
 
         Assert.True(result);
-        var after = users.GetById(student.Id)!;
+        var after = (await users.GetByIdAsync(student.Id))!;
         Assert.Equal("hash-v2", after.PasswordHash);
         Assert.NotEqual(before.PasswordHash, after.PasswordHash);
         // Остальные члены снимка — дословно прежние.
@@ -594,45 +594,45 @@ public sealed class InMemoryUserRepositoryTests
     }
 
     [Fact]
-    public void SetPassword_KeepsByLoginAndByEmailLookupWorking()
+    public async Task SetPassword_KeepsByLoginAndByEmailLookupWorking()
     {
         // AC T-204 «Узость SetPassword»: ci-индексы не трогаются — запись находится
         // по login и email в обоих регистрах и после смены пароля.
         var users = new InMemoryUserRepository(new StorageLock());
         var student = TestEntities.User("s1", "S1@Example.com");
-        users.Add(student);
+        await users.AddAsync(student);
 
-        Assert.True(users.SetPassword(student.Id, "hash-v2"));
+        Assert.True(await users.SetPasswordAsync(student.Id, "hash-v2"));
 
-        Assert.Equal(student.Id, users.GetByLogin("s1")!.Id);
-        Assert.Equal(student.Id, users.GetByLogin("S1")!.Id);
-        Assert.Equal(student.Id, users.GetByEmail("s1@example.com")!.Id);
-        Assert.Equal(student.Id, users.GetByEmail("S1@EXAMPLE.COM")!.Id);
-        Assert.Equal("hash-v2", users.GetByLogin("s1")!.PasswordHash);
+        Assert.Equal(student.Id, (await users.GetByLoginAsync("s1"))!.Id);
+        Assert.Equal(student.Id, (await users.GetByLoginAsync("S1"))!.Id);
+        Assert.Equal(student.Id, (await users.GetByEmailAsync("s1@example.com"))!.Id);
+        Assert.Equal(student.Id, (await users.GetByEmailAsync("S1@EXAMPLE.COM"))!.Id);
+        Assert.Equal("hash-v2", (await users.GetByLoginAsync("s1"))!.PasswordHash);
     }
 
     [Fact]
-    public void SetPassword_MissingUser_ReturnsFalse_NoException()
+    public async Task SetPassword_MissingUser_ReturnsFalse_NoException()
     {
         // AC T-204 «Узость SetPassword»: несуществующий userId → false без исключения.
         var users = new InMemoryUserRepository(new StorageLock());
 
-        var result = users.SetPassword(Guid.NewGuid(), "hash-v2");
+        var result = await users.SetPasswordAsync(Guid.NewGuid(), "hash-v2");
 
         Assert.False(result);
     }
 
     [Fact]
-    public void SetPassword_NullOrEmptyHash_ThrowsArgumentNull_NoChanges()
+    public async Task SetPassword_NullOrEmptyHash_ThrowsArgumentNull_NoChanges()
     {
         // Контракт IF-015 (валидация аргументов вне критической секции).
         var users = new InMemoryUserRepository(new StorageLock());
         var student = TestEntities.User("s1");
-        users.Add(student);
+        await users.AddAsync(student);
 
-        Assert.Throws<ArgumentNullException>(() => users.SetPassword(student.Id, null!));
-        Assert.Throws<ArgumentNullException>(() => users.SetPassword(student.Id, string.Empty));
-        Assert.Equal("hash", users.GetById(student.Id)!.PasswordHash);
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await users.SetPasswordAsync(student.Id, null!));
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await users.SetPasswordAsync(student.Id, string.Empty));
+        Assert.Equal("hash", (await users.GetByIdAsync(student.Id))!.PasswordHash);
     }
 
     // ------------------------------------------------------------------
@@ -642,7 +642,7 @@ public sealed class InMemoryUserRepositoryTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void UpdateProfile_Success_OnlyFullNameAndEmailChange_ReindexesByEmail()
+    public async Task UpdateProfile_Success_OnlyFullNameAndEmailChange_ReindexesByEmail()
     {
         // AC T-204 «UpdateProfile: конфликты и перебинтовка» (успешная ветка):
         // новый email находит запись, старый — null; остальные члены снимка прежние.
@@ -651,18 +651,18 @@ public sealed class InMemoryUserRepositoryTests
         var student = TestEntities.User("s1", "old@example.com", groupId: group.Id);
         student.PasswordHash = "hash-v1";
         student.CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        users.Add(student);
+        await users.AddAsync(student);
 
-        var result = users.UpdateProfile(student.Id, "Новое ФИО", "new@example.com");
+        var result = await users.UpdateProfileAsync(student.Id, "Новое ФИО", "new@example.com");
 
         Assert.Equal(UpdateProfileResult.Success, result);
-        var after = users.GetById(student.Id)!;
+        var after = (await users.GetByIdAsync(student.Id))!;
         Assert.Equal("Новое ФИО", after.FullName);
         Assert.Equal("new@example.com", after.Email);
         // Перебинтовка byEmail: старый ключ освобождён, новый указывает на запись.
-        Assert.Null(users.GetByEmail("old@example.com"));
-        Assert.Equal(student.Id, users.GetByEmail("new@example.com")!.Id);
-        Assert.Equal(student.Id, users.GetByEmail("NEW@EXAMPLE.COM")!.Id);
+        Assert.Null(await await users.GetByEmailAsync("old@example.com"));
+        Assert.Equal(student.Id, (await users.GetByEmailAsync("new@example.com"))!.Id);
+        Assert.Equal(student.Id, (await users.GetByEmailAsync("NEW@EXAMPLE.COM"))!.Id);
         // Остальные члены записи — дословно прежние.
         Assert.Equal("s1", after.Login);
         Assert.Equal("hash-v1", after.PasswordHash);
@@ -670,62 +670,62 @@ public sealed class InMemoryUserRepositoryTests
         Assert.Equal(group.Id, after.GroupId);
         Assert.Equal(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), after.CreatedAt);
         // byLogin не затронут.
-        Assert.Equal(student.Id, users.GetByLogin("s1")!.Id);
+        Assert.Equal(student.Id, (await users.GetByLoginAsync("s1"))!.Id);
     }
 
     [Fact]
-    public void UpdateProfile_ForeignEmail_EmailConflict_RecordUntouched()
+    public async Task UpdateProfile_ForeignEmail_EmailConflict_RecordUntouched()
     {
         // AC T-204 «UpdateProfile: конфликты и перебинтовка» (ветка конфликта):
         // email B занят — EmailConflict, запись A не изменена (полный снимок).
         var users = new InMemoryUserRepository(new StorageLock());
         var first = TestEntities.User("a", "a@example.com", fullName: "ФИО A");
         var second = TestEntities.User("b", "b@example.com");
-        users.Add(first);
-        users.Add(second);
-        var before = users.GetById(first.Id)!;
+        await users.AddAsync(first);
+        await users.AddAsync(second);
+        var before = (await users.GetByIdAsync(first.Id))!;
 
-        var result = users.UpdateProfile(first.Id, "Новое ФИО", "b@example.com");
-        var caseVariant = users.UpdateProfile(first.Id, "Новое ФИО", "B@EXAMPLE.COM");
+        var result = await users.UpdateProfileAsync(first.Id, "Новое ФИО", "b@example.com");
+        var caseVariant = await users.UpdateProfileAsync(first.Id, "Новое ФИО", "B@EXAMPLE.COM");
 
         Assert.Equal(UpdateProfileResult.EmailConflict, result);
         Assert.Equal(UpdateProfileResult.EmailConflict, caseVariant);
-        var after = users.GetById(first.Id)!;
+        var after = (await users.GetByIdAsync(first.Id))!;
         Assert.Equal(before.FullName, after.FullName);
         Assert.Equal(before.Email, after.Email);
         Assert.Equal(before.PasswordHash, after.PasswordHash);
         Assert.Equal(before.GroupId, after.GroupId);
         Assert.Equal(before.CreatedAt, after.CreatedAt);
         // Индексы согласованы: A по-прежнему по своему email.
-        Assert.Equal(first.Id, users.GetByEmail("a@example.com")!.Id);
-        Assert.Equal(second.Id, users.GetByEmail("b@example.com")!.Id);
+        Assert.Equal(first.Id, (await users.GetByEmailAsync("a@example.com"))!.Id);
+        Assert.Equal(second.Id, (await users.GetByEmailAsync("b@example.com"))!.Id);
     }
 
     [Fact]
-    public void UpdateProfile_OwnEmail_NotConflict_IncludingCaseVariant()
+    public async Task UpdateProfile_OwnEmail_NotConflict_IncludingCaseVariant()
     {
         // FR-015 «Свой email не конфликтует»: совпадение с самим собой (в т.ч.
         // ci-вариант регистра) — Success; ci-ключ не меняется, хранится новая
         // литеральная запись email.
         var users = new InMemoryUserRepository(new StorageLock());
         var student = TestEntities.User("s1", "s1@example.com");
-        users.Add(student);
+        await users.AddAsync(student);
 
         Assert.Equal(
             UpdateProfileResult.Success,
-            users.UpdateProfile(student.Id, "ФИО", "s1@example.com"));
+            await users.UpdateProfileAsync(student.Id, "ФИО", "s1@example.com"));
         Assert.Equal(
             UpdateProfileResult.Success,
-            users.UpdateProfile(student.Id, "ФИО", "S1@Example.COM"));
+            await users.UpdateProfileAsync(student.Id, "ФИО", "S1@Example.COM"));
 
-        var stored = users.GetById(student.Id)!;
+        var stored = (await users.GetByIdAsync(student.Id))!;
         Assert.Equal("S1@Example.COM", stored.Email);
-        Assert.Equal(student.Id, users.GetByEmail("s1@example.com")!.Id);
-        Assert.Equal(student.Id, users.GetByEmail("S1@EXAMPLE.com")!.Id);
+        Assert.Equal(student.Id, (await users.GetByEmailAsync("s1@example.com"))!.Id);
+        Assert.Equal(student.Id, (await users.GetByEmailAsync("S1@EXAMPLE.com"))!.Id);
     }
 
     [Fact]
-    public void UpdateProfile_MissingUser_UserNotFound()
+    public async Task UpdateProfile_MissingUser_UserNotFound()
     {
         // AC T-204 «UpdateProfile: конфликты и перебинтовка» (ветка отсутствия):
         // несуществующий userId → UserNotFound без исключения.
@@ -733,23 +733,23 @@ public sealed class InMemoryUserRepositoryTests
 
         Assert.Equal(
             UpdateProfileResult.UserNotFound,
-            users.UpdateProfile(Guid.NewGuid(), "ФИО", "free@example.com"));
+            await users.UpdateProfileAsync(Guid.NewGuid(), "ФИО", "free@example.com"));
     }
 
     [Fact]
-    public void UpdateProfile_NullFullNameOrNullEmail_ThrowsArgumentNull_NoChanges()
+    public async Task UpdateProfile_NullFullNameOrNullEmail_ThrowsArgumentNull_NoChanges()
     {
         // Контракт IF-015 (валидация аргументов вне критической секции).
         var users = new InMemoryUserRepository(new StorageLock());
         var student = TestEntities.User("s1");
-        users.Add(student);
+        await users.AddAsync(student);
 
-        Assert.Throws<ArgumentNullException>(
-            () => users.UpdateProfile(student.Id, null!, "free@example.com"));
-        Assert.Throws<ArgumentNullException>(
-            () => users.UpdateProfile(student.Id, "ФИО", null!));
-        Assert.Equal("Тест Тестович Тестов", users.GetById(student.Id)!.FullName);
-        Assert.Equal("s1@example.com", users.GetById(student.Id)!.Email);
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            async () => await users.UpdateProfileAsync(student.Id, null!, "free@example.com"));
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            async () => await users.UpdateProfileAsync(student.Id, "ФИО", null!));
+        Assert.Equal("Тест Тестович Тестов", (await users.GetByIdAsync(student.Id))!.FullName);
+        Assert.Equal("s1@example.com", (await users.GetByIdAsync(student.Id))!.Email);
     }
 
     // ------------------------------------------------------------------
@@ -771,7 +771,7 @@ public sealed class InMemoryUserRepositoryTests
         var groupA = TestEntities.Group("ИК-221");
         var student = TestEntities.User("s1", "s1@example.com");
         student.PasswordHash = "hash-initial";
-        users.Add(student);
+        await users.AddAsync(student);
 
         using var barrier = new Barrier(3);
         var failures = new ConcurrentQueue<Exception>();
@@ -779,13 +779,13 @@ public sealed class InMemoryUserRepositoryTests
         // Сбой внутри раунда (Assert/mутатор) не прерывает участие в барьере —
         // иначе остальные потоки зависли бы на SignalAndWait; факт сбоя
         // финализируется после прогона.
-        var setPassword = Task.Run(() =>
+        var setPassword = Task.Run(async () =>
         {
             for (var i = 0; i < rounds; i++)
             {
                 try
                 {
-                    if (!users.SetPassword(student.Id, $"hash-{i:000}"))
+                    if (!await users.SetPasswordAsync(student.Id, $"hash-{i:000}"))
                     {
                         failures.Enqueue(new InvalidOperationException("SetPassword вернул false."));
                     }
@@ -798,13 +798,13 @@ public sealed class InMemoryUserRepositoryTests
                 barrier.SignalAndWait();
             }
         });
-        var setGroup = Task.Run(() =>
+        var setGroup = Task.Run(async () =>
         {
             for (var i = 0; i < rounds; i++)
             {
                 try
                 {
-                    if (users.SetGroup(student.Id, groupA.Id, _ => true) != SetGroupResult.Success)
+                    if ((await users.SetGroupAsync(student.Id, groupA.Id, _ => Task.FromResult(true))) != SetGroupResult.Success)
                     {
                         failures.Enqueue(new InvalidOperationException("SetGroup не Success."));
                     }
@@ -817,13 +817,13 @@ public sealed class InMemoryUserRepositoryTests
                 barrier.SignalAndWait();
             }
         });
-        var updateProfile = Task.Run(() =>
+        var updateProfile = Task.Run(async () =>
         {
             for (var i = 0; i < rounds; i++)
             {
                 try
                 {
-                    if (users.UpdateProfile(student.Id, $"ФИО-{i:000}", $"s1-{i:000}@example.com")
+                    if ((await users.UpdateProfileAsync(student.Id, $"ФИО-{i:000}", $"s1-{i:000}@example.com"))
                         != UpdateProfileResult.Success)
                     {
                         failures.Enqueue(new InvalidOperationException("UpdateProfile не Success."));
@@ -841,7 +841,7 @@ public sealed class InMemoryUserRepositoryTests
         await Task.WhenAll(setPassword, setGroup, updateProfile);
         Assert.Empty(failures);
 
-        var stored = users.GetById(student.Id)!;
+        var stored = (await users.GetByIdAsync(student.Id))!;
         Assert.Equal($"hash-{rounds - 1:000}", stored.PasswordHash);
         Assert.Equal($"ФИО-{rounds - 1:000}", stored.FullName);
         Assert.Equal($"s1-{rounds - 1:000}@example.com", stored.Email);
@@ -849,8 +849,8 @@ public sealed class InMemoryUserRepositoryTests
         // Незатрагиваемые мутаторами поля — дословно исходные.
         Assert.Equal("s1", stored.Login);
         Assert.Equal(UserRoles.Student, stored.Role);
-        Assert.Equal(student.Id, users.GetByEmail($"s1-{rounds - 1:000}@example.com")!.Id);
-        Assert.Null(users.GetByEmail("s1@example.com"));
+        Assert.Equal(student.Id, (await users.GetByEmailAsync($"s1-{rounds - 1:000}@example.com"))!.Id);
+        Assert.Null(await await users.GetByEmailAsync("s1@example.com"));
     }
 
     [Fact]
@@ -869,7 +869,7 @@ public sealed class InMemoryUserRepositoryTests
         var groupA = TestEntities.Group("ИК-221");
         var student = TestEntities.User("s1", "s1@example.com");
         student.PasswordHash = "hash-initial";
-        users.Add(student);
+        await users.AddAsync(student);
 
         using var barrier = new Barrier(3 + readers);
         var failures = new ConcurrentQueue<Exception>();
@@ -877,13 +877,13 @@ public sealed class InMemoryUserRepositoryTests
         // Сбой внутри раунда (Assert/мутатор) не прерывает участие в барьере —
         // иначе остальные потоки зависли бы на SignalAndWait; факт сбоя
         // финализируется после прогона.
-        var setPassword = Task.Run(() =>
+        var setPassword = Task.Run(async () =>
         {
             for (var i = 0; i < rounds; i++)
             {
                 try
                 {
-                    if (!users.SetPassword(student.Id, $"hash-{i:000}"))
+                    if (!await users.SetPasswordAsync(student.Id, $"hash-{i:000}"))
                     {
                         failures.Enqueue(new InvalidOperationException("SetPassword вернул false."));
                     }
@@ -896,13 +896,13 @@ public sealed class InMemoryUserRepositoryTests
                 barrier.SignalAndWait();
             }
         });
-        var updateProfile = Task.Run(() =>
+        var updateProfile = Task.Run(async () =>
         {
             for (var i = 0; i < rounds; i++)
             {
                 try
                 {
-                    if (users.UpdateProfile(student.Id, $"ФИО-{i:000}", $"s1-{i:000}@example.com")
+                    if ((await users.UpdateProfileAsync(student.Id, $"ФИО-{i:000}", $"s1-{i:000}@example.com"))
                         != UpdateProfileResult.Success)
                     {
                         failures.Enqueue(new InvalidOperationException("UpdateProfile не Success."));
@@ -916,13 +916,13 @@ public sealed class InMemoryUserRepositoryTests
                 barrier.SignalAndWait();
             }
         });
-        var setGroup = Task.Run(() =>
+        var setGroup = Task.Run(async () =>
         {
             for (var i = 0; i < rounds; i++)
             {
                 try
                 {
-                    if (users.SetGroup(student.Id, groupA.Id, _ => true) != SetGroupResult.Success)
+                    if ((await users.SetGroupAsync(student.Id, groupA.Id, _ => Task.FromResult(true))) != SetGroupResult.Success)
                     {
                         failures.Enqueue(new InvalidOperationException("SetGroup не Success."));
                     }
@@ -941,25 +941,25 @@ public sealed class InMemoryUserRepositoryTests
         // неизменяемому login, а email снимка либо уже перепривязан дальше (null),
         // либо указывает на ту же запись — но никогда на чужую.
         var readerTasks = Enumerable.Range(0, readers)
-            .Select(readerIndex => Task.Run(() =>
+            .Select(readerIndex => Task.Run(async () =>
             {
                 for (var i = 0; i < rounds; i++)
                 {
                     try
                     {
-                        var snapshot = users.GetById(student.Id)
+                        var snapshot = (await users.GetByIdAsync(student.Id))
                             ?? throw new InvalidOperationException("Запись исчезла под нагрузкой.");
                         Assert.Equal("s1", snapshot.Login);
                         Assert.Equal(UserRoles.Student, snapshot.Role);
-                        Assert.Equal(student.Id, users.GetByLogin("S1")!.Id);
-                        Assert.Equal(student.Id, users.GetByLogin(snapshot.Login)!.Id);
+                        Assert.Equal(student.Id, (await users.GetByLoginAsync("S1"))!.Id);
+                        Assert.Equal(student.Id, (await users.GetByLoginAsync(snapshot.Login))!.Id);
 
-                        var byEmail = users.GetByEmail(snapshot.Email);
+                        var byEmail = await users.GetByEmailAsync(snapshot.Email);
                         Assert.True(byEmail is null || byEmail.Id == student.Id);
 
-                        _ = users.ListStudents();
-                        _ = users.ListByGroup(groupA.Id);
-                        _ = users.CountByGroup(groupA.Id);
+                        _ = await users.ListStudentsAsync();
+                        _ = await users.ListByGroupAsync(groupA.Id);
+                        _ = await users.CountByGroupAsync(groupA.Id);
                     }
                     catch (Exception ex)
                     {
@@ -978,15 +978,15 @@ public sealed class InMemoryUserRepositoryTests
 
         // Гейт CR-001: ни одна из серий мутаций не потеряна — каждое поле хранит
         // значение ПОСЛЕДНЕГО раунда своего мутатора.
-        var stored = users.GetById(student.Id)!;
+        var stored = (await users.GetByIdAsync(student.Id))!;
         Assert.Equal($"hash-{rounds - 1:000}", stored.PasswordHash);
         Assert.Equal($"ФИО-{rounds - 1:000}", stored.FullName);
         Assert.Equal($"s1-{rounds - 1:000}@example.com", stored.Email);
         Assert.Equal(groupA.Id, stored.GroupId);
         Assert.Equal("s1", stored.Login);
         Assert.Equal(UserRoles.Student, stored.Role);
-        Assert.Equal(student.Id, users.GetByEmail($"s1-{rounds - 1:000}@example.com")!.Id);
-        Assert.Null(users.GetByEmail("s1@example.com"));
+        Assert.Equal(student.Id, (await users.GetByEmailAsync($"s1-{rounds - 1:000}@example.com"))!.Id);
+        Assert.Null(await await users.GetByEmailAsync("s1@example.com"));
     }
 
     [Fact]
@@ -999,19 +999,19 @@ public sealed class InMemoryUserRepositoryTests
         var users = new InMemoryUserRepository(new StorageLock());
         var first = TestEntities.User("a", "a@example.com");
         var second = TestEntities.User("b", "b@example.com");
-        users.Add(first);
-        users.Add(second);
+        await users.AddAsync(first);
+        await users.AddAsync(second);
         using var barrier = new Barrier(2);
         var failures = new ConcurrentQueue<Exception>();
         var results = new UpdateProfileResult[rounds * 2];
 
-        var run = (int slot, Guid userId) => Task.Run(() =>
+        var run = (int slot, Guid userId) => Task.Run(async () =>
         {
             for (var i = 0; i < rounds; i++)
             {
                 try
                 {
-                    results[(i * 2) + slot] = users.UpdateProfile(
+                    results[(i * 2) + slot] = await users.UpdateProfileAsync(
                         userId, "Обновление", $"shared{i:000}@example.com");
                 }
                 catch (Exception ex)
@@ -1040,12 +1040,12 @@ public sealed class InMemoryUserRepositoryTests
 
         // Итог: email последнего раунда принадлежит ровно одному из участников
         // (перебинтовка byEmail: оба исходных email освобождены).
-        var lastOwner = users.GetByEmail($"shared{rounds - 1:000}@example.com");
+        var lastOwner = await users.GetByEmailAsync($"shared{rounds - 1:000}@example.com");
         Assert.NotNull(lastOwner);
         Assert.True(
             lastOwner!.Id == first.Id || lastOwner.Id == second.Id,
             "Владелец финального email — один из двух участников.");
-        Assert.Equal(2, users.ListStudents().Count);
+        Assert.Equal(2, (await users.ListStudentsAsync()).Count);
     }
 
     // ------------------------------------------------------------------
@@ -1062,13 +1062,13 @@ public sealed class InMemoryUserRepositoryTests
         using var startGate = new Barrier(threads);
 
         var tasks = Enumerable.Range(0, threads)
-            .Select(threadIndex => Task.Run(() =>
+            .Select(threadIndex => Task.Run(async () =>
             {
                 startGate.SignalAndWait();
                 for (var i = 1; i <= perThread; i++)
                 {
                     var nn = threadIndex * perThread + i;
-                    users.Add(TestEntities.User($"user{nn:000}", $"user{nn:000}@example.com"));
+                    await users.AddAsync(TestEntities.User($"user{nn:000}", $"user{nn:000}@example.com"));
                 }
             }))
             .ToArray();
@@ -1076,7 +1076,7 @@ public sealed class InMemoryUserRepositoryTests
         // Исключение любого потока провалит WhenAll и тест.
         await Task.WhenAll(tasks);
 
-        Assert.Equal(threads * perThread, users.ListStudents().Count);
+        Assert.Equal(threads * perThread, (await users.ListStudentsAsync()).Count);
     }
 
     [Fact]
@@ -1087,12 +1087,12 @@ public sealed class InMemoryUserRepositoryTests
         using var startGate = new ManualResetEventSlim();
 
         var tasks = Enumerable.Range(0, contenders)
-            .Select(_ => Task.Run(() =>
+            .Select(_ => Task.Run(async () =>
             {
                 startGate.Wait();
                 try
                 {
-                    users.Add(TestEntities.User("same-login", "same-login@example.com"));
+                    await users.AddAsync(TestEntities.User("same-login", "same-login@example.com"));
                     return true;
                 }
                 catch (StorageConflictException)
@@ -1106,30 +1106,30 @@ public sealed class InMemoryUserRepositoryTests
         await Task.WhenAll(tasks);
 
         Assert.Equal(1, tasks.Count(task => task.Result));
-        Assert.Single(users.ListStudents());
+        Assert.Single(await users.ListStudentsAsync());
     }
 
     [Fact]
     public async Task ParallelMixedOperations_NoDamage()
     {
         var users = new InMemoryUserRepository(new StorageLock());
-        users.Add(TestEntities.User("seeded"));
+        await users.AddAsync(TestEntities.User("seeded"));
 
         var tasks = Enumerable.Range(0, 4)
-            .Select(threadIndex => Task.Run(() =>
+            .Select(threadIndex => Task.Run(async () =>
             {
                 for (var i = 0; i < 25; i++)
                 {
                     var nn = threadIndex * 25 + i;
-                    users.Add(TestEntities.User($"user{nn:000}", $"user{nn:000}@example.com"));
-                    _ = users.GetByLogin($"user{nn:000}");
-                    _ = users.ListStudents();
+                    await users.AddAsync(TestEntities.User($"user{nn:000}", $"user{nn:000}@example.com"));
+                    _ = await users.GetByLoginAsync($"user{nn:000}");
+                    _ = await users.ListStudentsAsync();
                 }
             }))
             .ToArray();
 
         await Task.WhenAll(tasks);
 
-        Assert.Equal(101, users.ListStudents().Count);
+        Assert.Equal(101, (await users.ListStudentsAsync()).Count);
     }
 }

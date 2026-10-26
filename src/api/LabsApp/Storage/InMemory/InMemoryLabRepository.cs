@@ -9,6 +9,8 @@ namespace LabsApp.Storage.InMemory;
 /// метки времени — TimeProvider (ADR-002/FR-003: единственный источник бизнес-времени).
 /// Delete выполняет каскадное удаление сдач работы в той же критической секции.
 /// Хранилище хранит и отдаёт КОПИИ-снимки сущностей.
+/// Реализация асинхронна по контракту интерфейса, но не выполняет ввода-вывода:
+/// все задачи завершаются синхронно (Task.FromResult).
 /// </summary>
 public sealed class InMemoryLabRepository(
     StorageLock lockObject,
@@ -21,7 +23,7 @@ public sealed class InMemoryLabRepository(
     private DateTime Now() => timeProvider.GetUtcNow().UtcDateTime;
 
     /// <inheritdoc/>
-    public void Add(Lab lab)
+    public Task AddAsync(Lab lab)
     {
         ArgumentNullException.ThrowIfNull(lab);
 
@@ -37,76 +39,78 @@ public sealed class InMemoryLabRepository(
             _labs[lab.Id] = Clone(lab);
             _byPair[pairKey] = lab.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Lab? GetById(Guid id)
+    public Task<Lab?> GetByIdAsync(Guid id)
     {
         lock (lockObject.SyncRoot)
         {
-            return _labs.TryGetValue(id, out var lab) ? Clone(lab) : null;
+            return Task.FromResult(_labs.TryGetValue(id, out var lab) ? Clone(lab) : null);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Lab> GetAll()
+    public Task<IReadOnlyList<Lab>> GetAllAsync()
     {
         lock (lockObject.SyncRoot)
         {
-            return _labs.Values.Select(Clone).ToList();
+            return Task.FromResult<IReadOnlyList<Lab>>(_labs.Values.Select(Clone).ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Lab> ListByFilter(int? semester)
+    public Task<IReadOnlyList<Lab>> ListByFilterAsync(int? semester)
     {
         lock (lockObject.SyncRoot)
         {
-            return semester is null
+            return Task.FromResult<IReadOnlyList<Lab>>(semester is null
                 ? _labs.Values.Select(Clone).ToList()
                 : _labs.Values
                     .Where(lab => lab.Semester == semester.Value)
                     .Select(Clone)
-                    .ToList();
+                    .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<int> Semesters()
+    public Task<IReadOnlyList<int>> SemestersAsync()
     {
         lock (lockObject.SyncRoot)
         {
-            return _labs.Values
+            return Task.FromResult<IReadOnlyList<int>>(_labs.Values
                 .Select(lab => lab.Semester)
                 .Distinct()
                 .OrderBy(semester => semester)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public Lab? TryGetByPair(int semester, int number)
+    public Task<Lab?> TryGetByPairAsync(int semester, int number)
     {
         lock (lockObject.SyncRoot)
         {
-            return _byPair.TryGetValue(PairKey(semester, number), out var id)
+            return Task.FromResult(_byPair.TryGetValue(PairKey(semester, number), out var id)
                 ? Clone(_labs[id])
-                : null;
+                : null);
         }
     }
 
     /// <inheritdoc/>
-    public bool ExistsPair(int semester, int number, Guid? exceptId = null)
+    public Task<bool> ExistsPairAsync(int semester, int number, Guid? exceptId = null)
     {
         lock (lockObject.SyncRoot)
         {
-            return _byPair.TryGetValue(PairKey(semester, number), out var id)
-                && id != exceptId;
+            return Task.FromResult(_byPair.TryGetValue(PairKey(semester, number), out var id)
+                && id != exceptId);
         }
     }
 
     /// <inheritdoc/>
-    public void Update(Lab lab)
+    public Task UpdateAsync(Lab lab)
     {
         ArgumentNullException.ThrowIfNull(lab);
 
@@ -129,21 +133,25 @@ public sealed class InMemoryLabRepository(
             _labs[lab.Id] = Clone(lab);
             _byPair[pairKey] = lab.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void Delete(Guid id)
+    public Task DeleteAsync(Guid id)
     {
         lock (lockObject.SyncRoot)
         {
             if (!_labs.Remove(id, out var lab))
             {
-                return;
+                return Task.CompletedTask;
             }
 
             _byPair.Remove(PairKey(lab.Semester, lab.Number));
             submissions.DeleteByLabIdCore(id);
         }
+
+        return Task.CompletedTask;
     }
 
     private static string PairKey(int semester, int number) =>

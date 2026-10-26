@@ -90,7 +90,7 @@ public static class B13RecoveryHarness
     /// кейсы снимают ПОСЛЕ сида. Повторный вызов с тем же login возвращает
     /// существующую запись (идемпотентность внутри класса-фикстуры).
     /// </summary>
-    public static User SeedStudentWithPassword(
+    public static async Task<User> SeedStudentWithPasswordAsync(
         WebApplicationFactory<Program> factory,
         string login,
         string fullName,
@@ -98,7 +98,7 @@ public static class B13RecoveryHarness
         string password)
     {
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        var existing = users.GetByLogin(login);
+        var existing = await users.GetByLoginAsync(login);
         if (existing is not null)
         {
             return existing;
@@ -116,7 +116,7 @@ public static class B13RecoveryHarness
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         };
-        users.Add(user);
+        await users.AddAsync(user);
         return user;
     }
 
@@ -127,12 +127,12 @@ public static class B13RecoveryHarness
     /// ISecurityTokenRepository.Add (хранится только TokenHash, IF-015).
     /// Возвращает ОТКРЫТОЕ значение токена T.
     /// </summary>
-    public static string SeedLiveResetToken(WebApplicationFactory<Program> factory, Guid userId)
+    public static async Task<string> SeedLiveResetTokenAsync(WebApplicationFactory<Program> factory, Guid userId)
     {
         var grant = factory.Services.GetRequiredService<ITokenService>()
             .CreatePasswordResetToken(userId);
-        factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .Add(new PasswordResetToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .AddAsync(new PasswordResetToken
             {
                 TokenHash = grant.TokenHash,
                 UserId = userId,

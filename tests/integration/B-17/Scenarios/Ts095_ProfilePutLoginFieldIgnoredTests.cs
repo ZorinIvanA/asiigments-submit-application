@@ -59,7 +59,7 @@ public sealed class Ts095_ProfilePutLoginFieldIgnoredTests : IClassFixture<B17We
         B17BodyAssertions.StringPropertyIs(root, "role", UserRoles.Student);
 
         // then: в хранилище login также не изменён ('hacker' не применён).
-        var stored = B17ProfileHost.StoredUser(_factory, user.Id);
+        var stored = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}».");

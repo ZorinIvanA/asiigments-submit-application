@@ -31,9 +31,9 @@ public sealed class Ts140_SubmissionsGridFirstPageTests : IClassFixture<B05WebAp
     public async Task FirstPage_ReturnsFirstFiveStudentsSemesterLabsAndSeedSubmissions()
     {
         // given: ИК-221 с 25 студентами; 20 работ семестра 1; 4 сид-сдачи; teacher.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
-        var groupStudents = _factory.Services.GetRequiredService<IUserRepository>()
-            .ListStudents()
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
+        var groupStudents = await _factory.Services.GetRequiredService<IUserRepository>()
+            .ListStudentsAsync()
             .Where(user => user.GroupId == ik221.Id)
             .ToList();
         Assert.Equal(25, groupStudents.Count);
@@ -45,7 +45,7 @@ public sealed class Ts140_SubmissionsGridFirstPageTests : IClassFixture<B05WebAp
             .Select(user => user.Id.ToString())
             .ToList();
 
-        var labs = _factory.Services.GetRequiredService<ILabRepository>().GetAll();
+        var labs = await _factory.Services.GetRequiredService<ILabRepository>().GetAllAsync();
         var semesterLabIds = labs
             .Where(lab => lab.Semester == 1)
             .Select(lab => lab.Id.ToString())
@@ -54,8 +54,8 @@ public sealed class Ts140_SubmissionsGridFirstPageTests : IClassFixture<B05WebAp
 
         string LabId(int number) =>
             labs.Single(lab => lab.Semester == 1 && lab.Number == number).Id.ToString();
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
-        var student02 = B05SeedLookup.StudentByLogin(_factory, "student02");
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        var student02 = await B05SeedLookup.StudentByLoginAsync(_factory, "student02");
         var expectedSubmissions = new HashSet<(string StudentId, string LabId)>
         {
             (student01.Id.ToString(), LabId(1)),
@@ -64,7 +64,7 @@ public sealed class Ts140_SubmissionsGridFirstPageTests : IClassFixture<B05WebAp
             (student02.Id.ToString(), LabId(1)),
         };
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: первая страница ведомости ИК-221 по семестру 1.
         using var response = await client.GetAsync(

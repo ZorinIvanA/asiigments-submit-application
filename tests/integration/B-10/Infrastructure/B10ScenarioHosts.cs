@@ -36,6 +36,9 @@ public abstract class B10ScenarioHostFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
+            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
+            builder.UseSetting("Storage:Provider", "InMemory");
         builder.UseEnvironment(HostEnvironment);
         builder.UseSetting(WebHostDefaults.ContentRootKey, AppContext.BaseDirectory);
         foreach (var (name, value) in Settings)

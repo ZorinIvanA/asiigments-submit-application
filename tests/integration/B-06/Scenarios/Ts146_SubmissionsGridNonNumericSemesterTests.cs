@@ -22,8 +22,8 @@ public sealed class Ts146_SubmissionsGridNonNumericSemesterTests : IClassFixture
     public async Task GetGridWithNonNumericSemester_Returns400WithSemesterError()
     {
         // given: сессия teacher; валидный groupId демо-группы ИК-221.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
-        var groupId = B06SubmissionsSessions.RequireGroup(_factory, "ИК-221").Id.ToString();
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        var groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
 
         // when: GET /submissions?groupId=<валидный>&semester=abc.
         using var response = await B06SubmissionsApi.GetGridAsync(

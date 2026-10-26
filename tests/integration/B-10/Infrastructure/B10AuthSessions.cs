@@ -28,10 +28,10 @@ public static class B10AuthSessions
     /// в хранилище — только SHA-256-хэш и TTL (зеркало AuthController.IssueSession,
     /// IF-003/IF-015; TTL refresh — Auth__RefreshTtlDays по TimeProvider хоста).
     /// </summary>
-    public static string MintRefreshToken(B10HostFactory factory, Guid userId)
+    public static async Task<string> MintRefreshTokenAsync(B10HostFactory factory, Guid userId)
     {
         var grant = factory.Services.GetRequiredService<ITokenService>().CreateRefreshToken(userId);
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -46,7 +46,7 @@ public static class B10AuthSessions
     /// DI-сид студента в группе с заданными login и fullName (IUserRepository/
     /// IGroupRepository напрямую, ADR-010/CR-001 — демо-набор FR-004 отключён).
     /// </summary>
-    public static (User Student, Group Group) SeedStudentWithGroup(
+    public static async Task<(User Student, Group Group)> SeedStudentWithGroupAsync(
         B10HostFactory factory, string login, string fullName, string groupName)
     {
         var group = new Group
@@ -55,7 +55,7 @@ public static class B10AuthSessions
             Name = groupName,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<IGroupRepository>().Add(group);
+        await factory.Services.GetRequiredService<IGroupRepository>().AddAsync(group);
 
         var student = new User
         {
@@ -69,7 +69,7 @@ public static class B10AuthSessions
             GroupId = group.Id,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<IUserRepository>().Add(student);
+        await factory.Services.GetRequiredService<IUserRepository>().AddAsync(student);
         return (student, group);
     }
 

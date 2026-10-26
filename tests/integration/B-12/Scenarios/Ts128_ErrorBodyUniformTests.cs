@@ -23,13 +23,13 @@ public sealed class Ts128_ErrorBodyUniformTests(B12WebAppFactory factory)
     {
         // given: анонимный клиент (отказ 401) и сессия student на teacher-only
         // эндпойнте (отказ 403).
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12ts128.student",
             fullName: "Конверт Ошибок Тестович",
             email: "b12-ts128@t.local");
         using var anonymous = HostClients.Create(_factory);
-        using var student = HostClients.CreateStudentClient(_factory, "b12ts128.student");
+        using var student = await HostClients.CreateStudentClientAsync(_factory, "b12ts128.student");
 
         // when: GET /api/v1/labs анонимно (401) и под student (403).
         using var unauthorized = await anonymous.GetAsync("/api/v1/labs");

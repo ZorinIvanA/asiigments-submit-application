@@ -66,14 +66,14 @@ public sealed class SeedRunner(
     /// Выполняет сид. Идемпотентен по естественным ключам: каждая запись
     /// создаётся только при отсутствии своей пары/имени/логина (см. документацию класса).
     /// </summary>
-    public void Run()
+    public async Task RunAsync()
     {
         var demoData = _options.ResolveDemoData(_inDevelopment);
-        var teacher = EnsureTeacher(NormalizeTeacherLogin());
+        var teacher = await EnsureTeacherAsync(NormalizeTeacherLogin());
 
         if (demoData)
         {
-            SeedDemoData(teacher);
+            await SeedDemoDataAsync(teacher);
         }
 
         // В журнале — только счётчики (NFR-005: email/ФИО не логируются).
@@ -81,10 +81,10 @@ public sealed class SeedRunner(
             "Сид выполнен (окружение {Environment}, демо-набор {DemoData}): пользователей {Users}, групп {Groups}, работ {Labs}, сдач {Submissions}.",
             environment.EnvironmentName,
             demoData,
-            _users.ListStudents().Count + 1,
-            _groups.GetAll().Count,
-            _labs.GetAll().Count,
-            CountSubmissions(demoData));
+            (await _users.ListStudentsAsync()).Count + 1,
+            (await _groups.GetAllAsync()).Count,
+            (await _labs.GetAllAsync()).Count,
+            await CountSubmissionsAsync(demoData));
     }
 
     /// <summary>Логин сид-преподавателя: пустое/пробельное значение переменной → умолчание «teacher».</summary>
@@ -116,10 +116,10 @@ public sealed class SeedRunner(
     /// зарегистрировавшийся ранее пользователь не должны ронять старт конфликтом
     /// уникальности); иначе — создание с ровно одной деривацией KDF (метка seed).
     /// </summary>
-    private User EnsureTeacher(string login)
+    private async Task<User> EnsureTeacherAsync(string login)
     {
         var email = string.Create(CultureInfo.InvariantCulture, $"{login}{SeedEmailDomain}");
-        var existing = _users.GetByLogin(login) ?? _users.GetByEmail(email);
+        var existing = await _users.GetByLoginAsync(login) ?? await _users.GetByEmailAsync(email);
         if (existing is not null)
         {
             return existing;
@@ -136,24 +136,24 @@ public sealed class SeedRunner(
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         };
-        _users.Add(teacher);
+        await _users.AddAsync(teacher);
         return teacher;
     }
 
     /// <summary>Демонстрационный набор FR-025 — воспроизведение src/client/app/mock/seed.ts.</summary>
-    private void SeedDemoData(User teacher)
+    private async Task SeedDemoDataAsync(User teacher)
     {
         // 1. Группы: ИК-221, ИК-222, ИК-223 (ИК-223 без студентов).
-        var ik221 = EnsureGroup("ИК-221");
-        var ik222 = EnsureGroup("ИК-222");
-        _ = EnsureGroup("ИК-223");
+        var ik221 = await EnsureGroupAsync("ИК-221");
+        var ik222 = await EnsureGroupAsync("ИК-222");
+        _ = await EnsureGroupAsync("ИК-223");
 
         // 2. Студенты 01–32: 01–25 → ИК-221, 26–30 → ИК-222, 31–32 → без группы.
         // Пароль каждого студента хэшируется отдельно (Δkdf{seed} = 32, IF-002).
         var students = new User[32];
         for (var nn = 1; nn <= students.Length; nn++)
         {
-            students[nn - 1] = EnsureStudent(nn, nn <= 25 ? ik221.Id : nn <= 30 ? ik222.Id : null);
+            students[nn - 1] = await EnsureStudentAsync(nn, nn <= 25 ? ik221.Id : nn <= 30 ? ik222.Id : null);
         }
 
         // 3. Работы: семестр 1 №1–20, затем семестр 2 №1–3; защита у чётных,
@@ -162,22 +162,22 @@ public sealed class SeedRunner(
         {
             for (var number = 1; number <= lastNumber; number++)
             {
-                EnsureLab(semester, number);
+                await EnsureLabAsync(semester, number);
             }
         }
 
         // 4. Сдачи по макетам SCR-009/SCR-010 (seed.ts: SEED_SUBMISSIONS);
         // UpdatedBy — uuid преподавателя, UpdatedAt — фиксированная метка seed.ts.
-        UpsertSubmission(students[0], 1, 1, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 11), teacher);
-        UpsertSubmission(students[0], 1, 2, new DateOnly(2026, 9, 2), new DateOnly(2026, 9, 12), teacher);
-        UpsertSubmission(students[0], 1, 3, new DateOnly(2026, 9, 3), null, teacher);
-        UpsertSubmission(students[1], 1, 1, new DateOnly(2026, 9, 1), null, teacher);
+        await UpsertSubmissionAsync(students[0], 1, 1, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 11), teacher);
+        await UpsertSubmissionAsync(students[0], 1, 2, new DateOnly(2026, 9, 2), new DateOnly(2026, 9, 12), teacher);
+        await UpsertSubmissionAsync(students[0], 1, 3, new DateOnly(2026, 9, 3), null, teacher);
+        await UpsertSubmissionAsync(students[1], 1, 1, new DateOnly(2026, 9, 1), null, teacher);
     }
 
     /// <summary>Группа по ci-имени либо создание (естественный ключ — имя группы).</summary>
-    private Group EnsureGroup(string name)
+    private async Task<Group> EnsureGroupAsync(string name)
     {
-        if (_groups.GetByName(name) is { } existing)
+        if (await _groups.GetByNameAsync(name) is { } existing)
         {
             return existing;
         }
@@ -188,7 +188,7 @@ public sealed class SeedRunner(
             Name = name,
             CreatedAt = DateTime.UtcNow,
         };
-        _groups.Add(group);
+        await _groups.AddAsync(group);
         return group;
     }
 
@@ -197,13 +197,13 @@ public sealed class SeedRunner(
     /// существующая запись не изменяется (в том числе группа), иначе — создание с
     /// ровно одной деривацией KDF (метка seed).
     /// </summary>
-    private User EnsureStudent(int nn, Guid? groupId)
+    private async Task<User> EnsureStudentAsync(int nn, Guid? groupId)
     {
         var suffix = nn.ToString("00", CultureInfo.InvariantCulture);
         var login = $"student{suffix}";
         var email = $"student{suffix}{SeedEmailDomain}";
 
-        var existing = _users.GetByLogin(login) ?? _users.GetByEmail(email);
+        var existing = await _users.GetByLoginAsync(login) ?? await _users.GetByEmailAsync(email);
         if (existing is not null)
         {
             return existing;
@@ -220,19 +220,19 @@ public sealed class SeedRunner(
             PasswordHash = _hasher.Hash(StudentPassword, KdfCallers.Seed),
             CreatedAt = DateTime.UtcNow,
         };
-        _users.Add(student);
+        await _users.AddAsync(student);
         return student;
     }
 
     /// <summary>Работа по паре (semester, number) либо создание (естественный ключ — пара).</summary>
-    private void EnsureLab(int semester, int number)
+    private async Task EnsureLabAsync(int semester, int number)
     {
-        if (_labs.TryGetByPair(semester, number) is not null)
+        if (await _labs.TryGetByPairAsync(semester, number) is not null)
         {
             return;
         }
 
-        _labs.Add(new Lab
+        await _labs.AddAsync(new Lab
         {
             Id = Guid.NewGuid(),
             Semester = semester,
@@ -247,14 +247,14 @@ public sealed class SeedRunner(
         });
     }
 
-    private void UpsertSubmission(User student, int semester, int number, DateOnly? submitDate, DateOnly? defenseDate, User teacher)
+    private async Task UpsertSubmissionAsync(User student, int semester, int number, DateOnly? submitDate, DateOnly? defenseDate, User teacher)
     {
         // Fail-fast seed.ts (CR-001 T-107): тихий фолбэк labId дал бы сдачу-сироту.
-        var labId = _labs.TryGetByPair(semester, number)?.Id
+        var labId = (await _labs.TryGetByPairAsync(semester, number))?.Id
             ?? throw new InvalidOperationException(
                 $"Работы {semester}:{number} нет в таблице работ — правило сид-сдачи невыполнимо.");
 
-        var stored = _submissions.Upsert(student.Id, labId, submitDate, defenseDate, teacher.Id, SeedSubmissionUpdatedAt);
+        var stored = await _submissions.UpsertAsync(student.Id, labId, submitDate, defenseDate, teacher.Id, SeedSubmissionUpdatedAt);
 
         if (stored is null)
         {
@@ -262,6 +262,9 @@ public sealed class SeedRunner(
         }
     }
 
-    private int CountSubmissions(bool demoData) =>
-        demoData ? _submissions.ListByLabIds(_labs.GetAll().Select(lab => lab.Id).ToList()).Count : 0;
+    private async Task<int> CountSubmissionsAsync(bool demoData) =>
+        demoData
+            ? (await _submissions.ListByLabIdsAsync(
+                (await _labs.GetAllAsync()).Select(lab => lab.Id).ToList())).Count
+            : 0;
 }

@@ -35,7 +35,7 @@ public sealed class Ts133_GroupDeleteDetachesAndDropsGroupTests : IClassFixture<
     public async Task DeleteGroup_DetachesStudents_VisibleInNoneFilter_GroupGone()
     {
         // given: сессия teacher; id группы ИК-222 (в ней 5 студентов демо-сида).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var ik222Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 
         // when: DELETE /api/v1/groups/{ИК-222.id}.

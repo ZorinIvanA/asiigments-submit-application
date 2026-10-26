@@ -56,12 +56,14 @@ public static class AuthCoreServiceCollectionExtensions
         // коды восстановления и их солёный SHA-256 (0 KDF на recovery — ASM-005).
         services.AddSingleton<ITokenService, TokenService>();
 
-        // IF-015/T-101 (FR-024): консолидированное in-memory хранилище refresh-
-        // токенов, кодов восстановления и reset-токенов — singleton под общим
-        // StorageLock (выше TryAdd; в хосте выигрывает регистрация AddInMemoryStorage).
-        // Регистрации токенных хранилищ собраны в AddAuthCore — единый
-        // писатель DI-регистраций Auth (ADR-030).
-        services.AddSingleton<ISecurityTokenRepository, InMemorySecurityTokenRepository>();
+        // IF-015/T-101 (FR-024): консолидированное хранилище refresh-токенов,
+        // кодов восстановления и reset-токенов. TryAdd: при провайдере postgres
+        // scoped-реализация уже зарегистрирована AddPostgresStorage ДО
+        // AddAuthCore (порядок Program.cs) и обязана сохраниться; для
+        // изолированных ServiceCollection юнит-тестов и in-memory хоста
+        // срабатывает умолчание — InMemorySecurityTokenRepository (ADR-030:
+        // единый писатель DI-регистраций Auth).
+        services.TryAddSingleton<ISecurityTokenRepository, InMemorySecurityTokenRepository>();
 
         // IF-004: cookie — обе Path=/, Secure iff окружение ≠ Development.
         services.AddSingleton<ICookieService, CookieService>();

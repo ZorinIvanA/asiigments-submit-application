@@ -65,7 +65,7 @@ public sealed class Ts065_RecoveryRequestUnknownEmailTests(B13RecoveryDevSpyHost
         // эталон — код в записи существующего email верифицируется по хэшу созданного
         // кода: формат записи принципиально одинаков, существование учётной записи
         // записью 'EmailDev' не раскрывается.
-        var live = securityTokens.FindLiveForUser(existingUser.Id);
+        var live = await securityTokens.FindLiveForUserAsync(existingUser.Id);
         Assert.NotNull(live);
         var code = B13RecoveryLogAsserts.VerifiedCode(existingEntry, tokens, live.CodeHash);
         Assert.Matches("^[0-9]{6}$", code);

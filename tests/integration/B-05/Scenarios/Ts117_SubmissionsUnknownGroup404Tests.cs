@@ -25,9 +25,9 @@ public sealed class Ts117_SubmissionsUnknownGroup404Tests : IClassFixture<B05Web
         // given: группа с таким uuid в хранилище отсутствует (проверка по шву).
         var unknownGroupId = Guid.NewGuid();
         var groups = _factory.Services.GetRequiredService<IGroupRepository>();
-        Assert.Null(groups.GetById(unknownGroupId));
+        Assert.Null( await groups.GetByIdAsync(unknownGroupId) );
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: ведомость по неизвестной группе.
         using var response = await client.GetAsync(

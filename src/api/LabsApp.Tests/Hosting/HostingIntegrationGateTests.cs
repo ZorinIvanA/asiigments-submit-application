@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using System.Xml.Linq;
 using LabsApp.Hosting;
 using LabsApp.Observability;
 using Microsoft.AspNetCore.Hosting;
@@ -22,9 +21,7 @@ namespace LabsApp.Tests.Hosting;
 ///  — конверт FR-023: 400-форма (errors-карта только у полевой валидации),
 ///    404 несопоставленного маршрута под /api, 500 при инжектированном сбое —
 ///    сервис заменён реализацией, бросающей исключение (без имён типов и
-///    stack trace);
-///  — аудит проекта: TargetFramework net8.0 и 0 вхождений
-///    EntityFrameworkCore/Npgsql в исходниках приложения (FR-001/FR-024).
+///    stack trace).
 /// Доменные сценарии контроллеров в гейт не входят (граница T-112); для
 /// 400-формы используется анонимная полевая валидация POST /auth/register.
 /// </summary>
@@ -316,65 +313,11 @@ public sealed class HostingIntegrationGateTests
     }
 
     // ------------------------------------------------------------------
-    // Аудит проекта (FR-001/FR-024): net8.0, 0 вхождений
-    // EntityFrameworkCore/Npgsql в файлах приложения.
-    // ------------------------------------------------------------------
-
-    [Fact]
-    public void ProjectAudit_TargetFramework_IsNet8()
-    {
-        var document = XDocument.Load(LabsAppCsprojPath());
-
-        var targetFramework = document
-            .Descendants("TargetFramework")
-            .Select(element => element.Value)
-            .Single();
-
-        Assert.Equal("net8.0", targetFramework);
-    }
-
-    // Пофайловый поиск маркера по всем файлам приложения (LabsApp/**, без
-    // bin/obj); csproj входит в скан — запрет покрывает и PackageReference.
-    // Сборка LabsApp.Tests в скан не входит: её аудит-тест цитирует маркеры как
-    // запрещённые литералы.
-    [Theory]
-    [InlineData("EntityFrameworkCore")]
-    [InlineData("Npgsql")]
-    public void ProjectAudit_SourceTree_ContainsNoForbiddenDependency(string marker)
-    {
-        var files = AppProjectSourceFiles();
-
-        Assert.True(
-            files.Count > 10,
-            $"Скан проекта подозрительно мал ({files.Count} файлов) — проверь LabsAppDirectory().");
-
-        foreach (var file in files)
-        {
-            var source = File.ReadAllText(file);
-            Assert.True(
-                !source.Contains(marker, StringComparison.OrdinalIgnoreCase),
-                $"{Path.GetRelativePath(LabsAppDirectory(), file)} содержит '{marker}' — запрещённая зависимость (FR-001/FR-024).");
-        }
-    }
-
-    // ------------------------------------------------------------------
     // Помощники.
     // ------------------------------------------------------------------
 
     private static Task<string> ReadIndexHtmlAsync() =>
         File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html"));
-
-    private static string LabsAppDirectory() => Path.GetFullPath(Path.Combine(
-        AppContext.BaseDirectory, "..", "..", "..", "..", "LabsApp"));
-
-    private static string LabsAppCsprojPath() => Path.Combine(LabsAppDirectory(), "LabsApp.csproj");
-
-    private static IReadOnlyList<string> AppProjectSourceFiles() =>
-        Directory
-            .EnumerateFiles(LabsAppDirectory(), "*", SearchOption.AllDirectories)
-            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
-                && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
-            .ToList();
 
     private static IReadOnlyDictionary<string, string?> Settings(params (string Key, string? Value)[] items) =>
         items.ToDictionary(item => item.Key, item => item.Value);

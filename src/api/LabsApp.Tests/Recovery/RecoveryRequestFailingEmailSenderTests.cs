@@ -134,7 +134,7 @@ public sealed class RecoveryRequestFailingEmailSenderTests(RecoveryFailingEmailS
     public async Task Request_FailingEmailSender_Still200WithEmptyBodyAndSenderCalledOnce()
     {
         // given: зарегистрированный пользователь; чистая заглушка и log-sink.
-        var user = SeedUser("rec-fail-body");
+        var user = await SeedUserAsync("rec-fail-body");
         _fixture.Sender.Reset();
         _fixture.LogSink.Clear();
         using var client = CreateClient();
@@ -160,7 +160,7 @@ public sealed class RecoveryRequestFailingEmailSenderTests(RecoveryFailingEmailS
     public async Task Request_FailingEmailSender_CodeStillGeneratedStoredAndVerifiable()
     {
         // given: зарегистрированный пользователь; чистая заглушка.
-        var user = SeedUser("rec-fail-code");
+        var user = await SeedUserAsync("rec-fail-code");
         _fixture.Sender.Reset();
 
         // when: запрос кода при падающем канале доставки.
@@ -173,8 +173,8 @@ public sealed class RecoveryRequestFailingEmailSenderTests(RecoveryFailingEmailS
         // then: код создан и жив (сбой доставки хранение не отменяет):
         // attempts=0, usedAt=null, TTL 10 минут; значение кода (из захваченных
         // аргументов заглушки) верифицируется по хэшу хранилища.
-        var live = _fixture.Host.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveForUser(user.Id);
+        var live = await _fixture.Host.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Equal(0, live!.Attempts);
         Assert.Null(live.UsedAt);
@@ -192,7 +192,7 @@ public sealed class RecoveryRequestFailingEmailSenderTests(RecoveryFailingEmailS
     public async Task Request_FailingEmailSender_LogsErrorWithoutSecretsAndZeroKdf()
     {
         // given: зарегистрированный пользователь; база log-sink и Δkdf.
-        var user = SeedUser("rec-fail-log");
+        var user = await SeedUserAsync("rec-fail-log");
         _fixture.Sender.Reset();
         _fixture.LogSink.Clear();
         var kdf = _fixture.Host.Services.GetRequiredService<IKdfCounter>();
@@ -211,8 +211,8 @@ public sealed class RecoveryRequestFailingEmailSenderTests(RecoveryFailingEmailS
         // ни в исключение ни одной записи журнала.
         var capturedBody = Assert.Single(_fixture.Sender.Captured)[2];
         var tokens = _fixture.Host.Services.GetRequiredService<ITokenService>();
-        var live = _fixture.Host.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveForUser(user.Id);
+        var live = await _fixture.Host.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         var code = Assert.Single(
             Regex.Matches(capturedBody, "[0-9]{6}").Select(match => match.Value),
@@ -240,13 +240,13 @@ public sealed class RecoveryRequestFailingEmailSenderTests(RecoveryFailingEmailS
         });
 
     /// <summary>DI-сид пользователя с реальным PBKDF2-хэшем в хост с падающей заглушкой.</summary>
-    private User SeedUser(string login)
+    private async Task<User> SeedUserAsync(string login)
     {
         var services = _fixture.Host.Services;
         var passwordHash = services.GetRequiredService<IPasswordHasher>()
             .Hash(RecoveryEndpointHarness.TestUserPassword, KdfCallers.Seed);
         var repository = services.GetRequiredService<IUserRepository>();
-        repository.Add(new User
+        await repository.AddAsync(new User
         {
             Id = Guid.NewGuid(),
             Login = login,
@@ -257,7 +257,7 @@ public sealed class RecoveryRequestFailingEmailSenderTests(RecoveryFailingEmailS
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByLogin(login)
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 }
