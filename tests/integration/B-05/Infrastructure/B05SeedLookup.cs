@@ -6,14 +6,14 @@ using Microsoft.Extensions.DependencyInjection;
 namespace LabsApp.IntegrationTests.B05.Infrastructure;
 
 /// <summary>
-/// Считывание uuid сид-сущностей из репозиториев тестового хоста (ADR-015):
-/// кейсы FR-020/FR-021 ссылаются на studentNN / ИК-221 / ИК-223 демо-сида FR-004,
-/// не завися от эндпойнтов других волн (/auth/me, GET /groups). Каждый тестовый
-/// КЛАСС получает свою IClassFixture-фабрику — сид свежий и детерминированный.
+/// Считывание uuid сид-сущностей из репозиториев тестового хоста: кейсы
+/// FR-020/FR-021 ссылаются на studentNN / ИК-221 / ИК-223 демо-сида FR-004,
+/// не завися от эндпойнтов других волн (GET /groups). Каждый тестовый КЛАСС
+/// получает свою IClassFixture-фабрику — сид свежий и детерминированный.
 /// </summary>
 public static class B05SeedLookup
 {
-    /// <summary>Сид-преподаватель (uuid, который вернул бы /auth/me, ADR-015).</summary>
+    /// <summary>Сид-преподаватель — «текущий пользователь» анонимного приложения.</summary>
     public static async Task<User> TeacherAsync(B05WebAppFactory factory) =>
         await factory.Services.GetRequiredService<IUserRepository>()
                 .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)

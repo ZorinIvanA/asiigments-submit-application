@@ -13,8 +13,8 @@ namespace LabsApp.Infrastructure;
 ///   (нижний регистр + ordinal); проверка и вставка атомарны (IF-015);
 /// - операции чтения возвращают копии-снимки: изменение полученной сущности не
 ///   влияет на хранилище, мутации — только через узкие атомарные мутаторы
-///   <see cref="SetGroupAsync"/> (группа, SEC-001), <see cref="SetPasswordAsync"/>
-///   (пароль) и <see cref="UpdateProfileAsync"/> (профиль) — каждый меняет ТОЛЬКО
+///   <see cref="SetGroupAsync"/> (группа, SEC-001) и <see cref="UpdateProfileAsync"/>
+///   (профиль) — каждый меняет ТОЛЬКО
 ///   свои поля и не откатывает конкурентные мутации соседних полей (CR-001).
 /// </summary>
 public interface IUserRepository
@@ -41,7 +41,7 @@ public interface IUserRepository
     /// <para>
     /// Контракт СУЖЕН (аменда CR-001/SEC-001, OQ-002): полная замена записи
     /// устаревшим снимком откатывает конкурентные изменения соседних полей, поэтому
-    /// метод НЕ применяется для смены пароля (<see cref="SetPasswordAsync"/>), профиля
+    /// метод НЕ применяется для правки профиля
     /// (<see cref="UpdateProfileAsync"/>) и группы студента (<see cref="SetGroupAsync"/>).
     /// Прод-контроллеры его не вызывают; легитимные применения — тестовые фикстуры
     /// (сборка/исправление записей).
@@ -65,21 +65,6 @@ public interface IUserRepository
     /// </para>
     /// </summary>
     Task<SetGroupResult> SetGroupAsync(Guid userId, Guid? groupId, Func<Guid, Task<bool>>? groupExists);
-
-    /// <summary>
-    /// Узкая атомарная мутация пароля (CR-001/SEC-001, IF-015): проверяет
-    /// существование записи и меняет ТОЛЬКО <see cref="User.PasswordHash"/>.
-    /// Остальные поля хранимой записи (Login, Email, FullName, Role, GroupId,
-    /// CreatedAt) не перечитываются и не перезаписываются, поэтому конкурентные
-    /// смена профиля и назначение группы студента не откатываются устаревшим
-    /// снимком; ci-индексы не затрагиваются.
-    /// <para>
-    /// Запись отсутствует — false без исключения (вызывающая сторона отдаёт
-    /// 401 «Не авторизован», IF-015 NOT_FOUND). <paramref name="passwordHash"/> null
-    /// либо пустой — <see cref="ArgumentNullException"/> (валидация до вызова).
-    /// </para>
-    /// </summary>
-    Task<bool> SetPasswordAsync(Guid userId, string passwordHash);
 
     /// <summary>
     /// Узкая атомарная мутация профиля (CR-001/SEC-001, IF-015): проверяет

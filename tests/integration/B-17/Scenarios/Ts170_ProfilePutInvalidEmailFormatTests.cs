@@ -1,4 +1,3 @@
-using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B17.Infrastructure;
 
@@ -8,8 +7,9 @@ namespace LabsApp.IntegrationTests.B17.Scenarios;
 /// TS-170 «me/profile PUT: некорректный формат email — 400 errors.email»
 /// (negative, FR-015 + FR-023, P1; ревью R4b).
 ///
-/// given: пользователь авторизован; fullName валиден; все тестируемые email
-///        свободны.
+/// given: текущий пользователь приложения — засеянный преподаватель
+///        (Seed__TeacherLogin «teacher», email 'teacher@example.com'); клиент
+///        анонимный (аутентификации в приложении нет); fullName валиден.
 /// when:  PUT /api/v1/me/profile {fullName:'Ф И О', email:'abc'}; отдельно
 ///        {email:'a@b'} (домен без точки/зоны); отдельно {email:'a b@c.ru'}
 ///        (пробел внутри).
@@ -22,8 +22,7 @@ namespace LabsApp.IntegrationTests.B17.Scenarios;
 /// </summary>
 public sealed class Ts170_ProfilePutInvalidEmailFormatTests : IClassFixture<B17WebAppFactory>
 {
-    private const string Login = "ts170";
-    private const string Email = "ts170@x.ru";
+    private const string StoredEmail = "teacher@example.com";
     private const string ValidFullName = "Ф И О";
 
     /// <summary>Три значения when кейса: без '@', домен без точки/зоны, пробел внутри.</summary>
@@ -41,16 +40,10 @@ public sealed class Ts170_ProfilePutInvalidEmailFormatTests : IClassFixture<B17W
     [Fact]
     public async Task PutProfile_WithEachInvalidEmailFormat_Returns400WithEmailError_AndKeepsProfile()
     {
-        // given: пользователь авторизован; fullName валиден.
-        var user = B17ProfileHost.SeedUser(
-            _factory,
-            login: Login,
-            email: Email,
-            fullName: "Прежнее ФИО",
-            role: UserRoles.Student,
-            groupId: null,
-            password: B17ProfileHost.TestUserPassword);
-        using var client = B17ProfileHost.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий пользователь — засеянный преподаватель; клиент анонимный.
+        var current = await B17ProfileHost.CurrentUserAsync(_factory);
+        Assert.Equal(StoredEmail, current.Email);
+        using var client = B17ProfileHost.Create(_factory);
 
         foreach (var invalidEmail in InvalidEmails)
         {
@@ -72,12 +65,12 @@ public sealed class Ts170_ProfilePutInvalidEmailFormatTests : IClassFixture<B17W
             B17BodyAssertions.ErrorFieldEquals(root, "email", ErrorTexts.EmailFormat);
 
             // then: профиль не изменён — хранимые fullName/email прежние.
-            var stored = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
+            var stored = await B17ProfileHost.StoredUserAsync(_factory, current.Id);
             Assert.True(
-                string.Equals(stored.Email, Email, StringComparison.Ordinal),
-                $"email «{invalidEmail}»: ожидался неизменный хранимый email «{Email}», фактически «{stored.Email}».");
+                string.Equals(stored.Email, StoredEmail, StringComparison.Ordinal),
+                $"email «{invalidEmail}»: ожидался неизменный хранимый email «{StoredEmail}», фактически «{stored.Email}».");
             Assert.True(
-                string.Equals(stored.FullName, "Прежнее ФИО", StringComparison.Ordinal),
+                string.Equals(stored.FullName, current.FullName, StringComparison.Ordinal),
                 $"email «{invalidEmail}»: ожидалось неизменное хранимое ФИО, фактически «{stored.FullName}».");
         }
     }

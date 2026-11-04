@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B14.Groups.Scenarios;
 /// TS-104 «groups: переименование — 200 / 404 / 409» (negative, FR-019, P1).
 ///
 /// given: существует группа G1 и группа 'ИК-222' (демо-сид; G1 = ИК-221);
-///        сессия teacher.
+///        анонимный клиент (текущий пользователь — сид-преподаватель).
 /// when:  PUT /groups/{G1.id} {name:'Новое имя'}; PUT /groups/<несуществующий-uuid>
 ///        {name:'X'}; PUT /groups/{G1.id} {name:'ик-222'}.
 /// then:  200 GroupDto; 404 'Группа не найдена'; 409 'Группа с таким названием
@@ -25,7 +25,7 @@ public sealed class Ts104_GroupRenameOkNotFoundConflictTests : IClassFixture<B14
     [Fact]
     public async Task PutGroup_Renames_UnknownIdNotFound_ForeignNameConflicts()
     {
-        // given: сессия teacher; G1 = существующая группа (ИК-221 демо-сида).
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); G1 = существующая группа (ИК-221 демо-сида).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var g1Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
@@ -60,7 +60,7 @@ public sealed class Ts104_GroupRenameOkNotFoundConflictTests : IClassFixture<B14
     [Fact]
     public async Task PutGroup_OwnNameIsNotAConflict()
     {
-        // given: сессия teacher; группа с известным именем (ИК-222 демо-сида).
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); группа с известным именем (ИК-222 демо-сида).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var groupId = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 

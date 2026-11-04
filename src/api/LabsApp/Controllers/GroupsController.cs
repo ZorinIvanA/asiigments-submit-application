@@ -6,7 +6,6 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
 using LabsApp.Infrastructure;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
 
@@ -16,11 +15,8 @@ namespace LabsApp.Controllers;
 /// Контроллер групп (C-008, IF-010, FR-019): перечень без пагинации с вычисляемым
 /// studentCount и сортировкой name↑ без учёта регистра ПО ПРАВИЛАМ РУССКОЙ ЛОКАЛИ
 /// (<see cref="Collation.SortComparer"/>, AR-005), создание/переименование/удаление
-/// и постраничный состав группы (fullName↑ затем login↑, pageSize=10). Доступ —
-/// только teacher (FR-022); порядок отказов фиксирован 401 → 403 → 400 → 404 → 409:
-///  - 401 отдаёт схема аутентификации (Challenge с телом «Не авторизован», ADR-003);
-///  - 403 — первая проверка внутри каждого действия (раньше разбора тела, валидации
-///    и поиска записи) с телом конверта «Доступ запрещён»;
+/// и постраничный состав группы (fullName↑ затем login↑, pageSize=10).
+/// Порядок отказов фиксирован 400 → 404 → 409:
 ///  - тело запроса разбирается вручную (без [FromBody]): синтаксически некорректный
 ///    JSON → 400 «Данные заполнены неверно» БЕЗ errors (IF-001);
 ///  - поле name: отсутствие/null/нестроковое значение, пустая или пробельная строка
@@ -35,7 +31,6 @@ namespace LabsApp.Controllers;
 ///    «без группы», IF-015).
 /// </summary>
 [ApiController]
-[Authorize]
 [Route("api/v1/groups")]
 public sealed class GroupsController(IGroupRepository groups, IUserRepository users, TimeProvider timeProvider) : ControllerBase
 {
@@ -52,11 +47,6 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
     [HttpGet]
     public async Task<IActionResult> List()
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         // Сортировка по русской локали без учёта регистра (AR-005) — сервисная
         // обязанность контроллера: репозиторий порядок не определяёт (IF-015).
         var groups = await _groups.ListAsync();
@@ -73,11 +63,6 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
     [HttpPost]
     public async Task<IActionResult> Create(CancellationToken cancellationToken)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         using var document = await TryParseJsonBodyAsync(cancellationToken);
         if (document is null)
         {
@@ -116,11 +101,6 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, CancellationToken cancellationToken)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         // Порядок 400 → 404 → 409 (IF-010): валидация тела раньше поиска записи,
         // поиск раньше проверки занятости имени.
         using var document = await TryParseJsonBodyAsync(cancellationToken);
@@ -173,11 +153,6 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         if (await _groups.GetByIdAsync(ParseGroupId(id)) is null)
         {
             return GroupNotFound();
@@ -193,11 +168,6 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
     [HttpGet("{id}/students")]
     public async Task<IActionResult> Students(string id, [FromQuery(Name = "page")] string? page)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         if (await _groups.GetByIdAsync(ParseGroupId(id)) is not { } group)
         {
             return GroupNotFound();
@@ -238,19 +208,6 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
     // ------------------------------------------------------------------
     // Роль и конверт отказов
     // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Проверка роли teacher (FR-022) — ПЕРВАЯ операция действия: 403 отдаётся
-    /// раньше валидации тела (400) и поиска записи (404). null — доступ разрешён.
-    /// </summary>
-    private IActionResult? DenyIfNotTeacher() =>
-        User.IsInRole(UserRoles.Teacher)
-            ? null
-            : new ObjectResult(new ErrorEnvelope { Message = ValidationTexts.Forbidden })
-            {
-                StatusCode = StatusCodes.Status403Forbidden,
-                ContentTypes = { "application/json" },
-            };
 
     private static IActionResult GroupNotFound() =>
         new NotFoundObjectResult(new ErrorEnvelope { Message = ValidationTexts.GroupNotFound })

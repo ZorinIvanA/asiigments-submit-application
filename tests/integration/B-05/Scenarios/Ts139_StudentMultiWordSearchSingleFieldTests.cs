@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-139 (P0, happy_path; FR-020 AC «Многословный поиск в одном поле»)
 /// «Студенты: многословный поиск — все токены в ОДНОМ поле».
 /// given: демо-сид: student01 'Иванов Иван Иванович 01'/'student01'/
-///        'student01@example.com'; сессия teacher (минт, ADR-015).
+///        'student01@example.com'; анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  GET /api/v1/students?search=иван 01
 /// then:  200; student01 в выдаче (оба токена — подстроки fullName без учёта
 ///        регистра, порядок токенов не значим); total корректен.
@@ -20,9 +20,9 @@ public sealed class Ts139_StudentMultiWordSearchSingleFieldTests : IClassFixture
     [Fact]
     public async Task MultiWordSearchBothTokensInFullName_FindsStudent01WithCorrectTotal()
     {
-        // given: student01 существует в демо-сиде; teacher авторизован.
+        // given: student01 существует в демо-сиде; анонимный запрос (текущий пользователь — сид-преподаватель).
         await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: многословный поиск «иван 01» (пробел — разделитель токенов).
         var search = Uri.EscapeDataString("иван 01");

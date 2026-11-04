@@ -9,7 +9,7 @@ namespace LabsApp.IntegrationTests.B02.Scenarios;
 /// <summary>
 /// TS-183 «Seed__DemoData=false: только преподаватель» (FR-025, P1; тип boundary).
 ///
-/// given: Development; Seed__DemoData=false (явно); Seed__TeacherPassword задан.
+/// given: Development; Seed__DemoData=false (явно).
 /// when:  старт приложения (сид выполняется при построении хоста); инспекция
 ///        хранилища через DI тестового хоста.
 /// then:  создан только преподаватель (teacher существует, студентов нет); списки
@@ -17,13 +17,10 @@ namespace LabsApp.IntegrationTests.B02.Scenarios;
 /// </summary>
 public sealed class Ts183_DevelopmentDemoDataOffTeacherOnlyTests
 {
-    /// <summary>Явно заданный сид-пароль кейса (given «Seed__TeacherPassword задан»).</summary>
-    private const string OwnTeacherPassword = "b02-Own#Teacher2026";
-
     [Fact]
     public async Task DevelopmentWithDemoDataFalse_SeedsTeacherOnly_EmptyGroupsAndLabs()
     {
-        // given: Development-хост; Seed__DemoData=false и Seed__TeacherPassword заданы
+        // given: Development-хост; Seed__DemoData=false задано явно
         // (useHarnessDefaults:false — проверяется именно явная конфигурация кейса).
         using var factory = new B02WebAppFactory(
             Environments.Development,
@@ -31,7 +28,6 @@ public sealed class Ts183_DevelopmentDemoDataOffTeacherOnlyTests
             settings: new Dictionary<string, string?>
             {
                 ["Seed__DemoData"] = "false",
-                ["Seed__TeacherPassword"] = OwnTeacherPassword,
             });
         _ = factory.CreateWarmClient();
 

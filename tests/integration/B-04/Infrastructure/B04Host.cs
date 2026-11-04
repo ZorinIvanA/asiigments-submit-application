@@ -6,13 +6,11 @@ using Microsoft.Extensions.Hosting;
 namespace LabsApp.IntegrationTests.B04.Infrastructure;
 
 /// <summary>
-/// Базовый тестовый хост кейсов батча B-04 (FR-017/FR-020/FR-021/FR-022): собственная
+/// Базовый тестовый хост кейсов батча B-04 (FR-017/FR-020/FR-021): собственная
 /// копия механики фабрики (фабрики чужих зон и src/api/LabsApp.Tests — internal;
-/// изоляция BL-001 BUG-001). Окружение — Development; Auth__JwtKey и
-/// Seed__TeacherPassword зафиксированы; демо-набор задаётся подклассом ЯВНО
-/// (детерминизм независимо от умолчаний окружения). Сессии — МИНТ access-JWT
-/// через ITokenService хоста (ADR-015: доменные кейсы не зависят от POST
-/// /auth/login), см. MintedSessions.
+/// изоляция BL-001 BUG-001). Окружение — Development; демо-набор задаётся
+/// подклассом ЯВНО (детерминизм независимо от умолчаний окружения). Аутентификации
+/// в приложении нет: запросы анонимны, «текущий пользователь» — сид-преподаватель.
 ///
 /// Механика: при минимальном хостинге (WebApplicationBuilder) значения UseSetting
 /// попадают в аргументы точки входа до запуска Program, поэтому ключи передаются
@@ -20,8 +18,6 @@ namespace LabsApp.IntegrationTests.B04.Infrastructure;
 /// </summary>
 public abstract class B04HostFactory : WebApplicationFactory<Program>
 {
-    public const string TestJwtKey = "b04-labs-jwt-signing-key-0123456789abcdef-0123456789abcdef";
-
     /// <summary>Демо-набор сида: false — хранилище наполняют тесты DI-сидом; true — «сид развёрнут».</summary>
     protected abstract bool DemoData { get; }
 
@@ -42,8 +38,6 @@ public abstract class B04HostFactory : WebApplicationFactory<Program>
         // (IOException в JsonConfigurationSource.Build); автотестам reload не нужен.
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
 
-        builder.UseSetting(ToConfigKey(AuthOptions.JwtKeyVariable), TestJwtKey);
-        builder.UseSetting(ToConfigKey(SeedOptions.TeacherPasswordVariable), SeedOptions.DefaultTeacherPassword);
         builder.UseSetting(ToConfigKey(SeedOptions.DemoDataVariable), DemoData ? "true" : "false");
     }
 

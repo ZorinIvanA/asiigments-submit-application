@@ -6,12 +6,10 @@
  * Страницы (C-112/C-113) обращаются к данным сдач только через этот сервис:
  * каждый метод — вызов HttpClient к эндпойнтам REST ведомости (submissions
  * и me/submissions); базовый префикс — токен API_BASE_URL (ADR-009),
- * запросы идут с withCredentials: true через authInterceptor (C-013),
- * HTTP-отказы нормализуются им в ApiError {status, body: {message, errors?}}
- * (http-errors.ts) — прежняя форма отказов страниц не меняется. Коды ошибок
- * — дословно контрактам REST /submissions и /me/submissions:
- *  - 401 «Не авторизован» — нет/битая сессия;
- *  - 403 «Доступ запрещён» (getGrid/update — не teacher, getMy — не student);
+ * HTTP-отказы нормализуются в ApiError {status, body: {message, errors?}}
+ * (http-errors.ts) — форма отказов страниц не меняется. Коды ошибок —
+ * дословно контрактам REST /submissions и /me/submissions (анонимная
+ * консоль преподавателя, без 401/403):
  *  - 400 «Данные заполнены неверно» + errors {submitDate, defenseDate} —
  *    неконтрактная строка даты в update (проверяется раньше 404);
  *  - 404 «Группа не найдена» (getGrid), «Студент не найден» /
@@ -22,10 +20,10 @@
  */
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from '../api-base-url';
 import { MySubmissionsDto, Submission, SubmissionsGridDto } from '../../shared/models';
+import { firstValueFromApi } from '../http-errors';
 
 /** Студентов на страницу ведомости (§4.4: пагинация по 5, ADR-109). */
 export const SUBMISSIONS_PAGE_SIZE = 5;
@@ -78,7 +76,7 @@ export class SubmissionsService {
       .set('groupId', query.groupId)
       .set('semester', query.semester)
       .set('page', query.page);
-    return firstValueFrom(
+    return firstValueFromApi(
       this.http.get<SubmissionsGridResult>(`${this.apiBase}/submissions`, { params }),
     );
   }
@@ -88,11 +86,11 @@ export class SubmissionsService {
    * labId) — записи нет: создаётся; есть: обе даты заменяются переданными
    * значениями (null = сброс). Тело всегда содержит обе даты целиком
    * (контракт PUT /submissions — частичной формы нет). Бэкенд фиксирует
-   * updatedBy (преподаватель сессии) и updatedAt; возвращает сохранённую
+   * updatedBy (сид-преподаватель) и updatedAt; возвращает сохранённую
    * запись.
    */
   update(params: SubmissionUpdateParams): Promise<Submission> {
-    return firstValueFrom(this.http.put<Submission>(`${this.apiBase}/submissions`, params));
+    return firstValueFromApi(this.http.put<Submission>(`${this.apiBase}/submissions`, params));
   }
 
   /**
@@ -102,7 +100,7 @@ export class SubmissionsService {
    * и только собственные сдачи.
    */
   getMy(semester: number): Promise<MySubmissionsDto> {
-    return firstValueFrom(
+    return firstValueFromApi(
       this.http.get<MySubmissionsDto>(`${this.apiBase}/me/submissions`, {
         params: new HttpParams().set('semester', semester),
       }),

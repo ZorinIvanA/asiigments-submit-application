@@ -1,5 +1,5 @@
 /**
- * Unit-тесты страницы «Сдача работ» студента (C-113, SCR-010, US-11):
+ * Unit-тесты страницы «Сдача работ» (C-113, SCR-010, US-11):
  *  - десктоп p-table (ADR-111): «Студент» + пары «Сдача»/«Защита» каждой
  *    работы, одна строка, только свои данные, даты дд.мм.гггг, пустая —
  *    пусто;
@@ -8,24 +8,26 @@
  *  - дефолтный семестр — наименьший, смена селектора → перезагрузка getMy;
  *  - индикатор загрузки p-table на время запроса (CR-003);
  *  - read-only: нулевые вызовы SubmissionsService.update, календаря нет;
- *  - студент без группы (groupName = null) — предупреждение дословно
- *    (role=status), таблицы нет, селектор активен;
- *  - аменда 3 (CR-002): пустой getSemesters → getMy НЕ вызывается,
- *    «в группе» — селектор заблокирован + «Нет семестров с работами»,
- *    «без группы» — только предупреждение (приоритет);
- *  - аменда 3 (CR-004): у выбранного семестра нет работ (labs: []) —
- *    тот же текст «Нет семестров с работами» в обеих вёрстках, селектор
- *    активен;
- *  - ошибки мока — notifyError дословно с якорем 'header' (IF-109).
+ *  - профиль без группы (groupName = null — сид-преподаватель консоли) —
+ *    предупреждение дословно (role=status), таблицы нет, селектор активен;
+ *  - пустой getSemesters → getMy НЕ вызывается: «в группе» — селектор
+ *    заблокирован + «Нет семестров с работами», «без группы» — только
+ *    предупреждение (приоритет);
+ *  - у выбранного семестра нет работ (labs: []) — тот же текст «Нет
+ *    семестров с работами» в обеих вёрстках, селектор активен;
+ *  - ошибки загрузки — notifyError дословно с якорем 'header' (IF-109).
+ *
+ * Профиль подставляется стабом ProfileService (GET /me/profile): ветка
+ * «в группе» — groupName 'ИТ-21', ветка консоли преподавателя — groupName
+ * null.
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AuthService, MeDto } from '../../../core/services/auth.service';
 import { LabsService } from '../../../core/services/labs.service';
+import { ProfileService } from '../../../core/services/profile.service';
 import { SubmissionsService } from '../../../core/services/submissions.service';
-import { ApiError, MySubmissionsDto } from '../../../shared/models';
+import { ApiError, MySubmissionsDto, ProfileDto } from '../../../shared/models';
 import { NotificationService } from '../../../shared/notifications/notification-service';
 import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
 import { MySubmissionsPage } from './my-submissions-page';
@@ -34,12 +36,22 @@ const TEXT_NO_GROUP =
   'Вы не включены в группу, доступ к сдаче лабораторных не выдан';
 const TEXT_NO_SEMESTERS = 'Нет семестров с работами';
 
-/** Студент в группе «ИТ-21» (дефолт); для ветки «без группы» — groupName null. */
-const STUDENT_IN_GROUP: MeDto = {
+/** Профиль с группой (дефолт); для ветки «без группы» — groupName null. */
+const PROFILE_IN_GROUP: ProfileDto = {
   login: 'ivanov01',
+  email: 'ivanov01@example.com',
   fullName: 'Иванов Иван Иванович 01',
   role: 'student',
   groupName: 'ИТ-21',
+};
+
+/** Профиль сид-преподавателя консоли: группы нет. */
+const PROFILE_TEACHER: ProfileDto = {
+  login: 'teacher',
+  email: 'teacher@example.com',
+  fullName: 'Сидоров Семён Семёнович',
+  role: 'teacher',
+  groupName: null,
 };
 
 /** Сид-подобный ответ getMy: три работы, у третьей защита не проставлена. */
@@ -73,23 +85,24 @@ class SubmissionsServiceStub {
   update = jasmine.createSpy<SubmissionsService['update']>('update');
 }
 
-class AuthServiceStub {
-  readonly currentUser = signal<MeDto | null>(STUDENT_IN_GROUP);
+class ProfileServiceStub {
+  get = jasmine.createSpy<ProfileService['get']>('get');
 }
 
 describe('MySubmissionsPage', () => {
   let breakpoints: MockBreakpointObserver;
   let labs: LabsServiceStub;
   let submissions: SubmissionsServiceStub;
-  let auth: AuthServiceStub;
+  let profile: ProfileServiceStub;
   let notifications: NotificationService;
   let fixture: ComponentFixture<MySubmissionsPage>;
   let native: HTMLElement;
 
   /**
-   * Доводит асинхронную цепочку reload (getSemesters → getMy) до конца:
-   * стабы отвечают промисами-микротасками, поэтому несколько опустошений
-   * очереди микрозадач + detectChanges дают детерминированное состояние.
+   * Доводит асинхронную цепочку (get профиля → getSemesters → getMy) до
+   * конца: стабы отвечают промисами-микротасками, поэтому несколько
+   * опустошений очереди микрозадач + detectChanges дают детерминированное
+   * состояние.
    */
   async function settle(): Promise<void> {
     for (let tick = 0; tick < 6; tick++) {
@@ -101,14 +114,15 @@ describe('MySubmissionsPage', () => {
   function configure(): void {
     labs = new LabsServiceStub();
     submissions = new SubmissionsServiceStub();
-    auth = new AuthServiceStub();
+    profile = new ProfileServiceStub();
+    profile.get.and.resolveTo(PROFILE_IN_GROUP);
     TestBed.configureTestingModule({
       imports: [MySubmissionsPage],
       providers: [
         { provide: BreakpointObserver, useValue: breakpoints },
         { provide: LabsService, useValue: labs },
         { provide: SubmissionsService, useValue: submissions },
-        { provide: AuthService, useValue: auth },
+        { provide: ProfileService, useValue: profile },
       ],
     });
     notifications = TestBed.inject(NotificationService);
@@ -320,9 +334,9 @@ describe('MySubmissionsPage', () => {
     });
   });
 
-  describe('студент без группы (groupName = null)', () => {
+  describe('профиль без группы (groupName = null — консоль преподавателя)', () => {
     beforeEach(() => {
-      auth.currentUser.set({ ...STUDENT_IN_GROUP, groupName: null });
+      profile.get.and.resolveTo(PROFILE_TEACHER);
       labs.getSemesters.and.resolveTo([1, 2]);
       submissions.getMy.and.resolveTo({ hasGroup: false, labs: [], submissions: [] });
     });
@@ -354,15 +368,24 @@ describe('MySubmissionsPage', () => {
       expect(native.querySelector('.no-group')).not.toBeNull();
       expect(native.querySelectorAll('.card').length).toBe(0);
     });
+
+    it('отказ загрузки профиля: экран остаётся в состоянии «без группы»', async () => {
+      breakpoints.simulate(false);
+      profile.get.and.rejectWith({ status: 500, body: { message: 'Сбой' } });
+      await createAndSettle();
+
+      expect(native.querySelector('.no-group')).not.toBeNull();
+      expect(native.querySelector('table')).toBeNull();
+    });
   });
 
-  describe('аменда 3: пустой getSemesters (CR-002)', () => {
+  describe('пустой getSemesters', () => {
     beforeEach(() => {
       breakpoints.simulate(false);
       labs.getSemesters.and.resolveTo([]);
     });
 
-    it('студент в группе: getMy не вызывается ни разу, селектор пуст и заблокирован, «Нет семестров с работами»', async () => {
+    it('профиль с группой: getMy не вызывается ни разу, селектор пуст и заблокирован, «Нет семестров с работами»', async () => {
       await createAndSettle();
 
       expect(submissions.getMy).not.toHaveBeenCalled();
@@ -379,7 +402,7 @@ describe('MySubmissionsPage', () => {
     });
 
     it('AC no-semesters-priority: без группы — только предупреждение, «Нет семестров…» не показан, getMy не вызывается', async () => {
-      auth.currentUser.set({ ...STUDENT_IN_GROUP, groupName: null });
+      profile.get.and.resolveTo({ ...PROFILE_IN_GROUP, groupName: null });
       await createAndSettle();
 
       expect(submissions.getMy).not.toHaveBeenCalled();
@@ -393,16 +416,17 @@ describe('MySubmissionsPage', () => {
       expect(select.disabled).toBeTrue();
     });
 
-    it('ветки приоритета переключаются подстановкой groupName в профиль', async () => {
+    it('ветки приоритета: подстановка groupName в профиль переключает состояние', async () => {
       // Без группы — предупреждение.
-      auth.currentUser.set({ ...STUDENT_IN_GROUP, groupName: null });
+      profile.get.and.resolveTo({ ...PROFILE_IN_GROUP, groupName: null });
       await createAndSettle();
       expect(native.querySelector('.no-group')).not.toBeNull();
       expect(native.querySelector('.no-data')).toBeNull();
+      fixture.destroy();
 
       // С возвращённой группой — пустое состояние вместо предупреждения.
-      auth.currentUser.set({ ...STUDENT_IN_GROUP, groupName: 'ИТ-21' });
-      fixture.detectChanges();
+      profile.get.and.resolveTo({ ...PROFILE_IN_GROUP, groupName: 'ИТ-21' });
+      await createAndSettle();
       expect(native.querySelector('.no-group')).toBeNull();
       expect(native.querySelector('.no-data')!.textContent!.trim()).toBe(
         TEXT_NO_SEMESTERS,
@@ -410,7 +434,7 @@ describe('MySubmissionsPage', () => {
     });
   });
 
-  describe('аменда 3: у выбранного семестра нет работ (CR-004)', () => {
+  describe('у выбранного семестра нет работ (labs: [])', () => {
     beforeEach(() => {
       labs.getSemesters.and.resolveTo([1, 2]);
       submissions.getMy.and.resolveTo({ hasGroup: true, labs: [], submissions: [] });
@@ -461,7 +485,7 @@ describe('MySubmissionsPage', () => {
     });
   });
 
-  describe('ошибки мока (IF-109: экран без формы — якорь header)', () => {
+  describe('ошибки загрузки (IF-109: экран без формы — якорь header)', () => {
     beforeEach(() => {
       breakpoints.simulate(false);
       spyOn(notifications, 'notifyError');
@@ -469,11 +493,11 @@ describe('MySubmissionsPage', () => {
 
     it('отказ getMy: текст дословно, якорь header', async () => {
       labs.getSemesters.and.resolveTo([1]);
-      const error: ApiError = { status: 403, body: { message: 'Доступ запрещён' } };
+      const error: ApiError = { status: 500, body: { message: 'Ошибка сервера' } };
       submissions.getMy.and.rejectWith(error);
       await createAndSettle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Доступ запрещён', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith('Ошибка сервера', 'header');
       expect(native.querySelector('table')).toBeNull();
     });
 

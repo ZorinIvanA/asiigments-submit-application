@@ -23,7 +23,7 @@ public sealed class Ts127_GroupRenameNotFoundAndConflictTests : IClassFixture<B1
     public async Task PutUnknownGroup_Returns404_ThenPutForeignCiName_Returns409()
     {
         // given: сессия teacher; id группы ИК-222.
-        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B17GroupsSession.CreateClient(_factory);
         var ik222Id = await B17GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 
         // when: PUT /groups/<произвольный uuid> {name:'X-1'}.

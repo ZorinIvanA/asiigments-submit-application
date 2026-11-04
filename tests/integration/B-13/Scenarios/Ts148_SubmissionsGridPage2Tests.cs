@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B13.Scenarios;
 /// TS-148 (P0, happy_path; FR-060) «GET /submissions: ведомость группы со страницей
 /// студентов pageSize=5».
 /// given: Группа X с 7 студентами (известная сортировка fullName/login); у 4 есть
-///        сдачи; в семестре 1 три работы №1–3; сессия teacher.
+///        сдачи; в семестре 1 три работы №1–3; анонимный клиент (текущий пользователь — сид-преподаватель).
 /// when: GET /api/v1/submissions?groupId=X&semester=1&page=2.
 /// then: 200 SubmissionsGridDto: students — 2 записи (6-й и 7-й по сортировке),
 ///       total=7, page=2; labs — 3 по number↑; submissions — записи только для пар

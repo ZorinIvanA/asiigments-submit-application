@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-141 (P0, happy_path; FR-020 AC «Фильтр 'none'») «Студенты: фильтр
 /// groupId=none — только без группы».
-/// given: демо-сид: student31 и student32 без группы; сессия teacher.
+/// given: демо-сид: student31 и student32 без группы; анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  GET /students?groupId=none
 /// then:  200; в выдаче только студенты с groupId=null (student31, student32);
 ///        total=2.
@@ -20,13 +20,13 @@ public sealed class Ts141_StudentsGroupNoneOnlyWithoutGroupTests : IClassFixture
     [Fact]
     public async Task GroupIdNone_ReturnsExactlyStudentsWithoutGroup()
     {
-        // given: в демо-сиде ровно student31 и student32 без группы; teacher авторизован.
+        // given: в демо-сиде ровно student31 и student32 без группы; анонимный запрос (текущий пользователь — сид-преподаватель).
         foreach (var login in new[] { "student31", "student32" })
         {
             Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);
         }
 
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: фильтр по отсутствию группы.
         using var response = await client.GetAsync("/api/v1/students?groupId=none");

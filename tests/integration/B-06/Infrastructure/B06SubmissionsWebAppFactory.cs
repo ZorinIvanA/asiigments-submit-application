@@ -26,12 +26,12 @@ namespace LabsApp.IntegrationTests.B06.Infrastructure;
 /// then TS-148 «updatedAt обновлён (новее прежнего)» выполняется детерминированно,
 /// независимо от системных часов машины прогона (ADR-002/ADR-010: единственный
 /// источник бизнес-времени переопределяется в композиция-корне). Время тестами
-/// не сдвигается — TTL минтованных access-JWT и окна лимитеров не истекают.
+/// не сдвигается.
 ///
-/// Сессии — МИНТ access-JWT через ITokenService хоста (ADR-015); POST /auth/login
-/// не используется. Isolation: каждый тестовый класс со своей IClassFixture-фикстурой
-/// получает свежий экземпляр приложения — собственное хранилище и счётчики лимитеров,
-/// мутации кейсов (upsert дат TS-147/148/151) не пересекаются между классами.
+/// Клиенты — анонимные (аутентификации в приложении нет; «текущий пользователь» —
+/// сид-преподаватель). Isolation: каждый тестовый класс со своей IClassFixture-фикстурой
+/// получает свежий экземпляр приложения — собственное хранилище, мутации кейсов
+/// (upsert дат TS-147/148/151) не пересекаются между классами.
 ///
 /// Механика: при минимальном хостинге (WebApplicationBuilder) значения UseSetting
 /// попадают в аргументы точки входа до запуска Program, поэтому ключи передаются
@@ -39,10 +39,6 @@ namespace LabsApp.IntegrationTests.B06.Infrastructure;
 /// </summary>
 public sealed class B06SubmissionsWebAppFactory : WebApplicationFactory<Program>
 {
-    public const string TestJwtKey = "b06-submissions-test-jwt-signing-key-0123456789abcdef";
-
-    public const string TestTeacherPassword = "b06-submissions-teacher-password1!";
-
     /// <summary>
     /// Закреплённый момент бизнес-времени хоста: позже метки сид-сдач
     /// (2026-09-11 12:00 UTC) — «updatedAt новее прежнего» детерминировано.
@@ -69,9 +65,6 @@ public sealed class B06SubmissionsWebAppFactory : WebApplicationFactory<Program>
         // См. B06WebAppFactory: вотчеры перечитывания конфигурации не нужны —
         // пер-пользовательский лимит inotify в среде прогона ненадёжен.
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
-
-        builder.UseSetting(ToConfigKey(AuthOptions.JwtKeyVariable), TestJwtKey);
-        builder.UseSetting(ToConfigKey(SeedOptions.TeacherPasswordVariable), TestTeacherPassword);
 
         // Демо-набор включён ЯВНО: given кейсов волны ссылается на сид-данные (FR-004).
         builder.UseSetting(ToConfigKey(SeedOptions.DemoDataVariable), "true");

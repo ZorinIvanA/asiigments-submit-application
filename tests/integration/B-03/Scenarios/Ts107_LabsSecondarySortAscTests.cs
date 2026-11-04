@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// <summary>
 /// TS-107 «Лабораторные: вторичный ключ сортировки всегда asc» (boundary, FR-017):
 /// given — созданы две работы с одинаковым semester=3 (number 2 и 1) — DI-сид
-/// (<see cref="B03DomainSeed"/>); сессия teacher; when — GET
+/// (<see cref="B03DomainSeed"/>); клиент анонимный; when — GET
 /// /labs?semester=3&amp;sortField=semester&amp;sortDir=desc; then — 200; внутри
 /// семестра порядок number 1,2 (вторичный ключ — соседнее поле всегда asc,
 /// независимо от направления первичного).
@@ -30,8 +30,8 @@ public sealed class Ts107_LabsSecondarySortAscTests : IClassFixture<B03HostFacto
     [Fact]
     public async Task GetLabsSemesterDescSecondaryNumberStaysAsc()
     {
-        // given: сессия teacher; в семестре 3 ровно две работы (number 2 и 1).
-        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
+        // given: клиент анонимный; в семестре 3 ровно две работы (number 2 и 1).
+        var client = B03LabsApi.CreateClient(_factory);
 
         // when: первичный ключ semester desc (единственный семестр выборки) —
         // направление первичного ключа не должно влиять на вторичный.
@@ -40,7 +40,7 @@ public sealed class Ts107_LabsSecondarySortAscTests : IClassFixture<B03HostFacto
 
         // then: 200; total=2; внутри семестра порядок number 1,2 (вторичный asc).
         using var body = await ResponseAssert.ParseWithStatusAsync(
-            response, HttpStatusCode.OK, "GET /api/v1/labs?semester=3&sortField=semester&sortDir=desc (teacher)");
+            response, HttpStatusCode.OK, "GET /api/v1/labs?semester=3&sortField=semester&sortDir=desc (анонимно)");
         Assert.Equal(2, B03LabsApi.ReadInt(body.RootElement, "total"));
 
         var pairs = B03LabsApi.ReadItemPairs(body.RootElement);

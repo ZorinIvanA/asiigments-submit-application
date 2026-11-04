@@ -22,7 +22,7 @@ public sealed class Ts125_GroupRosterPageNormalizationTests : IClassFixture<B15G
     public async Task GetRosterWithNonNumericPage_NormalizesToPage1()
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
         var ik221Id = await B15GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=abc.
@@ -38,7 +38,7 @@ public sealed class Ts125_GroupRosterPageNormalizationTests : IClassFixture<B15G
     public async Task GetRosterWithPageBeyondLast_ReturnsEmptyItemsWithCorrectTotal()
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
         var ik221Id = await B15GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=99.

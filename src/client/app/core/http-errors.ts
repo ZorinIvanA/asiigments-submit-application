@@ -9,6 +9,8 @@
  * toApiError в shared/api-error).
  */
 import { HttpErrorResponse } from '@angular/common/http';
+import { Observable, firstValueFrom, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { isApiError, toApiError } from '../shared/api-error';
 import { ApiError } from '../shared/models';
@@ -47,4 +49,20 @@ export function normalizeHttpError(error: unknown): ApiError {
     return { status: error.status, body: extractErrorBody(error.error) };
   }
   return toApiError(error);
+}
+
+/**
+ * Promise-обёртка для методов сервисов core над цепочкой HttpClient:
+ * отказ (HttpErrorResponse и прочее) нормализуется в ApiError до того,
+ * как попадёт в Promise — потребители (страницы) работают с транспортной
+ * формой {status, body: {message, errors?}} без зависимости от деталей
+ * HTTP-слоя (раньше нормализацию выполнял интерцептор аутентификации,
+ * удалённый вместе с ней).
+ */
+export function firstValueFromApi<T>(source: Observable<T>): Promise<T> {
+  return firstValueFrom(
+    source.pipe(
+      catchError((error: unknown) => throwError(() => normalizeHttpError(error))),
+    ),
+  );
 }

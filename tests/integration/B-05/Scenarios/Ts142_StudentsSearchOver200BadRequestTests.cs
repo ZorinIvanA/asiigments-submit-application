@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-142 (P0, negative; FR-020 AC «Поиск длиннее 200») «Студенты: поиск длиннее
 /// 200 символов — 400».
-/// given: сессия teacher.
+/// given: анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  GET /students?search=&lt;201 символ&gt;
 /// then:  400 'Данные заполнены неверно' +
 ///        errors.search=['Поиск — не более 200 символов'].
@@ -19,8 +19,8 @@ public sealed class Ts142_StudentsSearchOver200BadRequestTests : IClassFixture<B
     [Fact]
     public async Task SearchOf201Chars_IsRejectedWithDictionaryFieldError()
     {
-        // given: teacher авторизован.
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        // given: анонимный запрос (текущий пользователь — сид-преподаватель).
+        using var client = HostClients.Create(_factory);
 
         // when: search из 201 символа.
         var search = Uri.EscapeDataString(new string('и', 201));

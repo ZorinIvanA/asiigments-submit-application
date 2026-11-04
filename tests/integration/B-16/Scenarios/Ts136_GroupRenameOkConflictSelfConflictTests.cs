@@ -26,7 +26,7 @@ public sealed class Ts136_GroupRenameOkConflictSelfConflictTests : IClassFixture
     public async Task PutGroup_RenameOk_ForeignName409_OwnCurrentNameOk()
     {
         // given: сессия teacher; существуют группы A (ИК-221) и B (ИК-222).
-        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B16GroupsSession.CreateClient(_factory);
         var aId = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
         _ = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 

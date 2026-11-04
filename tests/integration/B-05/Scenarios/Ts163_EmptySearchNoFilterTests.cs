@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-163 «Пустой search — без фильтра (эквивалент отсутствия параметра)»
 /// (boundary, FR-019).
 ///
-/// given: teacher авторизован; демо-сид (32 студента).
+/// given: анонимный запрос (текущий пользователь — сид-преподаватель); демо-сид (32 студента).
 /// when:  GET /api/v1/students (без параметра search); затем ?search= (пустое
 ///        значение); затем ?search=%20%20 (только пробелы, URL-encoded).
 /// then:  все три ответа — HTTP 200 с total=32, page=1 и идентичными массивами
@@ -26,8 +26,8 @@ public sealed class Ts163_EmptySearchNoFilterTests : IClassFixture<B05WebAppFact
     [Fact]
     public async Task MissingEmptyAndWhitespaceSearch_ProduceIdenticalUnfilteredPages()
     {
-        // given: teacher авторизован; демо-сид.
-        using var client = await HostClients.CreateTeacherClientAsync(_factory);
+        // given: анонимный запрос (текущий пользователь — сид-преподаватель); демо-сид.
+        using var client = HostClients.Create(_factory);
 
         // when: три варианта search — отсутствует, пустой, только пробелы (%20%20).
         using var withoutSearch = await client.GetAsync(StudentsEndpoint);

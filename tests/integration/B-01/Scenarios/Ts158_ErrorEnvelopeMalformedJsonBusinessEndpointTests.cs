@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B01.Scenarios;
 
 /// <summary>
 /// Кейс TS-158 «Конверт ошибок: некорректный JSON тела — 400» (FR-023, P1).
-/// given: teacher авторизован.
+/// given: запрос выполняется анонимно (аутентификации в приложении нет).
 /// when: POST /labs с телом '{bad json'.
 /// then: 400 {message:'Данные заполнены неверно'} (MALFORMED_JSON:
 /// «синтаксически некорректный JSON тела → 400», FR-023).
@@ -17,10 +17,9 @@ public sealed class Ts158_ErrorEnvelopeMalformedJsonBusinessEndpointTests
     [Fact]
     public async Task PostLabsWithMalformedJson_ReturnsInvalidDataEnvelope()
     {
-        // given: teacher авторизован — валидная access-cookie сеяного учителя
-        // (ADR-015: DI-сид + минтованный access-JWT вместо HTTP-входа).
+        // given: Development-стенд; клиент анонимный — эндпойнты публичны.
         using var factory = new B01WebAppFactory();
-        using var client = await MintedSession.CreateTeacherClient(factory);
+        using var client = HostClients.Create(factory);
 
         // when: POST /api/v1/labs (бизнес-эндпойнт) с синтаксически некорректным
         // JSON в теле.

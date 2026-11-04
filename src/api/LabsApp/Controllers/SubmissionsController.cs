@@ -1,8 +1,6 @@
 using System.Globalization;
-using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
-using LabsApp.Auth;
 using LabsApp.Domain;
 using LabsApp.Domain.Dtos;
 using LabsApp.Domain.Entities;
@@ -10,7 +8,6 @@ using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
@@ -19,14 +16,7 @@ namespace LabsApp.Controllers;
 
 /// <summary>
 /// Контроллер сдач (C-010, IF-012, FR-021): ведомость группы по семестру,
-/// upsert дат сдачи и «свои сдачи» студента. Доступ — FR-022: grid/PUT —
-/// только teacher, /me/submissions — только student; порядок отказов
-/// фиксирован 401 → 403 → 400 → 404:
-///  - 401 отдаёт схема аутентификации (Challenge с телом «Не авторизован»,
-///    ADR-003); пользователь, удалённый из хранилища при живом access-токене,
-///    даёт тот же 401 из действия (зеркало мока requireSessionUser);
-///  - 403 — первая проверка внутри каждого действия с телом конверта
-///    «Доступ запрещён»;
+/// upsert дат сдач и «свои сдачи» текущего пользователя. Отказы:
 ///  - semester — СТРОГИЙ контракт (ASM-018/ISS-011/AR-002, асимметрия с мягким
 ///    semester GET /labs): отсутствует/нечисловой/нецелый/вне 1..Labs__MaxSemester
 ///    → 400 errors.semester=['Семестр — число от 1 до N'] (шаблон рендерится
@@ -45,7 +35,6 @@ namespace LabsApp.Controllers;
 ///    ADR-002); ответ 200 — ВСЕГДА полная запись SubmissionDto.
 /// </summary>
 [ApiController]
-[Authorize]
 [Route("api/v1")]
 public sealed class SubmissionsController(
     IGroupRepository groups,
@@ -53,7 +42,8 @@ public sealed class SubmissionsController(
     ILabRepository labs,
     ISubmissionRepository submissions,
     TimeProvider timeProvider,
-    IOptions<LabsOptions> labsOptions) : ControllerBase
+    IOptions<LabsOptions> labsOptions,
+    IOptions<SeedOptions> seedOptions) : ControllerBase
 {
     /// <summary>Размер страницы студентов ведомости (FR-021: по 5, ADR-109).</summary>
     public const int PageSize = 5;
@@ -72,6 +62,8 @@ public sealed class SubmissionsController(
     private readonly TimeProvider _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     private readonly int _maxSemester = labsOptions?.Value.MaxSemester
         ?? throw new ArgumentNullException(nameof(labsOptions));
+    private readonly SeedOptions _seedOptions = seedOptions?.Value
+        ?? throw new ArgumentNullException(nameof(seedOptions));
 
     /// <summary>
     /// GET /api/v1/submissions?groupId=&amp;semester=&amp;page= — ведомость группы
@@ -81,9 +73,7 @@ public sealed class SubmissionsController(
     /// студентов текущей страницы × работы семестра; total — полное число
     /// студентов группы; page — нормализованный номер (серверное расширение
     /// SubmissionsGridDto, AR-003: страница правее последней — пустые students
-    /// при корректном total, эхо некорректного page запрещено). Пользователь
-    /// сессии разрешается из хранилища (как в Update/Mine): удалённый из
-    /// хранилища преподаватель при живом access-токене — 401 из действия.
+    /// при корректном total, эхо некорректного page запрещено).
     /// </summary>
     [HttpGet("submissions")]
     public async Task<IActionResult> Grid(
@@ -91,19 +81,6 @@ public sealed class SubmissionsController(
         [FromQuery(Name = "semester")] string? semester,
         [FromQuery(Name = "page")] string? page)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
-        // Пользователь сессии существует в хранилище (зеркало мока
-        // requireSessionUser): удалённая учётка при живом access-токене —
-        // 401 из действия, ДО валидации query (тот же порядок, что в Update/Mine).
-        if (await TryLoadCurrentUserAsync() is null)
-        {
-            return UnauthorizedEnvelope();
-        }
-
         // Строгая валидация query (ISS-011/AR-002) — 400, не 200 с пустыми
         // массивами; нарушенные правила перечисляются ВСЕ сразу (semester +
         // groupId), как в полевой валидации тел.
@@ -170,11 +147,8 @@ public sealed class SubmissionsController(
     [HttpPut("submissions")]
     public async Task<IActionResult> Update(CancellationToken cancellationToken)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
+        // Преподаватель — автор изменений сдачи: без аутентификации текущим
+        // считается засеянный учителем (Seed__TeacherLogin).
         if (await TryLoadCurrentUserAsync() is not { } teacher)
         {
             return UnauthorizedEnvelope();
@@ -231,21 +205,15 @@ public sealed class SubmissionsController(
     }
 
     /// <summary>
-    /// GET /api/v1/me/submissions?semester= — сдачи текущего студента
-    /// (FR-021, student-only; teacher → 403): semester строгий (те же правила,
-    /// что у grid); студент без группы → 200 {hasGroup:false, labs:[],
-    /// submissions:[]}; с группой → работы семестра number↑ и ТОЛЬКО свои
-    /// сдачи (без studentId — он известен из сессии; чужие данные не отдаются
-    /// ни при каких параметрах).
+    /// GET /api/v1/me/submissions?semester= — сдачи текущего пользователя
+    /// (FR-021): semester строгий (те же правила, что у grid); пользователь
+    /// без группы → 200 {hasGroup:false, labs:[], submissions:[]}; с группой →
+    /// работы семестра number↑ и ТОЛЬКО свои сдачи (без studentId — он известен
+    /// из сессии; чужие данные не отдаются ни при каких параметрах).
     /// </summary>
     [HttpGet("me/submissions")]
     public async Task<IActionResult> Mine([FromQuery(Name = "semester")] string? semester)
     {
-        if (DenyIfNotStudent() is { } denial)
-        {
-            return denial;
-        }
-
         if (await TryLoadCurrentUserAsync() is not { } student)
         {
             return UnauthorizedEnvelope();
@@ -291,49 +259,24 @@ public sealed class SubmissionsController(
     }
 
     // ------------------------------------------------------------------
-    // Роль и конверт отказов
+    // Конверт отказов
     // ------------------------------------------------------------------
 
-    /// <summary>
-    /// Проверка роли teacher (FR-022) — ПЕРВАЯ операция grid/PUT: 403 отдаётся
-    /// раньше валидации query/тела (400) и поиска записей (404). null — доступ
-    /// разрешён.
-    /// </summary>
-    private IActionResult? DenyIfNotTeacher() =>
-        User.IsInRole(UserRoles.Teacher)
-            ? null
-            : ForbiddenEnvelope();
-
-    /// <summary>
-    /// Проверка роли student (FR-022, me/submissions): любая иная роль (в том
-    /// числе teacher) → 403 «Доступ запрещён». null — доступ разрешён.
-    /// </summary>
-    private IActionResult? DenyIfNotStudent() =>
-        User.IsInRole(UserRoles.Student)
-            ? null
-            : ForbiddenEnvelope();
-
-    private static IActionResult ForbiddenEnvelope() =>
-        new ObjectResult(new ErrorEnvelope { Message = ValidationTexts.Forbidden })
-        {
-            StatusCode = StatusCodes.Status403Forbidden,
-            ContentTypes = { "application/json" },
-        };
-
     private static IActionResult UnauthorizedEnvelope() =>
-        new ObjectResult(new ErrorEnvelope { Message = AuthCoreDefaults.UnauthorizedMessage })
+        new ObjectResult(new ErrorEnvelope { Message = ValidationTexts.Unauthorized })
         {
             StatusCode = StatusCodes.Status401Unauthorized,
             ContentTypes = { "application/json" },
         };
 
-    /// <summary>Текущий пользователь по claim sub (NameIdentifier); отсутствие
-    /// claim при живой сессии либо удалённая запись → 401 из действия
-    /// (зеркало мока requireSessionUser).</summary>
+    /// <summary>Текущий пользователь — засеянный преподаватель
+    /// (Seed__TeacherLogin): без аутентификации приложение работает от его
+    /// имени; отсутствие записи (сид не выполнен) → 401 из действия.</summary>
     private async Task<User?> TryLoadCurrentUserAsync()
     {
-        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(rawId, out var id) ? await _users.GetByIdAsync(id) : null;
+        var login = _seedOptions.TeacherLogin?.Trim();
+        var normalized = string.IsNullOrEmpty(login) ? SeedOptions.DefaultTeacherLogin : login;
+        return await _users.GetByLoginAsync(normalized);
     }
 
     private static IActionResult GroupNotFound() =>

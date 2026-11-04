@@ -25,7 +25,7 @@ public sealed class Ts128_GroupNameLengthBoundaryTests : IClassFixture<B17Groups
     {
         // given: сессия teacher; имена граничной длины без пробельных символов
         // (после трима длина сохраняется).
-        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B17GroupsSession.CreateClient(_factory);
         var name100 = new string('Г', 100);
         var name101 = new string('Г', 101);
 

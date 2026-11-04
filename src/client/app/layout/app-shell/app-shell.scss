@@ -58,26 +58,6 @@
   flex: 1;
 }
 
-.app-topbar__who {
-  color: var(--p-text-muted-color, #64748b);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.app-topbar__logout {
-  height: 40px;
-  padding: 0 16px;
-  border: 1px solid var(--p-surface-border, #e2e8f0);
-  border-radius: 6px;
-  background: var(--p-surface-card, #fff);
-  color: var(--p-text-muted-color, #475569);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-  cursor: pointer;
-}
-
 // Колонка контента страницы (SCR-006/007): 1200px по центру, отступы
 // страницы из глобальной переменной --page-padding (styles.scss).
 .app-shell__content {
@@ -88,7 +68,7 @@
 
 // Мобильная ширина (OQ-005): высота топбара сохраняется, вкладки скроллятся
 // горизонтально (полоса скролла скрыта — сами вкладки видимы целиком при
-// прокрутке), ФИО скрывается.
+// прокрутке).
 @include bp.mobile {
   .app-topbar {
     gap: 12px;
@@ -106,9 +86,5 @@
 
   .app-topbar__tab {
     white-space: nowrap;
-  }
-
-  .app-topbar__who {
-    display: none;
   }
 }

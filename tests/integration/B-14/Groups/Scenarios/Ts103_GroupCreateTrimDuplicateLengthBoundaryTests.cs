@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B14.Groups.Scenarios;
 /// TS-103 «groups: создание с тримом, дубликат без учёта регистра, границы
 /// длины имени» (boundary, FR-019, P0).
 ///
-/// given: сессия teacher; группы ИК-224 нет (демо-сид содержит только
+/// given: анонимный клиент (текущий пользователь — сид-преподаватель); группы ИК-224 нет (демо-сид содержит только
 ///        ИК-221/222/223).
 /// when:  POST /groups {name:'  ИК-224  '}; затем POST {name:'ик-224'};
 ///        отдельно POST с name длиной ровно 100 и длиной 101.
@@ -27,7 +27,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     [Fact]
     public async Task PostGroup_TrimsName_ThenCiDuplicateConflicts()
     {
-        // given: сессия teacher; группы ИК-224 нет.
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); группы ИК-224 нет.
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
 
         // when: POST /groups {name:'  ИК-224  '}.
@@ -51,7 +51,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     [Fact]
     public async Task PostGroup_NameOf100CharsCreated_NameOf101Rejected()
     {
-        // given: сессия teacher; имена граничной длины без пробельных символов
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); имена граничной длины без пробельных символов
         // (после трима длина сохраняется); в хранилище таких имён нет.
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var name100 = new string('Г', 100);

@@ -18,11 +18,10 @@ namespace LabsApp.IntegrationTests.B02.Scenarios;
 /// 32 студента, 23 работы (20+3 по семестрам), 4 сдачи; (2) ДЕТАЛИ состава —
 /// email/fullName/распределение по группам, признаки работ, даты сдач, updatedBy.
 ///
-/// given: чистое хранилище; Development (Seed__DemoData не задан — умолчание true,
-///        дефолтный сид-пароль допустим).
-/// when:  старт приложения; вход teacher/teacher123!; подсчёт и инспекция состава
-///        через API teacher (списки/ведомости с пагинацией).
-/// then:  вход — 200; 3 группы ИК-221/ИК-222/ИК-223; 32 студента (email
+/// given: чистое хранилище; Development (Seed__DemoData не задан — умолчание true).
+/// when:  старт приложения; подсчёт и инспекция состава через API анонимно
+///        (аутентификации нет — эндпойнты публичны; списки/ведомости с пагинацией).
+/// then:  3 группы ИК-221/ИК-222/ИК-223; 32 студента (email
 ///        studentNN@example.com, fullName 'Иванов Иван Иванович NN'; 01–25 в ИК-221,
 ///        26–30 в ИК-222, 31–32 без группы); 23 работы (сем.1 №1–20, сем.2 №1–3;
 ///        defenseRequired у чётных N; assignmentUrl
@@ -38,17 +37,14 @@ public sealed class Ts138_DemoDataMockParityTests
     private const string StudentEmailTemplate = "student{0:00}@example.com";
     private const string StudentFullNameTemplate = "Иванов Иван Иванович {0:00}";
 
-    /// <summary>Тест 1 — КОЛИЧЕСТВА демо-набора, видимые через API teacher.</summary>
+    /// <summary>Тест 1 — КОЛИЧЕСТВА демо-набора, видимые через публичный API.</summary>
     [Fact]
-    public async Task DevelopmentStart_SeedsFullDemoSet_VisibleThroughTeacherApi()
+    public async Task DevelopmentStart_SeedsFullDemoSet_VisibleThroughApi()
     {
-        // given: чистый Development-хост; Seed__DemoData не задан (умолчание true).
+        // given: чистый Development-хост; Seed__DemoData не задан (умолчание true);
+        // клиент анонимный — аутентификации в приложении нет.
         using var factory = new B02WebAppFactory(Environments.Development, useHarnessDefaults: false);
         using var client = factory.CreateWarmClient();
-
-        // when: вход teacher/teacher123!.
-        using var login = await HostClients.LoginAsDefaultTeacherAsync(client);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
 
         // then: 3 группы.
         var groups = await client.GetFromJsonAsync<JsonElement>("/api/v1/groups");
@@ -90,8 +86,6 @@ public sealed class Ts138_DemoDataMockParityTests
     {
         using var factory = new B02WebAppFactory(Environments.Development, useHarnessDefaults: false);
         using var client = factory.CreateWarmClient();
-        using var login = await HostClients.LoginAsDefaultTeacherAsync(client);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
 
         // --- Студенты: полный обход страниц списка. ---
         var studentsByLogin = new Dictionary<string, JsonElement>(StringComparer.Ordinal);

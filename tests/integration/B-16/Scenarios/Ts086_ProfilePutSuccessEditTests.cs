@@ -7,20 +7,19 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 /// TS-086 «Профиль: успешное редактирование» (happy_path, FR-015, P0;
 /// нумерация текущего батча B-16).
 ///
-/// given: пользователь авторизован; новые значения валидны; email
-///        'new@example.com' свободен (свежая фикстура — пустое хранилище,
-///        кроме сид-преподавателя: email заведомо свободен).
+/// given: текущий пользователь приложения — засеянный преподаватель
+///        (Seed__TeacherLogin «teacher», email 'teacher@example.com'); новые
+///        значения валидны; email 'new@example.com' свободен (свежая фикстура —
+///        пустое хранилище, кроме сид-преподавателя); клиент анонимный
+///        (аутентификации в приложении нет).
 /// when:  PUT /api/v1/me/profile {fullName:'Новое ФИО', email:'new@example.com'}.
-/// then:  200 ProfileDto с новыми значениями; login, role, группа неизменны
+/// then:  200 ProfileDto с новыми значениями; login, role неизменны
 ///        (AC FR-015 «Успешное редактирование»).
 /// </summary>
 [Collection(SerialBuildAndProcessCollection.Name)]
 public sealed class Ts086_ProfilePutSuccessEditTests : IClassFixture<B16WebAppFactory>
 {
-    private const string Login = "ts086profile";
-    private const string OldEmail = "old@example.com";
-    private const string OldFullName = "Старое ФИО";
-    private const string GroupName = "ИК-221";
+    private const string Login = "teacher";
     private const string NewFullName = "Новое ФИО";
     private const string NewEmail = "new@example.com";
 
@@ -29,21 +28,12 @@ public sealed class Ts086_ProfilePutSuccessEditTests : IClassFixture<B16WebAppFa
     public Ts086_ProfilePutSuccessEditTests(B16WebAppFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task PutProfile_WithValidNewValues_ReturnsUpdatedDto_AndKeepsLoginRoleGroup()
+    public async Task PutProfile_WithValidNewValues_ReturnsUpdatedDto_AndKeepsLoginRole()
     {
-        // given: пользователь авторизован (в группе — чтобы «группа неизменны»
-        // проверялось по значению, а не по null→null); email 'new@example.com'
-        // свободен (хранилище фикстуры пусто, кроме сид-преподавателя).
-        var group = B16Harness.SeedGroup(_factory, GroupName);
-        var user = B16Harness.SeedUser(
-            _factory,
-            login: Login,
-            email: OldEmail,
-            fullName: OldFullName,
-            role: UserRoles.Student,
-            groupId: group.Id,
-            password: B16Harness.TestUserPassword);
-        using var client = B16Harness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий пользователь — засеянный преподаватель; email
+        // 'new@example.com' свободен; клиент анонимный.
+        var current = await B16Harness.CurrentUserAsync(_factory);
+        using var client = B16Harness.Create(_factory);
 
         // when: PUT {fullName:'Новое ФИО', email:'new@example.com'}.
         using var response = await client.PutAsJsonAsync(B16Harness.ProfileEndpoint, new
@@ -52,7 +42,7 @@ public sealed class Ts086_ProfilePutSuccessEditTests : IClassFixture<B16WebAppFa
             email = NewEmail,
         });
 
-        // then: 200 ProfileDto с новыми значениями; login, role, группа неизменны.
+        // then: 200 ProfileDto с новыми значениями; login и роль неизменны.
         Assert.True(
             response.StatusCode == HttpStatusCode.OK,
             $"Ожидался статус 200, фактически {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
@@ -60,11 +50,13 @@ public sealed class Ts086_ProfilePutSuccessEditTests : IClassFixture<B16WebAppFa
         B16Assertions.StringPropertyIs(root, "fullName", NewFullName);
         B16Assertions.StringPropertyIs(root, "email", NewEmail);
         B16Assertions.StringPropertyIs(root, "login", Login);
-        B16Assertions.StringPropertyIs(root, "role", UserRoles.Student);
-        B16Assertions.StringPropertyIs(root, "groupName", GroupName);
+        B16Assertions.StringPropertyIs(root, "role", UserRoles.Teacher);
+        Assert.True(
+            root.TryGetProperty("groupName", out var groupName) && groupName.ValueKind == System.Text.Json.JsonValueKind.Null,
+            $"Ожидался groupName=null (группа не редактируется PUT /me/profile), фактически: {root.GetRawText()}");
 
         // then: в хранилище — новые fullName/email; login/роль/группа прежние.
-        var stored = await B16Harness.StoredUserAsync(_factory, user.Id);
+        var stored = await B16Harness.StoredUserAsync(_factory, current.Id);
         Assert.True(
             string.Equals(stored.FullName, NewFullName, StringComparison.Ordinal),
             $"Ожидался обновлённый fullName «{NewFullName}», фактически «{stored.FullName}».");
@@ -75,10 +67,10 @@ public sealed class Ts086_ProfilePutSuccessEditTests : IClassFixture<B16WebAppFa
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}».");
         Assert.True(
-            string.Equals(stored.Role, UserRoles.Student, StringComparison.Ordinal),
-            $"Ожидалась неизменная роль «{UserRoles.Student}», фактически «{stored.Role}».");
+            string.Equals(stored.Role, UserRoles.Teacher, StringComparison.Ordinal),
+            $"Ожидалась неизменная роль «{UserRoles.Teacher}», фактически «{stored.Role}».");
         Assert.True(
-            stored.GroupId == group.Id,
-            $"Ожидался неизменный GroupId {group.Id}, фактически {stored.GroupId?.ToString() ?? "<null>"}.");
+            stored.GroupId is null,
+            $"Ожидался неизменный GroupId <null>, фактически {stored.GroupId?.ToString() ?? "<null>"}.");
     }
 }

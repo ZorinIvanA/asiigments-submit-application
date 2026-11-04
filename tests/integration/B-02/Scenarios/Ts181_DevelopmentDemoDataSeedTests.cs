@@ -9,12 +9,11 @@ namespace LabsApp.IntegrationTests.B02.Scenarios;
 /// TS-181 «Development с демо-данными: полный повтор сида мок-слоя» (FR-025 AC
 /// «Старт с демо-данными (Development)», P1; тип happy_path).
 ///
-/// given: чистое хранилище (отдельный хост); Development (дефолтный пароль
-///        допустим — Seed__TeacherPassword не задан); Seed__DemoData=true (явно).
-/// when:  старт приложения; вход teacher/teacher123!; инспекция хранилища
-///        (репозитории из DI тестового хоста — те же singleton'ы, что читают
-///        контроллеры).
-/// then:  вход — 200; существуют 3 группы (ИК-221/222/223), 32 студента
+/// given: чистое хранилище (отдельный хост); Development; Seed__DemoData=true (явно).
+/// when:  старт приложения (сид выполняется при построении хоста); инспекция
+///        хранилища (репозитории из DI тестового хоста — те же singleton'ы, что
+///        читают контроллеры).
+/// then:  существуют 3 группы (ИК-221/222/223), 32 студента
 ///        (student01..student32; 01–25→ИК-221, 26–30→ИК-222, 31–32 без группы),
 ///        23 работы (семестр 1 №1–20, семестр 2 №1–3), 4 сдачи: student01 1.1
 ///        (2026-09-01/2026-09-11), student01 1.2 (2026-09-02/2026-09-12),
@@ -23,11 +22,10 @@ namespace LabsApp.IntegrationTests.B02.Scenarios;
 public sealed class Ts181_DevelopmentDemoDataSeedTests
 {
     [Fact]
-    public async Task DevelopmentWithDemoData_SeedsMockParitySet_LoginWorks()
+    public async Task DevelopmentWithDemoData_SeedsMockParitySet()
     {
         // given: чистый Development-хост; Seed__DemoData=true задан явно
-        // (useHarnessDefaults:false — харнес-умолчание «DemoData=false» не применяется);
-        // Seed__TeacherPassword не задан — в Development действует дефолт 'teacher123!'.
+        // (useHarnessDefaults:false — харнес-умолчание «DemoData=false» не применяется).
         using var factory = new B02WebAppFactory(
             Environments.Development,
             useHarnessDefaults: false,
@@ -35,13 +33,7 @@ public sealed class Ts181_DevelopmentDemoDataSeedTests
             {
                 ["Seed__DemoData"] = "true",
             });
-        using var client = factory.CreateWarmClient();
-
-        // when: вход teacher/teacher123!.
-        using var login = await HostClients.LoginAsDefaultTeacherAsync(client);
-
-        // then: вход — 200.
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        _ = factory.CreateWarmClient();
 
         // when: инспекция хранилища через DI тестового хоста.
         var users = factory.Services.GetRequiredService<IUserRepository>();

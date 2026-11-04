@@ -2,10 +2,8 @@
  * Программируемый HTTP-бэкенд зоны works-notifications (FR-026): двойник
  * REST-домена работ над HttpTestingController — детерминированное
  * серверное состояние (23 работы: семестр 1 №1–20, семестр 2 №1–3; сдачи
- * demo-сида) и обработка эндпойнтов labs*, semesters и
- * POST /auth/login по контрактам IF-103/IF-007. Заменяет прежний мок-слой
- * (IF-103 поверх локального хранилища браузера) — изоляция зоны от
- * мок-каталога, FR-026.
+ * demo-сида) и обработка эндпойнтов labs* и semesters по контракту IF-103.
+ * Бэкенд без аутентификации — все эндпойнты публичны.
  *
  * Серверное поведение воспроизводит контракт REST:
  *  - GET /labs — фильтр semester, двухколоночная сортировка (первичный
@@ -17,8 +15,7 @@
  *    409 «Лабораторная с таким номером уже есть в семестре» занятой пары
  *    (своя пара при update не конфликтует), DELETE удаляет записи ведомости
  *    каскадом (§4.3) и отвечает 204;
- *  - POST /labs → 201 созданная запись; POST /auth/login → 200 MeDto
- *    demo-учётки teacher/teacher123! (сессия — память AuthService, FR-092).
+ *  - POST /labs → 201 созданная запись.
  *
  * «Другой сеанс» (удаление записи мимо UI) — прямая мутация состояния
  * removeLabDirect(): серверное состояние общее для всех «вкладок»,
@@ -26,8 +23,8 @@
  * (серверный 400 формы, TS-221) — failNextCreate().
  *
  * Роли/лимиты/TTL — серверное поведение бэкенд-доменов: здесь не
- * эмулируются (сценарии батча всегда идут сессией teacher), запросы вне
- * перечисленных маршрутов приводят к падению теста с читаемой ошибкой.
+ * эмулируются (сценарии батча идут анонимно), запросы вне перечисленных
+ * маршрутов приводят к падению теста с читаемой ошибкой.
  */
 import { HttpRequest } from '@angular/common/http';
 
@@ -38,14 +35,12 @@ import {
   LabInput,
   LabsSortDir,
   LabsSortField,
-  MeDto,
   PagedResult,
 } from '../../../shared/models';
 
-/** Тексты отказов — дословно контракты IF-103/IF-007. */
+/** Тексты отказов — дословно контракт IF-103. */
 const TEXT_NOT_FOUND = 'Лабораторная не найдена';
 const TEXT_DUPLICATE = 'Лабораторная с таким номером уже есть в семестре';
-const TEXT_WRONG_CREDENTIALS = 'Неверный логин или пароль';
 
 /** Тексты статусов для flush (диагностика в отчётах HttpTestingController). */
 const STATUS_TEXT: Record<number, string> = {
@@ -53,19 +48,16 @@ const STATUS_TEXT: Record<number, string> = {
   201: 'Created',
   204: 'No Content',
   400: 'Bad Request',
-  401: 'Unauthorized',
-  403: 'Forbidden',
   404: 'Not Found',
   409: 'Conflict',
 };
 
-/** Учётная запись состояния бэкенда (демо-данные ADR-107). */
+/** Учётная запись состояния бэкенда (демо-данные сида). */
 export interface WorksBackendUser {
   readonly id: string;
   readonly login: string;
   readonly fullName: string;
   readonly role: 'student' | 'teacher';
-  readonly password: string;
 }
 
 /** Сдача состояния бэкенда (доменная модель Submission, §4.3). */
@@ -91,11 +83,7 @@ export interface BackendResponse {
   readonly body: object | null;
 }
 
-/** Демо-пароли (ADR-107): teacher/teacher123!, studentNN/student123!. */
-const TEACHER_PASSWORD = 'teacher123!';
-const STUDENT_PASSWORD = 'student123!';
-
-/** Демо-ФИО преподавателя (ADR-107). */
+/** Демо-ФИО преподавателя (сид). */
 const TEACHER_FULL_NAME = 'Сидоров Семён Семёнович';
 
 /** Правила сид-сдач (макеты SCR-009/SCR-010): студент NN + работа (семестр, №). */
@@ -136,10 +124,9 @@ export class WorksBackendStub {
       login: 'teacher',
       fullName: TEACHER_FULL_NAME,
       role: 'teacher',
-      password: TEACHER_PASSWORD,
     },
-    { id: this.nextId(), login: 'student01', fullName: 'Иванов Иван Иванович 01', role: 'student', password: STUDENT_PASSWORD },
-    { id: this.nextId(), login: 'student02', fullName: 'Иванов Иван Иванович 02', role: 'student', password: STUDENT_PASSWORD },
+    { id: this.nextId(), login: 'student01', fullName: 'Иванов Иван Иванович 01', role: 'student' },
+    { id: this.nextId(), login: 'student02', fullName: 'Иванов Иван Иванович 02', role: 'student' },
   ];
 
   /** Работы: семестр 1 №1–20, семестр 2 №1–3 (сид T-107/ADR-107). */
@@ -249,9 +236,6 @@ export class WorksBackendStub {
     const path = queryIndex === -1 ? pathWithQuery : pathWithQuery.slice(0, queryIndex);
     const query = new URLSearchParams(queryIndex === -1 ? '' : pathWithQuery.slice(queryIndex + 1));
 
-    if (req.method === 'POST' && path === '/auth/login') {
-      return this.login(req.body as { login: string; password: string });
-    }
     if (req.method === 'GET' && path === '/labs') {
       return this.getList(query);
     }
@@ -275,23 +259,6 @@ export class WorksBackendStub {
       }
     }
     throw new Error(`works-backend-stub: нет обработчика ${req.method} ${req.url}`);
-  }
-
-  /** POST /auth/login: только demo-учётки состояния (IF-007). */
-  private login(body: { login: string; password: string }): BackendResponse {
-    const user = this.users.find(
-      (candidate) => candidate.login === body?.login && candidate.password === body?.password,
-    );
-    if (user === undefined) {
-      return fail(401, TEXT_WRONG_CREDENTIALS);
-    }
-    const me: MeDto = {
-      login: user.login,
-      fullName: user.fullName,
-      role: user.role,
-      groupName: null,
-    };
-    return ok(200, me);
   }
 
   /**

@@ -1,10 +1,10 @@
 /**
  * Интеграционные спеки раздела «Группы» (батч 3, FR-4.5, SCR-011/012):
  * реальные GroupsPage/GroupPage + core-сервисы на реальном HTTP-ядре
- * (HttpClient + authInterceptor) поверх программируемого
- * HttpTestingController-бэкенда GridBackendStub с сидом зоны; серверная
- * сессия teacher — serverSession/loginAs (признак сессии — память AuthService,
- * FR-092). Карточка группы монтируется на настоящем ActivatedRoute-параметре
+ * (HttpClient, без интерцептора) поверх программируемого
+ * HttpTestingController-бэкенда GridBackendStub с сидом зоны;
+ * аутентификации нет — бэкенд всегда отвечает от имени сид-преподавателя.
+ * Карточка группы монтируется на настоящем ActivatedRoute-параметре
  * (paramMap).
  *
  * Сценарии (automation: automated): TS-331 (создание группы), TS-332
@@ -23,7 +23,6 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
-import { AuthService } from '../../../core/services/auth.service';
 import { GroupsService } from '../../../core/services/groups.service';
 import { StudentsService } from '../../../core/services/students.service';
 import { SubmissionsService } from '../../../core/services/submissions.service';
@@ -63,7 +62,6 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     submissionsService = env.inject(SubmissionsService);
     ik221 = env.backend.groupIdByName('ИК-221');
     ik222 = env.backend.groupIdByName('ИК-222');
-    env.serverSession('teacher');
   });
 
   afterEach(() => {
@@ -357,8 +355,7 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
       }
     }
 
-    // /my-submissions студента 26 — предупреждение вместо таблицы.
-    env.loginAs('student26');
+    // /my-submissions консоли — предупреждение вместо таблицы (группы нет).
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2); // getSemesters + getMy
     expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);

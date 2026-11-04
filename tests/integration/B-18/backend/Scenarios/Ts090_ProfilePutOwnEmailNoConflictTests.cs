@@ -6,7 +6,9 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 /// <summary>
 /// TS-090 «Профиль: собственный email не конфликтует» (boundary, FR-015, P1).
 ///
-/// given: текущий email пользователя X — 'x@example.com' (DI-сид).
+/// given: текущий пользователь приложения — засеянный преподаватель
+///        (Seed__TeacherLogin «teacher», email 'teacher@example.com'); клиент
+///        анонимный (аутентификации в приложении нет).
 /// when:  PUT /api/v1/me/profile с тем же email (и валидным новым ФИО).
 /// then:  200 — совпадение с самим собой не даёт 409 (FR-015 AC «Свой email не
 ///        конфликтует»; IF-013 CONFLICT_EMAIL: дубликат среди ДРУГИХ пользователей).
@@ -14,8 +16,7 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 [Collection(B18ProfileSerialCollection.Name)]
 public sealed class Ts090_ProfilePutOwnEmailNoConflictTests : IClassFixture<B18ProfileWebAppFactory>
 {
-    private const string Login = "ts090-x";
-    private const string OwnEmail = "x@example.com";
+    private const string OwnEmail = "teacher@example.com";
     private const string NewFullName = "Икс Собственный Email";
 
     private readonly B18ProfileWebAppFactory _factory;
@@ -25,16 +26,10 @@ public sealed class Ts090_ProfilePutOwnEmailNoConflictTests : IClassFixture<B18P
     [Fact]
     public async Task PutProfile_WithOwnUnchangedEmail_Returns200WithoutConflict()
     {
-        // given: пользователь X с текущим email 'x@example.com'.
-        var user = B18ProfileHarness.SeedUser(
-            _factory,
-            login: Login,
-            email: OwnEmail,
-            fullName: "Пользователь Икс",
-            role: UserRoles.Student,
-            groupId: null,
-            password: B18ProfileHarness.TestUserPassword);
-        using var client = B18ProfileHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий email преподавателя — 'teacher@example.com'; клиент анонимный.
+        var current = await B18ProfileHarness.CurrentUserAsync(_factory);
+        Assert.Equal(OwnEmail, current.Email);
+        using var client = B18ProfileHarness.Create(_factory);
 
         // when: PUT с тем же email и валидным новым ФИО.
         using var response = await client.PutAsJsonAsync(B18ProfileHarness.ProfileEndpoint, new

@@ -5,13 +5,9 @@
     кейсы TS-102, TS-103, TS-104, TS-105, TS-106, TS-160). Зона батча:
     tests/integration/B-14 — обособленный тестовый проект в поддереве Groups/
     (образец — подпроекты B-17/Groups и B-08/Groups; урок BL-001 BUG-001:
-    собственный проект зоны вместо правки чужих). Файлы предыдущей волны зоны
-    B-14 (Scenarios/Ts068..Ts207 — recovery/profile/password, Infrastructure/
-    B14*.cs, LabsApp.IntegrationTests.B14.csproj) НЕ изменяются и НЕ
-    используются: они ссылаются на удалённые из приложения типы
-    (IRefreshTokenRepository, IRecoveryCodeRepository — консолидация
-    ISecurityTokenRepository) и не собираются; этот проект собирает ТОЛЬКО
-    поддерево Groups/.
+    собственный проект зоны вместо правки чужих); этот проект собирает ТОЛЬКО
+    поддерево Groups/ — корневой LabsApp.IntegrationTests.B14.csproj собирает
+    остальное дерево зоны (semesters/profile).
 
     Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона
     ссылается на него ProjectReference. Тестовый проект — net10.0 (адаптация
@@ -21,9 +17,8 @@
     требуемый System.Text.Json фреймворка 9/10. Проверяемое поведение —
     HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
 
-    Сессии — минт access-JWT через ITokenService тестового хоста (ADR-015:
-    DI-сид + минт вместо POST /auth/login, доменная волна групп не зависит от
-    auth-эндпоинтов); данные given кейсов — демо-сид Seed__DemoData=true
+    Аутентификации в приложении нет: клиенты анонимны (текущий пользователь —
+    сид-преподаватель); данные given кейсов — демо-сид Seed__DemoData=true
     (воспроизводит src/client/app/mock/seed.ts: ИК-221 (25 студентов),
     ИК-222 (5), ИК-223 (0), student01..student32).
   -->

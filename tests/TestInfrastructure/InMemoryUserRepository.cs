@@ -12,7 +12,7 @@ namespace LabsApp.TestInfrastructure;
 /// критической секции. Хранилище хранит и отдаёт КОПИИ-снимки сущностей: внешняя
 /// мутация выданной копии не влияет на хранилище и ci-индексы, изменения — только
 /// через узкие атомарные мутаторы <see cref="SetGroupAsync"/> (группа, SEC-001),
-/// <see cref="SetPasswordAsync"/> (пароль) и <see cref="UpdateProfileAsync"/> (профиль) —
+/// <see cref="UpdateProfileAsync"/> (профиль) —
 /// каждый меняет ТОЛЬКО свои поля записи и не откатывает конкурентные мутации
 /// соседних полей (CR-001); <see cref="UpdateAsync"/> — полная замена, прод-контроллерами
 /// не применяется (документально суженный контракт, OQ-002).
@@ -154,30 +154,6 @@ public sealed class InMemoryUserRepository(StorageLock lockObject) : IUserReposi
 
             user.GroupId = groupId;
             return Task.FromResult(SetGroupResult.Success);
-        }
-    }
-
-    /// <inheritdoc/>
-    public Task<bool> SetPasswordAsync(Guid userId, string passwordHash)
-    {
-        if (string.IsNullOrEmpty(passwordHash))
-        {
-            throw new ArgumentNullException(nameof(passwordHash));
-        }
-
-        lock (lockObject.SyncRoot)
-        {
-            // Узкая мутация (CR-001/SEC-001): проверка существования и запись — одна
-            // критическая секция, меняется ТОЛЬКО PasswordHash хранимой записи (без
-            // перечитывания и перезаписи полного снимка), поэтому конкурентные правка
-            // профиля и назначение группы не откатываются; ci-индексы не затрагиваются.
-            if (!_users.TryGetValue(userId, out var user))
-            {
-                return Task.FromResult(false);
-            }
-
-            user.PasswordHash = passwordHash;
-            return Task.FromResult(true);
         }
     }
 

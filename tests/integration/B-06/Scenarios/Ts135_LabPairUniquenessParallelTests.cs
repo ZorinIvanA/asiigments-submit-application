@@ -10,7 +10,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// параллельном создании» (concurrency, P0, FR-024 AC «Атомарность уникальности»,
 /// FR-017). 
 ///
-/// given: сессия teacher; пара (semester=7, number=1) свободна.
+/// given: анонимный клиент; пара (semester=7, number=1) свободна.
 /// when:  два параллельных POST /labs с одной парой (semester=7, number=1).
 /// then:  ровно один ответ 201, второй — 409 «Лабораторная с таким номером уже
 ///        есть в семестре»; без исключений и дублей пары (в хранилище ровно одна
@@ -28,13 +28,13 @@ public sealed class Ts135_LabPairUniquenessParallelTests : IClassFixture<B06WebA
     [Fact]
     public async Task TwoParallelCreatesWithSamePair_ExactlyOneCreatedOtherConflict()
     {
-        // given: сессия teacher (сид-преподаватель фикстуры, ADR-015); пара (7,1) свободна.
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); пара (7,1) свободна.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         Assert.Empty( await labs.GetAllAsync() );
         Assert.Null( await labs.TryGetByPairAsync(Semester, Number) );
 
-        using var firstClient = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
-        using var secondClient = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        using var firstClient = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        using var secondClient = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: два параллельных POST /labs с одной парой (стартовый барьер —
         // реальное столкновение, как в стресс-гейтах хранилища).
@@ -78,7 +78,7 @@ public sealed class Ts135_LabPairUniquenessParallelTests : IClassFixture<B06WebA
     }
 
     private static Task<HttpResponseMessage> PostLabAsync(HttpClient client, string content) =>
-        client.PostAsJsonAsync(ApiRequests.LabsEndpoint, new
+        client.PostAsJsonAsync(B06SubmissionsApi.LabsEndpoint, new
         {
             number = Number,
             semester = Semester,

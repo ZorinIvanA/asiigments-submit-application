@@ -23,7 +23,7 @@ public sealed class Ts103_LabDuplicatePair409Tests(B04LabsWebAppFactory factory)
         // given: пара (1,1) существует (DI-сид, ADR-010); teacher.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 1);
-        using var client = await MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: POST /labs с занятой парой (semester=1, number=1).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

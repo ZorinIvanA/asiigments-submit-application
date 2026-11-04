@@ -22,7 +22,7 @@ public sealed class Ts121_GroupUnknownIdPutDeleteNotFoundTests : IClassFixture<B
     public async Task PutAndDeleteOfUnknownGroup_ReturnNotFound()
     {
         // given: сессия teacher; uuid, которого нет.
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
         var unknownId = Guid.NewGuid().ToString();
 
         // when: PUT /groups/{uuid} {name:'X'}.

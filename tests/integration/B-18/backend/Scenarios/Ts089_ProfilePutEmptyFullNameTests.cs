@@ -1,4 +1,3 @@
-using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B18Profile.Infrastructure;
 
@@ -7,7 +6,8 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 /// <summary>
 /// TS-089 «Профиль: пустое ФИО» (negative, FR-015, P1).
 ///
-/// given: пользователь авторизован; email валиден.
+/// given: текущий пользователь приложения — засеянный преподаватель; клиент
+///        анонимный (аутентификации в приложении нет); email валиден.
 /// when:  PUT /api/v1/me/profile {fullName:'  ', email:'a@b.ru'}.
 /// then:  400; message «Данные заполнены неверно»; errors.fullName=['Заполните поле']
 ///        (FR-015 AC «Пустое ФИО»; валидация как во FR-006, словарь required).
@@ -15,9 +15,6 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 [Collection(B18ProfileSerialCollection.Name)]
 public sealed class Ts089_ProfilePutEmptyFullNameTests : IClassFixture<B18ProfileWebAppFactory>
 {
-    private const string Login = "ts089";
-    private const string Email = "ts089@x.ru";
-
     private readonly B18ProfileWebAppFactory _factory;
 
     public Ts089_ProfilePutEmptyFullNameTests(B18ProfileWebAppFactory factory) => _factory = factory;
@@ -25,16 +22,9 @@ public sealed class Ts089_ProfilePutEmptyFullNameTests : IClassFixture<B18Profil
     [Fact]
     public async Task PutProfile_WithWhitespaceFullName_Returns400WithRequiredError()
     {
-        // given: пользователь авторизован (email учётки валиден).
-        var user = B18ProfileHarness.SeedUser(
-            _factory,
-            login: Login,
-            email: Email,
-            fullName: "Студент ТС-089",
-            role: UserRoles.Student,
-            groupId: null,
-            password: B18ProfileHarness.TestUserPassword);
-        using var client = B18ProfileHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий пользователь — засеянный преподаватель; клиент анонимный.
+        _ = await B18ProfileHarness.CurrentUserAsync(_factory);
+        using var client = B18ProfileHarness.Create(_factory);
 
         // when: PUT с ФИО из одних пробелов и валидным email 'a@b.ru'.
         using var response = await client.PutAsJsonAsync(B18ProfileHarness.ProfileEndpoint, new

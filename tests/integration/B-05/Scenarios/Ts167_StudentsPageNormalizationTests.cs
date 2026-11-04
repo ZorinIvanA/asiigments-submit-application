@@ -9,8 +9,8 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// (boundary, FR-020).
 ///
 /// given: сид демо-данных развёрнут (демо-набор фикстуры): 32 студента
-///        (pageSize=10, полных страниц 4, на последней 2 записи); сессия
-///        teacher.
+///        (pageSize=10, полных страниц 4, на последней 2 записи); анонимный
+///        доступ (текущий пользователь — сид-преподаватель).
 /// when:  GET /api/v1/students?page=0; ?page=abc; ?page=2.5; ?page=99.
 /// then:  первые три — 200 с page=1 в ответе (эхо некорректного значения
 ///        запрещено; нормализация как в FR-017) и непустой первой страницей;
@@ -29,11 +29,11 @@ public sealed class Ts167_StudentsPageNormalizationTests : IClassFixture<B05WebA
     [Fact]
     public async Task NonNormalizedPages_AreNormalizedToOne_WithNonEmptyFirstPage()
     {
-        // given: 32 студента сида; teacher авторизован.
+        // given: 32 студента сида; анонимный запрос (текущий пользователь — сид-преподаватель).
         var students = await _factory.Services.GetRequiredService<IUserRepository>().ListStudentsAsync();
         Assert.Equal(32, students.Count);
 
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: page=0; page=abc; page=2.5 (нецелое).
         using var zero = await client.GetAsync($"{StudentsEndpoint}?page=0");
@@ -57,11 +57,11 @@ public sealed class Ts167_StudentsPageNormalizationTests : IClassFixture<B05WebA
     [Fact]
     public async Task PageBeyondLast_ReturnsEmptyItemsWithCorrectTotalAndEchoedPage()
     {
-        // given: 32 студента сида (полных страниц 4); teacher авторизован.
+        // given: 32 студента сида (полных страниц 4); анонимный запрос (текущий пользователь — сид-преподаватель).
         var students = await _factory.Services.GetRequiredService<IUserRepository>().ListStudentsAsync();
         Assert.Equal(32, students.Count);
 
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: страница 99 — правее последней (5-й при pageSize=10).
         using var response = await client.GetAsync($"{StudentsEndpoint}?page=99");

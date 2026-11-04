@@ -18,7 +18,7 @@
  * HttpClient для конструкции — регистрируем provideHttpClientTesting:
  * HTTP-вызовов нет (все методы шпионируются), сетка не флешится.
  */
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -30,7 +30,6 @@ import { Select } from 'primeng/select';
 import { Tooltip } from 'primeng/tooltip';
 import { of } from 'rxjs';
 
-import { authInterceptor } from '../../../../core/auth-interceptor';
 import { LabsService } from '../../../../core/services/labs.service';
 import { MockBreakpointObserver } from '../../../../../testing/mock-breakpoint-observer';
 import { ApiError, LabDto } from '../../../../shared/models';
@@ -122,7 +121,7 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       imports: [LabFormPage],
       providers: [
         { provide: BreakpointObserver, useValue: new MockBreakpointObserver() },
-        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
         provideNoopAnimations(),
@@ -163,7 +162,7 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       const element = root(fixture);
 
       expect(element.querySelector('#lab-url')).toBeNull();
-      // CR-002: форма помечена идентификатором якоря (конвенция auth-форм).
+      // CR-002: форма помечена идентификатором якоря (конвенция форм).
       expect(element.querySelector('form#lab-form')).not.toBeNull();
       // CR-003: метка «Ссылка на задание» рендерится только вместе с input.
       expect(element.querySelector('label[for="lab-url"]')).toBeNull();

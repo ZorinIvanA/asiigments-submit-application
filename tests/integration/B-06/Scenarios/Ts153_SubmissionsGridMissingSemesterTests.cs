@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// TS-153 «Ведомость: отсутствует semester — 400» (негативный, P0, FR-021).
 ///
 /// given: groupId указывает на существующую группу (ИК-221 демо-набора);
-///        сессия teacher.
+///        анонимный клиент.
 /// when:  GET /api/v1/submissions?groupId=&lt;валидный&gt;&amp;page=1 (semester
 ///        не передаётся вовсе).
 /// then:  400 'Данные заполнены неверно' +
@@ -22,9 +22,9 @@ public sealed class Ts153_SubmissionsGridMissingSemesterTests : IClassFixture<B0
     [Fact]
     public async Task GetGridWithoutSemester_Returns400WithStrictSemesterError()
     {
-        // given: groupId — существующая группа; сессия teacher.
+        // given: groupId — существующая группа; анонимный клиент.
         var groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: GET /submissions?groupId=<валидный>&page=1 — без semester.
         using var response = await B06SubmissionsApi.GetGridAsync(

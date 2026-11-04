@@ -24,7 +24,7 @@ public sealed class Ts122_GroupDeleteDetachesStudentsTests : IClassFixture<B15Gr
     {
         // given: сессия teacher; id группы ИК-222; в группе ровно 5 студентов
         // (состав читается из API — реализация given «в ИК-222 есть 5 студентов»).
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
         var ik222Id = await B15GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
         var memberLogins = await GetRosterLoginsAsync(client, ik222Id);
 

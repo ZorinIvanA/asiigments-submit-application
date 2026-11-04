@@ -31,8 +31,8 @@ public sealed class Ts163_SubmissionUnknownLabTests : IClassFixture<B06Submissio
     [Fact]
     public async Task PutSubmissionWithUnknownLab_Returns404LabNotFound()
     {
-        // given: teacher-сессия; studentId валиден; labId — случайный uuid; даты валидны.
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; studentId валиден; labId — случайный uuid; даты валидны.
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
         var unknownLabId = Guid.NewGuid();
 
         // when: PUT /submissions {studentId:<валидный>, labId:<случайный uuid>, ...}.

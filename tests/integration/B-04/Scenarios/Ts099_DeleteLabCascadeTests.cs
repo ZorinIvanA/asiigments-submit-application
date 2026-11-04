@@ -1,4 +1,3 @@
-using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B04.Infrastructure;
 using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +8,7 @@ namespace LabsApp.IntegrationTests.B04.Scenarios;
 /// TS-099 (P0, data_integrity; FR-017 AC «Удаление каскадно» + «несуществующий id → 404»,
 /// FR-021) «Лабораторные: удаление — каскад сдач и 404 на несуществующий id».
 /// given: есть сдача по работе L (создана PUT /submissions); известен несуществующий
-///        uuid; сессия teacher; шов хранилища сдач доступен.
+///        uuid; анонимный доступ (текущий пользователь — сид-преподаватель); шов хранилища сдач доступен.
 /// when:  DELETE /labs/{L.id}; затем GET /labs/{L.id}; затем DELETE /labs/&lt;несуществующий-uuid&gt;.
 /// then:  204; записей сдач с labId=L.id нет (каскадное удаление Submission); GET — 404;
 ///        повторный DELETE с несуществующим id — 404 'Лабораторная не найдена'
@@ -25,12 +24,10 @@ public sealed class Ts099_DeleteLabCascadeTests(B04LabsWebAppFactory factory) : 
         var users = _factory.Services.GetRequiredService<IUserRepository>();
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        var teacher = await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
-            ?? throw new InvalidOperationException("Сид-преподаватель не найден — given кейса неисполним.");
         var student = await B04DomainSeed.AddStudentAsync(users, "b04-ts099-student");
         var lab = await B04DomainSeed.AddLabAsync(labs, semester: 3, number: 7);
 
-        using var client = await MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // given: сдача по работе L создана PUT /submissions.
         using var created = await client.PutAsJsonAsync("/api/v1/submissions", new

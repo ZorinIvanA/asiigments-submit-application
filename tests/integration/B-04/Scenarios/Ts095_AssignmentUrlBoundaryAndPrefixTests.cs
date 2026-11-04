@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B04.Scenarios;
 /// <summary>
 /// TS-095 (P0, boundary; FR-017 AC «Граница длины assignmentUrl» + словарь lab.url)
 /// «Лабораторные: границы assignmentUrl 1000/1001 и нарушение префикса».
-/// given: сессия teacher; прочие поля валидны.
+/// given: анонимный доступ (текущий пользователь — сид-преподаватель); прочие поля валидны.
 /// when:  POST /labs с assignmentUrl длиной ровно 1000 после трима (префикс https://);
 ///        длиной 1001; со значением 'ftp://example.com/x'.
 /// then:  первый — 201; второй — 400,
@@ -20,7 +20,7 @@ public sealed class Ts095_AssignmentUrlBoundaryAndPrefixTests(B04LabsWebAppFacto
     [Fact]
     public async Task TS095_PostLabUrlBoundaries_1000Created_1001AndNonHttpRejected()
     {
-        using var client = await MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: assignmentUrl ровно 1000 символов после трима (префикс https://).
         var url1000 = "https://" + new string('a', 1000 - "https://".Length);

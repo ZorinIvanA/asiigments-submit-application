@@ -1,4 +1,3 @@
-using LabsApp.Auth;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -7,40 +6,29 @@ using Microsoft.Extensions.DependencyInjection;
 namespace LabsApp.IntegrationTests.B14.Groups.Infrastructure;
 
 /// <summary>
-/// Сессия «teacher» доменных кейсов групп батча B-14 (ADR-015, given «сессия
-/// teacher» TS-102..TS-106, TS-160): access-JWT минтится ITokenService тестового
-/// хоста для сид-преподавателя (учётка сидится всегда, независимо от
-/// Seed__DemoData) и передаётся заголовком Cookie с именем-константой
-/// AuthCoreDefaults — единый источник с ICookieService. POST /api/v1/auth/login
-/// не используется: эндпоинты auth-семейства — чужая волна, доменные кейсы групп
-/// от них не зависят (ADR-015).
+/// Клиент доменных кейсов групп батча B-14 (given «анонимный клиент»
+/// TS-102..TS-106, TS-160): аутентификации в приложении нет — все эндпойнты
+/// публичны, клиент создаётся фабрикой без cookie/токенов. Перед выдачей
+/// утверждается наличие сид-преподавателя (сидится всегда, независимо от
+/// Seed__DemoData) — предусловие «текущий пользователь — teacher».
 /// </summary>
 public static class B14GroupsSession
 {
     /// <summary>
-    /// Клиент с сессией сид-преподавателя (заголовок Cookie access_token выставлен
-    /// во всех запросах клиента).
+    /// Анонимный клиент тестового хоста; сид-преподаватель на месте (утверждение
+    /// шага given).
     /// </summary>
     public static async Task<HttpClient> CreateTeacherAsync(WebApplicationFactory<Program> factory)
     {
-        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+        _ = await factory.Services.GetRequiredService<IUserRepository>()
             .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
-                "Сид-преподаватель не найден в DI-хранилище тестового хоста (шаг given «сессия teacher» неисполним).");
+                "Сид-преподаватель не найден в DI-хранилище тестового хоста (шаг given «текущий пользователь — teacher» неисполним).");
 
-        var accessJwt = factory.Services.GetRequiredService<ITokenService>()
-            .IssueAccessToken(teacher.Id, teacher.Role);
-
-        var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        return factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
             HandleCookies = false,
         });
-        Assert.True(
-            client.DefaultRequestHeaders.TryAddWithoutValidation(
-                "Cookie", $"{AuthCoreDefaults.AccessTokenCookieName}={accessJwt}"),
-            "Не удалось добавить access-cookie сессии в заголовки тестового клиента.");
-
-        return client;
     }
 }

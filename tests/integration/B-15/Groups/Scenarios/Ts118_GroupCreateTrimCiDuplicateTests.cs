@@ -26,7 +26,7 @@ public sealed class Ts118_GroupCreateTrimCiDuplicateTests : IClassFixture<B15Gro
     public async Task PostGroup_TrimsName_ThenCiDuplicateConflicts()
     {
         // given: сессия teacher; группы ИК-224 нет.
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
 
         // when: POST /groups {name:'  ИК-224  '} — пробелы доходят до сервера
         // дословно (тело сериализуется как есть).

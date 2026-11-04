@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B14.Groups.Scenarios;
 /// TS-105 «groups: удаление сбрасывает groupId у студентов»
 /// (data_integrity, FR-019, FR-020, P0).
 ///
-/// given: в ИК-222 есть студенты (демо-сид: student26..student30); сессия teacher.
+/// given: в ИК-222 есть студенты (демо-сид: student26..student30); анонимный клиент (текущий пользователь — сид-преподаватель).
 /// when:  DELETE /groups/{ИК-222.id}; затем GET /students?groupId=none и
 ///        повторный DELETE того же id.
 /// then:  204; студенты живы с groupId=null и видны в выдаче groupId=none;
@@ -30,7 +30,7 @@ public sealed class Ts105_GroupDeleteDetachesStudentsTests : IClassFixture<B14Gr
     [Fact]
     public async Task DeleteGroup_DetachesStudents_RepeatedDeleteNotFound()
     {
-        // given: сессия teacher; id группы ИК-222 (в ней студенты student26..student30).
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); id группы ИК-222 (в ней студенты student26..student30).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var ik222Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 

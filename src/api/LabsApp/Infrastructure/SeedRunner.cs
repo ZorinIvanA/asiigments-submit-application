@@ -1,5 +1,4 @@
 using System.Globalization;
-using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -10,10 +9,8 @@ namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Сид при старте (FR-025): (а) ровно одна учётная запись преподавателя из
-/// Seed__TeacherLogin/Seed__TeacherPassword (role=teacher, GroupId=null; в Development
-/// требования §8 к сид-паролю не применяются, в Production их выполнение гарантирует
-/// guard FR-025 — <see cref="SeedOptionsValidator"/> валидирует дословно ту строку,
-/// которую хэширует <see cref="NormalizeTeacherPassword"/>, SEC-001); (б) при <see cref="SeedOptions.ResolveDemoData"/>=true —
+/// Seed__TeacherLogin (role=teacher, GroupId=null); (б) при
+/// <see cref="SeedOptions.ResolveDemoData"/>=true —
 /// демонстрационный набор, точно воспроизводящий src/client/app/mock/seed.ts:
 /// 3 группы (ИК-221/222/223), 32 студента student01..student32, 23 работы
 /// (семестр 1 №1–20 и семестр 2 №1–3) и 4 сид-сдачи с UpdatedBy = uuid преподавателя.
@@ -25,18 +22,14 @@ namespace LabsApp.Infrastructure;
 /// затем lower(email); группа — ci-имя; работа — пара (semester, number); сдача —
 /// пара (student, lab) (Upsert). Повторный запуск и частично выполненное хранилище
 /// не дублируют записи и не изменяют существующие; uuid создаются заново
-/// (детерминизм НЕ требуется). Пароли созданных учёток хэшируются
-/// <see cref="IPasswordHasher"/> с меткой вызывателя seed (KdfCallers.Seed, IF-002 —
-/// «каждая деривация инкрементирует счётчик»): чистое хранилище с демо-набором —
-/// Δkdf{seed} = 33 (32 студента + преподаватель); уже существующие учётки не
-/// перехэшируются и дериваций не добавляют.
+/// (детерминизм НЕ требуется). Аутентификации нет: колонка password_hash
+/// заполняется плейсхолдером <see cref="SeededPasswordPlaceholder"/>.
 /// </summary>
 public sealed class SeedRunner(
     IUserRepository users,
     IGroupRepository groups,
     ILabRepository labs,
     ISubmissionRepository submissions,
-    IPasswordHasher hasher,
     IOptions<SeedOptions> seedOptions,
     IHostEnvironment environment,
     ILogger<SeedRunner> logger)
@@ -47,8 +40,9 @@ public sealed class SeedRunner(
     /// <summary>ФИО преподавателя сида (воспроизведение seed.ts; FR-025 не задаёт значение).</summary>
     private const string TeacherFullName = "Сидоров Семён Семёнович";
 
-    /// <summary>Демо-пароль студентов (seed.ts: STUDENT_PASSWORD).</summary>
-    private const string StudentPassword = "student123!";
+    /// <summary>Плейсхолдер password_hash для сид-учёток: пароль не проверяется
+    /// и не хэшируется (аутентификация отсутствует; колонка NOT NULL).</summary>
+    private const string SeededPasswordPlaceholder = "!";
 
     /// <summary>Домен email демо-учёток (seed.ts: teacher@example.com, studentNN@example.com).</summary>
     private const string SeedEmailDomain = "@example.com";
@@ -57,7 +51,6 @@ public sealed class SeedRunner(
     private readonly IGroupRepository _groups = groups;
     private readonly ILabRepository _labs = labs;
     private readonly ISubmissionRepository _submissions = submissions;
-    private readonly IPasswordHasher _hasher = hasher;
     private readonly SeedOptions _options = seedOptions.Value;
     private readonly bool _inDevelopment = environment.IsDevelopment();
     private readonly ILogger<SeedRunner> _logger = logger;
@@ -95,22 +88,6 @@ public sealed class SeedRunner(
     }
 
     /// <summary>
-    /// Пароль сид-преподавателя: пустое/пробельное значение переменной → умолчание
-    /// «teacher123!» (пароль обязан быть непустым для хэширования и входа); иное
-    /// значение хэшируется ДОСЛОВНО — §8 запрещает трим пароля, и Production-guard
-    /// FR-025 валидирует ровно эту же строку (SEC-001: расхождение строк guard и
-    /// сида позволяло пробелами обрамить слабое значение и получить учётную запись
-    /// с паролем, которому проверка не предъявлялась).
-    /// Требования §8 к сид-паролю в Development не применяются; в Production их
-    /// выполнение гарантирует <see cref="SeedOptionsValidator"/>.
-    /// </summary>
-    private string NormalizeTeacherPassword()
-    {
-        var password = _options.TeacherPassword;
-        return string.IsNullOrWhiteSpace(password) ? SeedOptions.DefaultTeacherPassword : password;
-    }
-
-    /// <summary>
     /// Преподаватель по естественному ключу: existing с этим lower(login) или, если
     /// логин свободен, с занятым сид-email (частично выполненный сид и
     /// зарегистрировавшийся ранее пользователь не должны ронять старт конфликтом
@@ -130,7 +107,7 @@ public sealed class SeedRunner(
             Id = Guid.NewGuid(),
             Login = login,
             Email = email,
-            PasswordHash = _hasher.Hash(NormalizeTeacherPassword(), KdfCallers.Seed),
+            PasswordHash = SeededPasswordPlaceholder,
             FullName = TeacherFullName,
             Role = UserRoles.Teacher,
             GroupId = null,
@@ -217,7 +194,7 @@ public sealed class SeedRunner(
             FullName = $"Иванов Иван Иванович {suffix}",
             Role = UserRoles.Student,
             GroupId = groupId,
-            PasswordHash = _hasher.Hash(StudentPassword, KdfCallers.Seed),
+            PasswordHash = SeededPasswordPlaceholder,
             CreatedAt = DateTime.UtcNow,
         };
         await _users.AddAsync(student);

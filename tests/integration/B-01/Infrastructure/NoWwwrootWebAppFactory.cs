@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B01.Infrastructure;
 /// Тестовый хост с ОТСУТСТВУЮЩИМ каталогом wwwroot (кейс TS-010, AC «Нет index.html»
 /// FR-002): content root переносится в чистый временный каталог — ни wwwroot, ни
 /// appsettings.json там нет, конфигурация складывается из умолчаний окружения
-/// (Development — валидна без секретов, FR-008), webroot-каталог хостом не создаётся.
+/// (Development — валидна без дополнительных настроек), webroot-каталог хостом не создаётся.
 /// Временный каталог удаляется при освобождении фабрики.
 /// </summary>
 public sealed class NoWwwrootWebAppFactory : B01WebAppFactory

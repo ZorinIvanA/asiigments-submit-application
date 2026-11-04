@@ -4,7 +4,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 
 /// <summary>
 /// TS-149 (P1, negative; FR-020) «Студенты: несуществующий студент — 404».
-/// given: случайный uuid студента; валидный uuid группы (ИК-223); сессия teacher.
+/// given: случайный uuid студента; валидный uuid группы (ИК-223); анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  PUT /students/&lt;uuid&gt;/group {groupId:&lt;ИК-223.id&gt;}
 /// then:  404 'Студент не найден'.
 /// </summary>
@@ -17,10 +17,10 @@ public sealed class Ts149_StudentPutGroupUnknownStudentTests : IClassFixture<B05
     [Fact]
     public async Task PutGroupForUnknownStudent_Returns404StudentNotFound()
     {
-        // given: случайный uuid студента; существующая группа ИК-223; teacher авторизован.
+        // given: случайный uuid студента; существующая группа ИК-223; анонимный запрос (текущий пользователь — сид-преподаватель).
         var unknownStudentId = Guid.NewGuid();
         var ik223 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-223");
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: назначение группы несуществующему студенту.
         using var put = await client.PutAsJsonAsync(

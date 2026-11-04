@@ -11,22 +11,15 @@ using Microsoft.Extensions.Hosting;
 namespace LabsApp.IntegrationTests.B14.Scenarios;
 
 /// <summary>
-/// Production-хост кейса TS-173 (given, ревью R4d): окружение Production с ЯВНО
-/// заданными Auth__JwtKey (≥32 байт — AuthOptionsValidator) и
-/// Seed__TeacherPassword='Str0ng!Unique2026' (SeedOptionsValidator: в Production
-/// пароль преподавателя обязателен, ≠ 'teacher123!', правила §8 — иначе fail-fast
-/// не даст хосту стартовать); Seed__DemoData=false — из сида создан ТОЛЬКО
-/// преподаватель, демо-набор отключён; лабораторных работ хост не создаёт вовсе.
-/// Auth__Pbkdf2Iterations=1000 — умолчание тестовых фабрик зоны (скорость старта).
-/// Фабрика самодостаточна в файле кейса (чужие файлы инфраструктуры зоны не
-/// модифицируются); конфигурация повторяет стенд Production
-/// B14ProductionRecoveryWebAppFactory без log-sink — кейсу он не нужен.
+/// Production-хост кейса TS-173 (given, ревью R4d): окружение Production;
+/// Seed__DemoData=false — из сида создан ТОЛЬКО преподаватель, демо-набор
+/// отключён; лабораторных работ хост не создаёт вовсе. Фабрика самодостаточна
+/// в файле кейса (чужие файлы инфраструктуры зоны не модифицируются).
+/// Аутентификации в приложении нет — Auth__*-секреты и пароль сид-учётки
+/// (Seed__TeacherPassword) упразднены, валидаторы хосту не требуют их.
 /// </summary>
 public sealed class Ts173ProductionHostFactory : B14WebAppFactory
 {
-    /// <summary>Seed__TeacherPassword данного кейса (given TS-173, дословно).</summary>
-    public const string ProductionTeacherPassword = "Str0ng!Unique2026";
-
     /// <summary>Единственный публичный конструктор — для IClassFixture (Production).</summary>
     public Ts173ProductionHostFactory()
     {
@@ -46,10 +39,7 @@ public sealed class Ts173ProductionHostFactory : B14WebAppFactory
         builder.UseEnvironment(Environments.Production);
         builder.UseSetting(WebHostDefaults.ContentRootKey, AppContext.BaseDirectory);
 
-        builder.UseSetting(ToConfigKey(AuthOptions.JwtKeyVariable), TestJwtKey);
-        builder.UseSetting(ToConfigKey(SeedOptions.TeacherPasswordVariable), ProductionTeacherPassword);
         builder.UseSetting(ToConfigKey(SeedOptions.DemoDataVariable), "false");
-        builder.UseSetting(ToConfigKey(AuthOptions.Pbkdf2IterationsVariable), "1000");
     }
 
     private static string ToConfigKey(string environmentVariableName) =>
@@ -60,10 +50,9 @@ public sealed class Ts173ProductionHostFactory : B14WebAppFactory
 /// TS-173 «semesters: пустой массив при отсутствии работ» (boundary, FR-018, P2,
 /// ревью R4d).
 ///
-/// given: Production-конфигурация хоста: заданы Auth__JwtKey и
-///        Seed__TeacherPassword='Str0ng!Unique2026' (демо-данные отключены) —
-///        создан только преподаватель, лабораторных работ нет; валидная сессия
-///        teacher (минт access-JWT, ADR-022).
+/// given: Production-конфигурация хоста: демо-данные отключены — создан только
+///        преподаватель, лабораторных работ нет; анонимный клиент (аутентификации
+///        нет, эндпойнты публичны).
 /// when:  GET /api/v1/semesters
 /// then:  200; тело — пустой массив [] (JSON-массив нулевой длины): distinct
 ///        семестров, по которым есть хотя бы одна лабораторная, при отсутствии
@@ -81,14 +70,14 @@ public sealed class Ts173_SemestersEmptyProductionTests
         _factory = factory;
 
     [Fact]
-    public async Task Semesters_NoLabs_ReturnsEmptyArrayForTeacher()
+    public async Task Semesters_NoLabs_ReturnsEmptyArray()
     {
         // given: Production-хост: создан только сид-преподаватель (ResolveSeedTeacher
         // утверждает его наличие и роль), лабораторных работ нет (предусловие
-        // фиксируется чтением ILabRepository тестового хоста); валидная сессия teacher.
-        var teacher = await B14Harness.ResolveSeedTeacherAsync(_factory);
+        // фиксируется чтением ILabRepository тестового хоста); анонимный клиент.
+        await B14Harness.ResolveSeedTeacherAsync(_factory);
         Assert.Empty(await _factory.Services.GetRequiredService<ILabRepository>().GetAllAsync());
-        using var client = B14Harness.CreateSessionClient(_factory, teacher.Id, UserRoles.Teacher);
+        using var client = B14Harness.Create(_factory);
 
         // when: GET /api/v1/semesters
         using var response = await client.GetAsync(SemestersEndpoint);

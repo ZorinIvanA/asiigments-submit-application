@@ -23,8 +23,8 @@ public sealed class Ts145_SubmissionNonContractDateBeforeEntityResolutionTests :
     [Fact]
     public async Task PutSubmissionWithNonContractDate_Returns400BeforeEntityLookup()
     {
-        // given: teacher-сессия; studentId и labId неизвестны (случайные uuid).
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; studentId и labId неизвестны (случайные uuid).
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: PUT /submissions с неконтрактной датой '20.09.2026' и неизвестными сущностями.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

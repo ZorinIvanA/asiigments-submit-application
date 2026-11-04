@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B04.Scenarios;
 /// <summary>
 /// TS-096 (P1, negative; FR-017 валидация LabInput, FR-023 единый конверт)
 /// «Лабораторные: пакет ошибок валидации LabInput».
-/// given: сессия teacher.
+/// given: анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  POST /labs {number:'abc', semester:1, content:'x'×501 (строка из 501
 ///        символа 'x', без пробельного обрамления — длина после трима однозначна),
 ///        assignmentUrl:'ftp://x', defenseRequired:true}; отдельно POST с
@@ -25,7 +25,7 @@ public sealed class Ts096_LabInputValidationErrorPackageTests(B04LabsWebAppFacto
     [Fact]
     public async Task TS096_PostInvalidLabInput_ReturnsAllFieldErrorsAtOnce()
     {
-        using var client = await MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: POST /labs с пакетно невалидным телом (content — ровно 501 символ 'x').
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new
@@ -63,7 +63,7 @@ public sealed class Ts096_LabInputValidationErrorPackageTests(B04LabsWebAppFacto
     [InlineData("1.5")]
     public async Task TS096_PostLabWithInvalidNumberVariants_ReturnsSameNumberError(string number)
     {
-        using var client = await MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: POST /labs с number='0' | '-3' | '1.5' (прочие поля валидны).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// TS-105 «Лабораторные: дефолтный список — пагинация 10 и дефолтная сортировка»
 /// (happy_path, FR-017 AC «Дефолтный список»; P0): given — демо-сид: 20 работ
 /// семестра 1 (№1–20) и 3 работы семестра 2 (№1–3) — DI-сид при Seed__DemoData=false
-/// (<see cref="B03DomainSeed"/>); сессия teacher (<see cref="B03TeacherSession"/>);
+/// (<see cref="B03DomainSeed"/>); клиент анонимный (эндпойнты публичны);
 /// when — GET /api/v1/labs; then — 200 {items:10, total:23, page:1, pageSize:10};
 /// первый элемент (semester=1, number=1); сортировка по умолчанию semester↑, number↑.
 /// </summary>
@@ -30,15 +30,15 @@ public sealed class Ts105_LabsDefaultListTests : IClassFixture<B03HostFactory>,
     [Fact]
     public async Task GetLabsWithoutParameters_ReturnsFirstPageOfDefaultSorted23()
     {
-        // given: сессия teacher.
-        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
+        // given: анонимный клиент (аутентификации нет).
+        var client = B03LabsApi.CreateClient(_factory);
 
         // when: GET /api/v1/labs без параметров.
         using var response = await B03LabsApi.GetLabsAsync(client);
 
         // then: 200; {items:10, total:23, page:1, pageSize:10}.
         using var body = await ResponseAssert.ParseWithStatusAsync(
-            response, HttpStatusCode.OK, "GET /api/v1/labs без параметров (teacher)");
+            response, HttpStatusCode.OK, "GET /api/v1/labs без параметров (анонимно)");
         Assert.Equal(10, B03LabsApi.ReadInt(body.RootElement, "pageSize"));
         Assert.Equal(23, B03LabsApi.ReadInt(body.RootElement, "total"));
         Assert.Equal(1, B03LabsApi.ReadInt(body.RootElement, "page"));

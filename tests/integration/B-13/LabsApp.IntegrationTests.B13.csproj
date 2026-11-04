@@ -2,9 +2,11 @@
 
   <!--
     Интеграционные тесты батча B-13 (submissions: GET /submissions — FR-060,
-    GET /me/submissions — FR-062; recovery/reset: POST /auth/recovery/request —
-    FR-012, POST /auth/recovery/confirm — FR-013, POST /auth/reset-password —
-    FR-014, кейсы TS-064..TS-078). Зона батча: tests/integration/B-13.
+    GET /me/submissions — FR-062; semesters — FR-018; scope TS-195; кейсы
+    TS-101, TS-148..TS-152, TS-160, TS-162, TS-195). Recovery/reset- и
+    refresh-сценарии (TS-064..TS-085, TS-197) удалены вместе с аутентификацией
+    приложения: auth-эндпойнтов больше нет, все эндпойнты анонимны.
+    Зона батча: tests/integration/B-13.
     Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона
     ссылается на него ProjectReference и не включается в solution src/api —
     батчи пишут зоны параллельно (образец — зоны B-01..B-11; урок BL-001
@@ -14,9 +16,6 @@
     на исходном хосте прогона не было runtime .NET 8 (только SDK 10 и runtime 9/10); с рантаймом 8.x зона возвращена на net8.0 и Mvc.Testing 8.0.*.
     Mvc.Testing 10.0.12 (историческое обоснование прежнего net10.0) — под net10.0: TestServer реализует
     PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
-    Microsoft.Extensions.TimeProvider.Testing 8.* — FakeTimeProvider (ADR-002,
-    FR-003: инжектируемые часы TTL кода 10 минут и reset-токена 15 минут,
-    TS-068/TS-069/TS-075).
   -->
 
   <PropertyGroup>

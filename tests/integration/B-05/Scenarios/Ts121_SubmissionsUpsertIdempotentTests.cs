@@ -16,9 +16,9 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// (studentId, labId) из FR-024 оставался без конкурентного оракула);
 /// последовательная идемпотентность сохранена в том же кейсе.
 ///
-/// given: пара (student05, работа семестра 1 №1) свободна; сессия teacher
-///        (параллельные запросы выполняются одной сессией); шов хранилища сдач
-///        доступен (ISubmissionRepository из DI).
+/// given: пара (student05, работа семестра 1 №1) свободна; анонимный доступ
+///        (текущий пользователь — сид-преподаватель, все запросы — одним
+///        клиентом); шов хранилища сдач доступен (ISubmissionRepository из DI).
 /// when:  (1) два последовательных одинаковых PUT /api/v1/submissions
 ///        {studentId, labId, submitDate:'2026-10-01', defenseDate:null};
 ///        (2) затем два ПАРАЛЛЕЛЬНЫХ PUT той же пары с идентичным телом
@@ -51,7 +51,7 @@ public sealed class Ts121_SubmissionsUpsertIdempotentTests : IClassFixture<B05We
         Assert.Null( await submissions.GetByStudentAndLabAsync(student05.Id, lab.Id) );
 
         var teacher = await B05SeedLookup.TeacherAsync(_factory);
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when (1): два последовательных одинаковых PUT (submitDate '2026-10-01').
         using var first = await client.PutAsync(
@@ -82,7 +82,7 @@ public sealed class Ts121_SubmissionsUpsertIdempotentTests : IClassFixture<B05We
         // when (2): два ПАРАЛЛЕЛЬНЫХ PUT той же пары с идентичным телом
         //           {submitDate:'2026-10-02', defenseDate:'2026-10-05'};
         //           барьерный старт — оба запроса выпускаются одновременно
-        //           (одна сессия teacher).
+        //           (один и тот же анонимный клиент).
         var startBarrier = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var parallelFirst = Task.Run(async () =>
         {

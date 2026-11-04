@@ -8,7 +8,7 @@ namespace LabsApp.IntegrationTests.B14.Groups.Scenarios;
 /// (happy_path, FR-019, P0).
 ///
 /// given: группы ИК-221 (25 студентов), ИК-222 (5), ИК-223 (0) (демо-сид
-///        Seed__DemoData=true); сессия teacher.
+///        Seed__DemoData=true); анонимный клиент (текущий пользователь — сид-преподаватель).
 /// when:  GET /api/v1/groups.
 /// then:  200 массив из 3 GroupDto {id, name, studentCount} со значениями 25, 5, 0;
 ///        порядок имён по возрастанию без учёта регистра по правилам русской
@@ -27,7 +27,7 @@ public sealed class Ts102_GroupListStudentCountRuSortTests : IClassFixture<B14Gr
     [Fact]
     public async Task GetGroups_ReturnsThreeGroupsWithCountsInRuNameOrder()
     {
-        // given: сессия teacher.
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
 
         // when: GET /api/v1/groups.

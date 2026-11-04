@@ -39,7 +39,7 @@ public sealed class Ts156_SubmissionsGridNonIntegerSemesterTests : IClassFixture
         Assert.Equal(
             LabsOptions.DefaultMaxSemester,
             _factory.Services.GetRequiredService<IOptions<LabsOptions>>().Value.MaxSemester);
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when/then: semester=abc (нечисловой) — 400 со строгой ошибкой semester.
         using var nonNumeric = await B06SubmissionsApi.GetGridAsync(client, _groupId, semester: "abc", page: "1");

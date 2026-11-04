@@ -8,8 +8,9 @@ namespace LabsApp.IntegrationTests.B16.Infrastructure;
 /// TS-160, TS-169; FR-019, FR-020, FR-006) и проверки HTTP-ответов: статус с
 /// диагностикой тела, точные тексты message (словарь текстов ошибок FR-023) и
 /// состав errors.&lt;поле&gt;. Копия механики зоны B-14/Groups (чужие зоны
-/// недоступны для ссылок; изоляция зон — BL-001), плюс шаги FR-006/FR-020 кейса
-/// TS-106 (POST /auth/register, PUT /students/{id}/group).
+/// недоступны для ссылок; изоляция зон — BL-001), плюс шаг FR-020 кейса
+/// TS-106 (PUT /students/{id}/group; студенты-дискриминаторы создаются DI-сидом —
+/// auth-эндпоинты удалены).
 /// Тела запросов строятся сериализацией System.Text.Json: пробелы имени
 /// («  ИК-224  », «   ») доходят до сервера дословно (given TS-103/TS-104/TS-169).
 /// </summary>
@@ -20,9 +21,6 @@ public static class B16GroupsApi
 
     /// <summary>Базовый путь /students (IF-009/FR-020).</summary>
     public const string StudentsEndpoint = "/api/v1/students";
-
-    /// <summary>POST /auth/register (IF-007/FR-006) — кейс TS-106.</summary>
-    public const string RegisterEndpoint = "/api/v1/auth/register";
 
     /// <summary>GET /api/v1/groups (список, без пагинации).</summary>
     public static Task<HttpResponseMessage> GetGroupsAsync(HttpClient client) =>
@@ -59,31 +57,6 @@ public static class B16GroupsApi
     /// <summary>GET /api/v1/students?{query} (кейс TS-105: фильтр groupId=none).</summary>
     public static Task<HttpResponseMessage> GetStudentsAsync(HttpClient client, string query) =>
         client.GetAsync($"{StudentsEndpoint}?{query}");
-
-    /// <summary>
-    /// POST /auth/register {fullName, login, email, password, repeatPassword}
-    /// (кейс TS-106: студенты «Авроров Иван»/avrorov и «Ёлкин Пётр»/elkin созданы
-    /// POST /auth/register с паролем «Passw0rd!»).
-    /// </summary>
-    public static Task<HttpResponseMessage> RegisterAsync(
-        HttpClient client,
-        string fullName,
-        string login,
-        string email,
-        string password) =>
-        client.PostAsync(
-            RegisterEndpoint,
-            new StringContent(
-                JsonSerializer.Serialize(new
-                {
-                    fullName,
-                    login,
-                    email,
-                    password,
-                    repeatPassword = password,
-                }),
-                Encoding.UTF8,
-                "application/json"));
 
     /// <summary>
     /// Проверяет статус и парсит JSON-тело. При несовпадении статуса сообщение

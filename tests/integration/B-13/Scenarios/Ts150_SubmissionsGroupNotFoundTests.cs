@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B13.Scenarios;
 /// <summary>
 /// TS-150 (P0, negative; FR-021/IF-001, v2.2) «GET /submissions: неизвестный
 /// groupId → 404; отсутствующий groupId → 400 полевой валидации».
-/// given: Случайный uuid; сессия teacher.
+/// given: Случайный uuid; анонимный клиент (текущий пользователь — сид-преподаватель).
 /// when: GET /api/v1/submissions?groupId=&lt;случайный-uuid&gt;&amp;semester=1; отдельно
 ///       без groupId.
 /// then: неизвестный uuid → 404 «Группа не найдена» (сущность не найдена);
@@ -21,7 +21,7 @@ public sealed class Ts150_SubmissionsGroupNotFoundTests(B13WebAppFactory factory
     [Fact]
     public async Task TS150_UnknownGroupId_Returns404GroupNotFound()
     {
-        // given: случайный uuid (ни одна группа не существует — демо-сид выключен); сессия teacher.
+        // given: случайный uuid (ни одна группа не существует — демо-сид выключен); анонимный клиент.
         using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /submissions?groupId=<случайный-uuid>&semester=1.
@@ -39,7 +39,7 @@ public sealed class Ts150_SubmissionsGroupNotFoundTests(B13WebAppFactory factory
     [Fact]
     public async Task TS150_MissingGroupId_Returns400RequiredFieldError()
     {
-        // given: сессия teacher; параметр groupId отсутствует.
+        // given: анонимный клиент; параметр groupId отсутствует.
         using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /submissions?semester=1 (без groupId).
