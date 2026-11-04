@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Консолидированный репозиторий токенов безопасности (IF-015, FR-024): refresh-токены,

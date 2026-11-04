@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace LabsApp.Tests.Observability;
+namespace LabsApp.Tests.Infrastructure;
 
 /// <summary>
 /// In-memory ILoggerProvider (log-sink, ADR-010/ADR-018). Единственный владелец —

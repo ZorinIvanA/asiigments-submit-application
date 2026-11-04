@@ -6,7 +6,7 @@ using LabsApp.Auth;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -18,21 +18,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Якоря вставки для последующих подзадач (сохранять расположение и порядок).
 // ============================================================================
 
-// Итерация «БД»: выбор провайдера хранилища по Storage__Provider —
-// postgres (EF Core + Npgsql, умолчание) либо inmemory (тестовый двой).
-// Схема PostgreSQL создаётся SQL-скриптами src/api/db (без миграций EF).
+// Итерация «БД»: хранилище — PostgreSQL (EF Core + Npgsql), единственный
+// провайдер приложения; тестовые двойки живут в tests/TestInfrastructure и
+// подменяют регистрации в тестовых фабриках хоста. Схема создаётся
+// SQL-скриптами src/api/db (без миграций EF).
 var storageOptions = builder.Configuration
     .GetSection(StorageOptions.SectionName)
     .Get<StorageOptions>() ?? new StorageOptions();
-if (storageOptions.IsInMemory)
-{
-    // T-003 (FR-024): in-memory репозитории IF-015 (singleton) + SeedRunner.
-    builder.Services.AddInMemoryStorage();
-}
-else
-{
-    builder.Services.AddPostgresStorage(storageOptions.ConnectionString);
-}
+builder.Services.AddPostgresStorage(storageOptions.ConnectionString);
 
 builder.Services.AddOptions<StorageOptions>()
     .BindConfiguration(StorageOptions.SectionName)

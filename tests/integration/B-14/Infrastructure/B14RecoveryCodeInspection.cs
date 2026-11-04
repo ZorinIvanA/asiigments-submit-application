@@ -88,7 +88,7 @@ public static class B14RecoveryCodeInspection
 
     private static List<Type> FindCandidateInterfaces()
     {
-        var labsAssembly = typeof(LabsApp.Storage.IUserRepository).Assembly;
+        var labsAssembly = typeof(LabsApp.Infrastructure.IUserRepository).Assembly;
         Type[] interfaceTypes;
         try
         {

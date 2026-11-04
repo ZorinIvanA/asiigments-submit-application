@@ -1,6 +1,6 @@
 using System.Diagnostics.Metrics;
 using LabsApp.Auth;
-using LabsApp.Tests.Observability;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 

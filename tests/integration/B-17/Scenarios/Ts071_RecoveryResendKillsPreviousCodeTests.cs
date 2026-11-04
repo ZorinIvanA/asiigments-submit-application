@@ -1,7 +1,7 @@
 using System.Text;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B17.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B17.Scenarios;

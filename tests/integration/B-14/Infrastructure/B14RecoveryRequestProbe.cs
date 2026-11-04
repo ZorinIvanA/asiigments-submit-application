@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Reflection;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
+using LabsApp.Infrastructure;
+using LabsApp.TestInfrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B14.Infrastructure;

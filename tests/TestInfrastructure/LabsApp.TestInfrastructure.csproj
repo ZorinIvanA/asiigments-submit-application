@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Общая тестовая инфраструктура (не содержит тестов): in-memory двойки
+    хранилища, перенесённые из приложения после перехода на PostgreSQL-only,
+    и регистрация этих двойков в тестовом хосте. Используется юнит-тестами
+    (src/api/LabsApp.Tests) и интеграционными зонами (tests/integration/B-*)
+    через ProjectReference; в самом приложении классы не участвуют.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>LabsApp.TestInfrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\api\LabsApp\LabsApp.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Репозиторий пользователей (IF-015, FR-024). Контракт асинхронный: реализации

@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace LabsApp.Tests.Hosting;
+namespace LabsApp.Tests.Infrastructure;
 
 /// <summary>
 /// Ручной cookie-контейнер для сквозных сценариев (ADR-010): тест сам переносит

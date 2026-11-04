@@ -3,7 +3,7 @@ using System.Text;
 using LabsApp.Auth;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;

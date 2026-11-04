@@ -64,9 +64,13 @@ public abstract class B12RecoveryScenarioHost : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
-            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
-            builder.UseSetting("Storage:Provider", "InMemory");
+        // Хранилище приложения — PostgreSQL-only; тесты зоны работают на in-memory
+        // двойках tests/TestInfrastructure (без ввода-вывода и внешней БД).
+        builder.ConfigureServices(s => LabsApp.TestInfrastructure.InMemoryTestStorage.Register(s));
+        // Явная строка подключения (не равна dev-умолчанию): Production-режим
+        // тестовых хостов проходит StorageOptionsValidator; двойки хранилища
+        // подключений не выполняют.
+        builder.UseSetting("Storage:ConnectionString", "Host=127.0.0.1;Port=5434;Database=labsapp-test-double");
         builder.UseEnvironment(HostEnvironmentName);
         builder.UseSetting(WebHostDefaults.ContentRootKey, AppContext.BaseDirectory);
 

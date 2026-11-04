@@ -1,7 +1,7 @@
 using System.Text;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B13.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B13.Scenarios;
 

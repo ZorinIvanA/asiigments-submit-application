@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Репозиторий групп (IF-015, FR-024). ci-уникальность Name — по правилу

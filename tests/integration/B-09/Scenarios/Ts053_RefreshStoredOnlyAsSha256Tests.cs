@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 using LabsApp.IntegrationTests.B09.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B09.Scenarios;

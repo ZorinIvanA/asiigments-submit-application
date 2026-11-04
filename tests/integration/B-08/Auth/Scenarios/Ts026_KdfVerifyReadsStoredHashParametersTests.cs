@@ -46,7 +46,7 @@ public sealed class Ts026_KdfVerifyReadsStoredHashParametersTests
             RegisterBody("Легаси Пользователь", LegacyLogin, LegacyEmail, Password));
         B08AuthHost.AssertStatus(legacyRegister, HttpStatusCode.Created, "регистрация пользователя при 1000 итерациях");
 
-        var users = factory.Services.GetRequiredService<LabsApp.Storage.IUserRepository>();
+        var users = factory.Services.GetRequiredService<LabsApp.Infrastructure.IUserRepository>();
         var legacyHash = (await users.GetByLoginAsync(LegacyLogin))!.PasswordHash;
         Assert.StartsWith("pbkdf2-sha256$1000$", legacyHash);
 

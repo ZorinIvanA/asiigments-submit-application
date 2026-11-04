@@ -2,7 +2,7 @@ using System.Text.Json;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B14.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,9 +34,13 @@ public sealed class Ts173ProductionHostFactory : B14WebAppFactory
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
-            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
-            builder.UseSetting("Storage:Provider", "InMemory");
+        // Хранилище приложения — PostgreSQL-only; тесты зоны работают на in-memory
+        // двойках tests/TestInfrastructure (без ввода-вывода и внешней БД).
+        builder.ConfigureServices(s => LabsApp.TestInfrastructure.InMemoryTestStorage.Register(s));
+        // Явная строка подключения (не равна dev-умолчанию): Production-режим
+        // тестовых хостов проходит StorageOptionsValidator; двойки хранилища
+        // подключений не выполняют.
+        builder.UseSetting("Storage:ConnectionString", "Host=127.0.0.1;Port=5434;Database=labsapp-test-double");
         // Конфигурация зоны B14WebAppFactory повторяется с заменой окружения:
         // base.ConfigureWebHost не вызывается, он фиксирует Development.
         builder.UseEnvironment(Environments.Production);

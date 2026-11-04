@@ -1,7 +1,7 @@
 using LabsApp.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace LabsApp.Storage.Ef;
+namespace LabsApp.Infrastructure.Ef;
 
 /// <summary>
 /// DbContext приложения (итерация «БД»): маппинг доменных сущностей на готовую

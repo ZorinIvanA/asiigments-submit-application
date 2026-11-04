@@ -7,9 +7,8 @@ using LabsApp.Controllers;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
-using LabsApp.Tests.Storage;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -494,7 +493,7 @@ public sealed class GroupsDeleteEndpointTests(GroupsApiFixture fixture) : IClass
     public async Task Delete_RemovesGroup_StudentsKeptWithoutGroup()
     {
         var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-222");
-        var detachedLogins = await (await GroupsEndpointHarness.Users(_factory)
+        var detachedLogins = (await GroupsEndpointHarness.Users(_factory)
             .ListByGroupAsync(group.Id))
             .Select(student => student.Login)
             .ToArray();

@@ -140,7 +140,7 @@ public sealed class Ts151_Nfr006FullFlowSecretsNotLoggedTests
         // given (хэши): хэш пароля из хранилища и SHA-256-хэши значений
         // refresh-cookie (значения/хэши токенов и хэши паролей — тоже секреты).
         var storedHash = (await factory.Services
-            .GetRequiredService<LabsApp.Storage.IUserRepository>()
+            .GetRequiredService<LabsApp.Infrastructure.IUserRepository>()
             .GetByLoginAsync(LoginName))!.PasswordHash;
         secrets.Add(storedHash);
         secrets.AddRange(secrets

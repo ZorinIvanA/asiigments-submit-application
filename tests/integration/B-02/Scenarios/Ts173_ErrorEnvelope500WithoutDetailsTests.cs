@@ -1,7 +1,7 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B02.Infrastructure;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
+using LabsApp.Infrastructure;
+using LabsApp.TestInfrastructure;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;

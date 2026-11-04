@@ -51,8 +51,7 @@ dotnet run --project src/api/LabsApp
 | `Seed__TeacherLogin` | `teacher` | Логин сид-учётки преподавателя |
 | `Seed__TeacherPassword` | `teacher123!` (только Development; см. предупреждение в разделе 3) | Пароль сид-учётки преподавателя |
 | `Seed__DemoData` | умолчание по окружению: Development — `true`, вне Development — всегда `false` | Демо-набор данных; допустимые явные значения — `true` / `false` (некорректное значение даёт warning и умолчание окружения) |
-| `Storage__Provider` | `postgres` | Провайдер хранилища: `postgres` (EF Core + Npgsql, требуется БД) либо `inmemory` (заглушка без ввода-вывода, только для тестов) |
-| `Storage__ConnectionString` | `Host=127.0.0.1;Port=5434;Database=labsapp;Username=labsapp;Password=labsapp` | Строка подключения к PostgreSQL при `Storage__Provider=postgres`; обязательна, в Production не может равняться dev-умолчанию |
+| `Storage__ConnectionString` | `Host=127.0.0.1;Port=5434;Database=labsapp;Username=labsapp;Password=labsapp` | Строка подключения к PostgreSQL (единственный провайдер приложения); обязательна, в Production не может равняться dev-умолчанию |
 
 Нарушения правил валидации (например, `Auth__JwtKey` короче 32 символов в
 Production или `Auth__Pbkdf2Iterations` вне диапазона) останавливают старт
@@ -171,9 +170,10 @@ ng test                             # из корня репозитория, Ch
 
 Все репозитории и контроллеры асинхронны. Каскады целостности выполняет БД
 (удаление группы — `ON DELETE SET NULL` студентам, удаление работы —
-`ON DELETE CASCADE` сдачам). Провайдер `inmemory` остаётся как тестовый двой
-(задаётся переменной `Storage__Provider=inmemory` в тестовых фабриках хоста);
-данные теперь переживают перезапуск процесса.
+`ON DELETE CASCADE` сдачам). In-memory реализации из приложения удалены;
+тестовые двойки живут в `tests/TestInfrastructure` (общая библиотека,
+подменяет регистрации хранилища в тестовых фабриках хоста). Данные
+переживают перезапуск процесса.
 
 ## 6. Dev-почта (восстановление пароля)
 

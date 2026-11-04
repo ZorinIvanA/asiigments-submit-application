@@ -9,10 +9,9 @@ using LabsApp.Domain.Entities;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Observability;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
-using LabsApp.Tests.Hosting;
-using LabsApp.Tests.Storage;
+using LabsApp.Infrastructure;
+using LabsApp.TestInfrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -659,8 +658,8 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
         Assert.Single(blankErrors.EnumerateObject());
 
         var repository = Factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(await await repository.GetByLoginAsync("repeat-missing"));
-        Assert.Null(await await repository.GetByLoginAsync("repeat-blank"));
+        Assert.Null(await repository.GetByLoginAsync("repeat-missing"));
+        Assert.Null(await repository.GetByLoginAsync("repeat-blank"));
         Assert.Equal(0, AuthEndpointHarness.TotalDelta(before, AuthEndpointHarness.KdfSnapshot(Factory)));
     }
 
@@ -1072,8 +1071,7 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
         var accessCookie = AuthEndpointHarness.SetCookieOf(setCookies, AuthCoreDefaults.AccessTokenCookieName);
         AuthEndpointHarness.AssertAuthCookieAttributes(accessCookie, "900");
         Assert.DoesNotContain(AuthCoreDefaults.RefreshTokenCookieName, setCookies[0], StringComparison.Ordinal);
-        Assert.NotNull(await 
-            await Factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveByHashAsync(record.TokenHash));
+        Assert.NotNull(await Factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveByHashAsync(record.TokenHash));
 
         // then: новый access работает — GET /auth/me от имени пользователя.
         client.DefaultRequestHeaders.Remove("Cookie");

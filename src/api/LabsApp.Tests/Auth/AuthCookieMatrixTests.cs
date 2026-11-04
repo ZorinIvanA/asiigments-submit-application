@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using LabsApp.Auth;
-using LabsApp.Tests.Hosting;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace LabsApp.Tests.Auth;

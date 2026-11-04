@@ -69,7 +69,6 @@ psql -U postgres -f 99_drop_all.sql
 см. `src/api/README.md`):
 
 ```
-Storage__Provider=postgres                                                    # postgres (по умолчанию) | inmemory
 Storage__ConnectionString=Host=127.0.0.1;Port=5434;Database=labsapp;Username=labsapp;Password=labsapp
 ```
 

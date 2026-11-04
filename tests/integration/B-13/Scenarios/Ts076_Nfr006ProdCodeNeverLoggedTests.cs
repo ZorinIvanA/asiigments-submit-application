@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B13.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

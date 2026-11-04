@@ -44,4 +44,8 @@
           SkipUnchangedFiles="true" />
   </Target>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\tests\TestInfrastructure\LabsApp.TestInfrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

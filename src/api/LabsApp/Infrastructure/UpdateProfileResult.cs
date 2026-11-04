@@ -1,4 +1,4 @@
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Итог узкой атомарной мутации профиля <see cref="IUserRepository.UpdateProfile"/>

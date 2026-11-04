@@ -65,6 +65,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\TestInfrastructure\LabsApp.TestInfrastructure.csproj" />
     <ProjectReference Include="..\..\..\..\src\api\LabsApp\LabsApp.csproj" />
   </ItemGroup>
 

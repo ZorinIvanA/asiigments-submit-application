@@ -2,7 +2,7 @@ using LabsApp.Auth;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B11.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B11.Scenarios;
 

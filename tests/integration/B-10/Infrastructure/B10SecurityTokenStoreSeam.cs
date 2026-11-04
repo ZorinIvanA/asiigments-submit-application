@@ -23,8 +23,8 @@ public sealed class B10SecurityTokenStoreSeam
 {
     private static readonly (string InterfaceName, string LookupMethodName)[] CandidateInterfaces =
     {
-        ("LabsApp.Storage.ISecurityTokenRepository", "FindLiveByHashAsync"),
-        ("LabsApp.Storage.IRefreshTokenRepository", "FindByHash"),
+        ("LabsApp.Infrastructure.ISecurityTokenRepository", "FindLiveByHashAsync"),
+        ("LabsApp.Infrastructure.IRefreshTokenRepository", "FindByHash"),
     };
 
     /// <summary>Все допустимые имена поиска записи по хэшу (порядок приоритета).</summary>

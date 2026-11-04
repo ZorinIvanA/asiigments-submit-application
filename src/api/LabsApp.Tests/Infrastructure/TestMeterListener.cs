@@ -2,7 +2,7 @@ using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Text;
 
-namespace LabsApp.Tests.Observability;
+namespace LabsApp.Tests.Infrastructure;
 
 /// <summary>
 /// Помощник MeterListener для Meter «labs.api» (ADR-017/ADR-018). Единственный

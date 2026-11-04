@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Net;
 using LabsApp.Auth;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Tests.Observability;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
@@ -11,7 +11,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace LabsApp.Tests.Hosting;
+using LabsApp.TestInfrastructure;
+
+namespace LabsApp.Tests.Infrastructure;
 
 /// <summary>
 /// Базовая фабрика тестового хоста (ADR-010): явное окружение (по умолчанию Development),
@@ -138,9 +140,10 @@ public sealed class TestWebAppFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-            // Итерация «БД»: умолчание приложения — postgres; тесты зоны работают
-            // на in-memory двой хранилища (без ввода-вывода и внешней БД).
-            builder.UseSetting("Storage:Provider", "InMemory");
+        // Хранилище приложения — PostgreSQL-only; тестовый хост работает на
+        // in-memory двойках tests/TestInfrastructure (регистрации подменяются
+        // ПОСЛЕ Program.cs — подключение к БД не выполняется).
+        builder.ConfigureServices(services => services.Register());
         builder.UseEnvironment(_environment);
         builder.UseSetting(WebHostDefaults.ContentRootKey, AppContext.BaseDirectory);
 
@@ -185,7 +188,7 @@ public sealed class TestWebAppFactory : WebApplicationFactory<Program>
                 ?? throw new InvalidOperationException(
                     "ApplicationPartManager не найден: AddControllers() должен вызываться в Program.");
 
-            partManager.ApplicationParts.Add(new AssemblyPart(typeof(HostingSmokeController).Assembly));
+            partManager.ApplicationParts.Add(new AssemblyPart(typeof(LabsApp.Controllers.AuthController).Assembly));
         });
     }
 

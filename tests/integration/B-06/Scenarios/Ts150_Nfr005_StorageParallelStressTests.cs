@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using LabsApp.Domain;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;

@@ -1,8 +1,8 @@
 using System.Net;
 using LabsApp.Auth;
 using LabsApp.Domain.Validation;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
 

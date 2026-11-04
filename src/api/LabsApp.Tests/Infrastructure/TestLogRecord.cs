@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace LabsApp.Tests.Observability;
+namespace LabsApp.Tests.Infrastructure;
 
 /// <summary>
 /// Одна запись журнала, собранная TestLogSink. State — ключи структурированного

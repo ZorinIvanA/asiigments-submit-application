@@ -1,10 +1,10 @@
 using LabsApp.Domain;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage.Ef;
+using LabsApp.Infrastructure.Ef;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// EF Core (PostgreSQL) реализация <see cref="IGroupRepository"/>. Каскад

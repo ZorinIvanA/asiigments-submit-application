@@ -1,4 +1,6 @@
-namespace LabsApp.Storage.InMemory;
+using LabsApp.Infrastructure;
+
+namespace LabsApp.TestInfrastructure;
 
 /// <summary>
 /// Единая блокировка всего in-memory хранилища (ADR-002): все операции всех

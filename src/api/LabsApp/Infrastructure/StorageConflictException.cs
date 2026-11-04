@@ -1,4 +1,4 @@
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Нарушение уникальности хранилища при составной операции (FR-002): занятый

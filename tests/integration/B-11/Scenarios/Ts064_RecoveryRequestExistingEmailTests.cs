@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B11.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.Logging;
 
 namespace LabsApp.IntegrationTests.B11.Scenarios;

@@ -39,7 +39,7 @@ public sealed class Ts050_RefreshTokenStoredAsSha256Tests
         var refreshCookie = B08AuthHost.SingleCookie(login, "refresh_token", "Set-Cookie входа (TS-050)");
 
         // given: хранилище токенов доступно тесту (DI тестового хоста).
-        var securityTokens = factory.Services.GetRequiredService<LabsApp.Storage.ISecurityTokenRepository>();
+        var securityTokens = factory.Services.GetRequiredService<LabsApp.Infrastructure.ISecurityTokenRepository>();
 
         // when: инспекция записей RefreshToken — поиск по SHA-256 значения cookie
         // (зеркало контракта IF-003: в хранилище — только SHA-256 hex значения).

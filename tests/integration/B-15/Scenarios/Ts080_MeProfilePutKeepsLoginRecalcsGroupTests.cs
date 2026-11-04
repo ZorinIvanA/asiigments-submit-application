@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B15.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B15.Scenarios;

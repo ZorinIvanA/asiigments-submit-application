@@ -1,8 +1,8 @@
 using LabsApp.Domain.Entities;
-using LabsApp.Storage.InMemory;
+using LabsApp.TestInfrastructure;
 using Microsoft.Extensions.Time.Testing;
 
-namespace LabsApp.Tests.Storage;
+namespace LabsApp.Tests.Infrastructure;
 
 /// <summary>
 /// Связка in-memory хранилищ для юнит-тестов C-003: единая <see cref="StorageLock"/>

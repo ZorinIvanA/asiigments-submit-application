@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B15.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B15.Scenarios;
 

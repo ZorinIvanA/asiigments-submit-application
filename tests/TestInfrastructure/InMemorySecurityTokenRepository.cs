@@ -1,6 +1,8 @@
 using LabsApp.Domain.Entities;
 
-namespace LabsApp.Storage.InMemory;
+using LabsApp.Infrastructure;
+
+namespace LabsApp.TestInfrastructure;
 
 /// <summary>
 /// In-memory реализация <see cref="ISecurityTokenRepository"/> (IF-015, FR-024):

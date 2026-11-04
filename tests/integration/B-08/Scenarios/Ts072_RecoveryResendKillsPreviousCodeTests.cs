@@ -1,7 +1,7 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B08.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B08.Scenarios;

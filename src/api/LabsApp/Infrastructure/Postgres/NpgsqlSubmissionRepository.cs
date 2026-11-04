@@ -1,7 +1,7 @@
 using LabsApp.Domain.Entities;
 using Npgsql;
 
-namespace LabsApp.Storage.Postgres;
+namespace LabsApp.Infrastructure.Postgres;
 
 /// <summary>
 /// Реализация <see cref="ISubmissionRepository"/> на «чистом» ADO.NET:

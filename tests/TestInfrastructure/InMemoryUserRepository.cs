@@ -1,7 +1,9 @@
 using LabsApp.Domain;
 using LabsApp.Domain.Entities;
 
-namespace LabsApp.Storage.InMemory;
+using LabsApp.Infrastructure;
+
+namespace LabsApp.TestInfrastructure;
 
 /// <summary>
 /// In-memory реализация <see cref="IUserRepository"/> (FR-024): Dictionary + индексы

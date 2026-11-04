@@ -32,8 +32,8 @@ public sealed class B23WebAppFactory : WebApplicationFactory<Program>
         builder.UseSetting(WebHostDefaults.ContentRootKey, AppContext.BaseDirectory);
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
 
-        // Явный выбор провайдера: postgres (провайдер БД — предмет зоны B-23).
-        builder.UseSetting("Storage:Provider", "postgres");
+        // Зона B-23 — на РЕАЛЬНОМ PostgreSQL (провайдер приложения единственный);
+        // отличие от остальных зон — явная строка подключения.
         builder.UseSetting("Storage:ConnectionString", ConnectionString);
     }
 }

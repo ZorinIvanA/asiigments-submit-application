@@ -5,9 +5,8 @@ using LabsApp.Auth.RateLimiting;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Observability;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
-using LabsApp.Tests.Observability;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -130,8 +129,7 @@ public sealed class RecoveryTimeDeterminismTests(RecoveryFakeTimeFactory fixture
 
         // then: живых кодов нет; confirm ВЕРНЫМ значением просроченного кода —
         // единый 400 «Код восстановления не подходит» (FR-013).
-        Assert.Null(await 
-            await HostServices().GetRequiredService<ISecurityTokenRepository>().FindLiveForUserAsync(user.Id));
+        Assert.Null(await HostServices().GetRequiredService<ISecurityTokenRepository>().FindLiveForUserAsync(user.Id));
         using var response = await RecoveryEndpointHarness.ConfirmAsync(client, user.Email, code);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(ValidationTexts.RecoveryCodeRejected, await RecoveryEndpointHarness.MessageAsync(response));

@@ -1,4 +1,4 @@
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using LabsApp.IntegrationTests.B09.Infrastructure;
 

@@ -2,7 +2,7 @@ using LabsApp.Auth.RateLimiting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B05.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Xunit.Sdk;

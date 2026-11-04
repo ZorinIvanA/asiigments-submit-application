@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B21.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B21.Scenarios;
 
@@ -93,8 +93,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
             await B21DomainSeed.AddStudentAsync(Factory, "b188-base-student-2");
             await B21DomainSeed.AddStudentAsync(Factory, "b188-base-student-3");
 
-            Assert.NotNull(await 
-                await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(SeedOptions.DefaultTeacherLogin));
+            Assert.NotNull(await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(SeedOptions.DefaultTeacherLogin));
         }
 
         public void Dispose() => Factory.Dispose();

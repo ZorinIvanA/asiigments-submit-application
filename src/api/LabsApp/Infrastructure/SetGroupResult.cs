@@ -1,4 +1,4 @@
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Итог узкой атомарной мутации группы студента <see cref="IUserRepository.SetGroup"/>

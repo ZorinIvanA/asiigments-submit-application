@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using LabsApp.Tests.Profile;
 using LabsApp.Tests.Students;
 using Microsoft.AspNetCore.Mvc.Testing;

@@ -4,8 +4,8 @@ using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -457,7 +457,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var errors = await LabsEndpointHarness.ErrorsAsync(response);
         Assert.NotEmpty(LabsEndpointHarness.ErrorOf(errors, "defenseRequired"));
-        Assert.Null(await await labs.TryGetByPairAsync(semester: 3, number: number));
+        Assert.Null(await labs.TryGetByPairAsync(semester: 3, number: number));
     }
 
     [Fact]
@@ -476,7 +476,7 @@ public sealed class LabsCreateEndpointTests(LabsApiFixture fixture) : IClassFixt
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var errors = await LabsEndpointHarness.ErrorsAsync(response);
         Assert.Equal(new[] { "Заполните поле" }, LabsEndpointHarness.ErrorOf(errors, "defenseRequired"));
-        Assert.Null(await await labs.TryGetByPairAsync(semester: 3, number: 704));
+        Assert.Null(await labs.TryGetByPairAsync(semester: 3, number: 704));
     }
 
     [Fact]

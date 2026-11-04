@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Репозиторий лабораторных работ (IF-015, FR-002). Уникальность пары

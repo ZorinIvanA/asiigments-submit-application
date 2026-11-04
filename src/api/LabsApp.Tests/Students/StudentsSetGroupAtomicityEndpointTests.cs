@@ -1,9 +1,9 @@
 using System.Net;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
-using LabsApp.Tests.Hosting;
+using LabsApp.Infrastructure;
+using LabsApp.TestInfrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

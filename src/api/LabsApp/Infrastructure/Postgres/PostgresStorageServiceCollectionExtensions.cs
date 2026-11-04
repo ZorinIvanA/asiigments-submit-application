@@ -1,10 +1,10 @@
-using LabsApp.Storage.Ef;
-using LabsApp.Storage.Postgres;
+using LabsApp.Infrastructure.Ef;
+using LabsApp.Infrastructure.Postgres;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
-namespace LabsApp.Storage;
+namespace LabsApp.Infrastructure;
 
 /// <summary>
 /// Регистрации PostgreSQL-хранилища (итерация «БД»): один NpgsqlDataSource
