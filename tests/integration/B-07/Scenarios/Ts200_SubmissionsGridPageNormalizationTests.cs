@@ -1,6 +1,6 @@
 using System.Text.Json;
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
@@ -40,8 +40,8 @@ public sealed class Ts200_SubmissionsGridPageNormalizationTests : IClassFixture<
     public async Task GetGridWithPage0_NormalizesToPage1()
     {
         // given: сессия teacher; демо-группа ИК-221 (25 студентов), семестр 1 (20 работ).
-        using var client = B07MintedSessions.CreateTeacherClient(_factory);
-        var ik221Id = GetIk221Id();
+        using var client = await B07MintedSessions.CreateTeacherClient(_factory);
+        var ik221Id = await GetIk221IdAsync();
 
         // when: GET /submissions?groupId=<ИК-221>&semester=1&page=0.
         using var response = await client.GetAsync($"/api/v1/submissions?groupId={ik221Id}&semester=1&page=0");
@@ -59,8 +59,8 @@ public sealed class Ts200_SubmissionsGridPageNormalizationTests : IClassFixture<
     public async Task GetGridWithNonNumericPage_NormalizesToPage1()
     {
         // given: сессия teacher; демо-группа ИК-221 (25 студентов), семестр 1 (20 работ).
-        using var client = B07MintedSessions.CreateTeacherClient(_factory);
-        var ik221Id = GetIk221Id();
+        using var client = await B07MintedSessions.CreateTeacherClient(_factory);
+        var ik221Id = await GetIk221IdAsync();
 
         // when: GET /submissions?groupId=<ИК-221>&semester=1&page=abc.
         using var response = await client.GetAsync($"/api/v1/submissions?groupId={ik221Id}&semester=1&page=abc");
@@ -75,8 +75,8 @@ public sealed class Ts200_SubmissionsGridPageNormalizationTests : IClassFixture<
     public async Task GetGridWithFractionalPage_NormalizesToPage1()
     {
         // given: сессия teacher; демо-группа ИК-221 (25 студентов), семестр 1 (20 работ).
-        using var client = B07MintedSessions.CreateTeacherClient(_factory);
-        var ik221Id = GetIk221Id();
+        using var client = await B07MintedSessions.CreateTeacherClient(_factory);
+        var ik221Id = await GetIk221IdAsync();
 
         // when: GET /submissions?groupId=<ИК-221>&semester=1&page=2.5.
         using var response = await client.GetAsync($"/api/v1/submissions?groupId={ik221Id}&semester=1&page=2.5");
@@ -91,8 +91,8 @@ public sealed class Ts200_SubmissionsGridPageNormalizationTests : IClassFixture<
     public async Task GetGridWithPageBeyondLast_ReturnsEmptyStudentsWithCorrectTotal()
     {
         // given: сессия teacher; демо-группа ИК-221 (25 студентов), семестр 1 (20 работ).
-        using var client = B07MintedSessions.CreateTeacherClient(_factory);
-        var ik221Id = GetIk221Id();
+        using var client = await B07MintedSessions.CreateTeacherClient(_factory);
+        var ik221Id = await GetIk221IdAsync();
 
         // when: GET /submissions?groupId=<ИК-221>&semester=1&page=99.
         using var response = await client.GetAsync($"/api/v1/submissions?groupId={ik221Id}&semester=1&page=99");
@@ -113,8 +113,8 @@ public sealed class Ts200_SubmissionsGridPageNormalizationTests : IClassFixture<
 
     /// <summary>id демо-группы ИК-221 (DI-чтение IGroupRepository, IF-015):
     /// шаг given «ИК-221 (25 студентов)» — сида FR-025, Seed__DemoData=true.</summary>
-    private Guid GetIk221Id() =>
-        _factory.Services.GetRequiredService<IGroupRepository>().GetByName("ИК-221") is { } ik221
+    private async Task<Guid> GetIk221IdAsync() =>
+        await _factory.Services.GetRequiredService<IGroupRepository>().GetByNameAsync("ИК-221") is { } ik221
             ? ik221.Id
             : throw new InvalidOperationException(
                 "Демо-группа «ИК-221» не найдена — шаг given «демо-сид» неисполним (Seed__DemoData=true).");

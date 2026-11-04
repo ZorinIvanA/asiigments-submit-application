@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B11.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B11.Scenarios;
 
@@ -65,7 +65,7 @@ public sealed class Ts065_RecoveryRequestUnknownEmailTests(B11RecoveryDevSpyHost
         // эталон — код в записи существующего email верифицируется по хэшу созданного
         // кода: формат записи принципиально одинаков, существование учётной записи
         // записью 'EmailDev' не раскрывается.
-        var live = securityTokens.FindLiveForUser(existingUser.Id);
+        var live = await securityTokens.FindLiveForUserAsync(existingUser.Id);
         Assert.NotNull(live);
         var code = B11RecoveryLogs.VerifiedCode(existingEntry, tokens, live.CodeHash);
         Assert.Matches("^[0-9]{6}$", code);

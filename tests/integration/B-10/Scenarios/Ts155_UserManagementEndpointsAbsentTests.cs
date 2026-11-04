@@ -24,8 +24,8 @@ public sealed class Ts155_UserManagementEndpointsAbsentTests(B10NoDemoWebAppFact
     public async Task TS155_DeleteUser_AndPutUserRole_AreAbsent_Return404NotFound()
     {
         // given: сессия teacher; uuid DI-сид-студента.
-        var studentId = B10Seed.AddStudent(_factory, "b10ts155.student").Id;
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        var studentId = (await B10Seed.AddStudentAsync(_factory, "b10ts155.student")).Id;
+        using var teacher = await HostClients.CreateTeacherClient(_factory);
 
         // when: DELETE /api/v1/users/<uuid>.
         using var deleteUser = await teacher.DeleteAsync($"/api/v1/users/{studentId}");

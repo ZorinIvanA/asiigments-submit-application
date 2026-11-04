@@ -11,22 +11,28 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        submitDate:'2026-09-20', defenseDate:null}.
 /// then:  404 'Студент не найден' (FR-021).
 /// </summary>
-public sealed class Ts162_SubmissionUnknownStudentTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts162_SubmissionUnknownStudentTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _labId;
+    private Guid _labId;
 
     public Ts162_SubmissionUnknownStudentTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 1).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 1)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionWithUnknownStudent_Returns404StudentNotFound()
     {
         // given: teacher-сессия; studentId — случайный uuid; labId валиден; даты валидны.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
         var unknownStudentId = Guid.NewGuid();
 
         // when: PUT /submissions {studentId:<случайный uuid>, labId:<валидный>, ...}.

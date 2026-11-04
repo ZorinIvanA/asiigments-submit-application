@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using LabsApp.Domain;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
@@ -59,7 +59,7 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
 
         using var startGate = new ManualResetEventSlim();
         var workers = Enumerable.Range(0, Threads)
-            .Select(threadIndex => Task.Run(() => RunMixedOperations(
+            .Select(threadIndex => Task.Run(() => RunMixedOperationsAsync(
                 threadIndex,
                 users,
                 groups,
@@ -85,21 +85,21 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
             "Потоки нагрузки завершились с исключениями/отклонениями: " + string.Join(" | ", failures.Take(5)));
 
         // then: нет дублей (semester, number) — у каждой работы уникальная пара.
-        var storedLabs = labs.GetAll();
+        var storedLabs = await labs.GetAllAsync();
         Assert.Equal(Threads * CyclesPerThread, storedLabs.Count);
         Assert.Equal(
             storedLabs.Count,
             storedLabs.Select(lab => (lab.Semester, lab.Number)).Distinct().Count());
 
         // then: нет дублей lower(login) — у каждого студента уникальный ci-логин.
-        var storedStudents = users.ListStudents();
+        var storedStudents = await users.ListStudentsAsync();
         Assert.Equal(Threads * CyclesPerThread, storedStudents.Count);
         Assert.Equal(
             storedStudents.Count,
             storedStudents.Select(user => Collation.Key(user.Login)).Distinct(StringComparer.Ordinal).Count());
 
         // then: нет дублей lower(name группы) — у каждой группы уникальное ci-имя.
-        var storedGroups = groups.GetAll();
+        var storedGroups = await groups.GetAllAsync();
         Assert.Equal(Threads * CyclesPerThread, storedGroups.Count);
         Assert.Equal(
             storedGroups.Count,
@@ -107,16 +107,18 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
 
         // then: нет дублей (studentId, labId) — у каждой сдачи уникальная пара;
         // у каждого студента ровно одна сдача, пара находится прямым чтением.
-        var storedSubmissions = storedStudents
-            .SelectMany(student => submissions.ListByStudent(student.Id))
-            .ToList();
+        var storedSubmissions = new List<Submission>();
+        foreach (var student in storedStudents)
+        {
+            storedSubmissions.AddRange(await submissions.ListByStudentAsync(student.Id));
+        }
         Assert.Equal(Threads * CyclesPerThread, storedSubmissions.Count);
         Assert.Equal(
             storedSubmissions.Count,
             storedSubmissions.Select(submission => (submission.StudentId, submission.LabId)).Distinct().Count());
         Assert.Equal(
             Threads * CyclesPerThread,
-            submissionPairs.Distinct().Count(pair => submissions.GetByStudentAndLab(pair.StudentId, pair.LabId) is not null));
+            submissionPairs.Distinct().Count(pair => submissions.GetByStudentAndLabAsync(pair.StudentId, pair.LabId) is not null));
     }
 
     /// <summary>
@@ -127,7 +129,7 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
     /// чтения списков. Ключи потока непересекающиеся, поэтому ЛЮБОЕ исключение —
     /// нарушение NFR-005 и попадает в <paramref name="failures"/>.
     /// </summary>
-    private static void RunMixedOperations(
+    private static async Task RunMixedOperationsAsync(
         int threadIndex,
         IUserRepository users,
         IGroupRepository groups,
@@ -168,10 +170,10 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                             GroupId = null,
                             CreatedAt = now,
                         };
-                        users.Add(student);
+                        await users.AddAsync(student);
                         ownStudents[cycle] = student.Id;
                         studentIds.Add(student.Id);
-                        Assert.NotNull(users.GetById(student.Id));
+                        Assert.NotNull( await users.GetByIdAsync(student.Id) );
                         break;
                     }
 
@@ -184,10 +186,10 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                             Name = $"Т181-T{threadIndex}-Группа-{cycle:00}",
                             CreatedAt = now,
                         };
-                        groups.Add(group);
+                        await groups.AddAsync(group);
                         ownGroups[cycle] = group.Id;
                         groupIds.Add(group.Id);
-                        Assert.NotNull(groups.GetByName(group.Name));
+                        Assert.NotNull( await groups.GetByNameAsync(group.Name) );
                         break;
                     }
 
@@ -205,10 +207,10 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                             CreatedAt = now,
                             UpdatedAt = now,
                         };
-                        labs.Add(lab);
+                        await labs.AddAsync(lab);
                         ownLabs[cycle] = lab.Id;
                         labIds.Add(lab.Id);
-                        Assert.NotNull(labs.TryGetByPair(ThreadSemester(threadIndex), cycle));
+                        Assert.NotNull( await labs.TryGetByPairAsync(ThreadSemester(threadIndex), cycle) );
                         break;
                     }
 
@@ -216,7 +218,7 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                     {
                         // Создание сдачи собственной пары (student k, lab k).
                         var pair = (StudentId: ownStudents[cycle], LabId: ownLabs[cycle]);
-                        var saved = submissions.Upsert(
+                        var saved = await submissions.UpsertAsync(
                             pair.StudentId,
                             pair.LabId,
                             new DateOnly(2026, 9, 1),
@@ -225,28 +227,28 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                             now);
                         Assert.NotNull(saved);
                         submissionPairs.Add(pair);
-                        Assert.NotNull(submissions.GetByStudentAndLab(pair.StudentId, pair.LabId));
+                        Assert.NotNull( await submissions.GetByStudentAndLabAsync(pair.StudentId, pair.LabId) );
                         break;
                     }
 
                     case 4:
                     {
                         // Контрольные чтения всех четырёх созданных сущностей цикла.
-                        Assert.NotNull(users.GetById(ownStudents[cycle]));
-                        Assert.NotNull(groups.GetById(ownGroups[cycle]));
-                        Assert.NotNull(labs.GetById(ownLabs[cycle]));
-                        Assert.NotNull(submissions.GetByStudentAndLab(ownStudents[cycle], ownLabs[cycle]));
+                        Assert.NotNull( await users.GetByIdAsync(ownStudents[cycle]) );
+                        Assert.NotNull( await groups.GetByIdAsync(ownGroups[cycle]) );
+                        Assert.NotNull( await labs.GetByIdAsync(ownLabs[cycle]) );
+                        Assert.NotNull( await submissions.GetByStudentAndLabAsync(ownStudents[cycle], ownLabs[cycle]) );
                         break;
                     }
 
                     case 5:
                     {
                         // Обновление работы: контент и UpdatedAt.
-                        var lab = labs.GetById(ownLabs[cycle]);
+                        var lab = await labs.GetByIdAsync(ownLabs[cycle]);
                         Assert.NotNull(lab);
                         lab!.Content += $" (обновлена потоком {threadIndex})";
-                        labs.Update(lab);
-                        var reloaded = labs.TryGetByPair(ThreadSemester(threadIndex), cycle);
+                        await labs.UpdateAsync(lab);
+                        var reloaded = await labs.TryGetByPairAsync(ThreadSemester(threadIndex), cycle);
                         Assert.NotNull(reloaded);
                         Assert.Contains($"(обновлена потоком {threadIndex})", reloaded!.Content, StringComparison.Ordinal);
                         break;
@@ -256,11 +258,11 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                     {
                         // Обновление группы: переименование в пределах своего
                         // непересекающегося диапазона имён.
-                        var group = groups.GetById(ownGroups[cycle]);
+                        var group = await groups.GetByIdAsync(ownGroups[cycle]);
                         Assert.NotNull(group);
                         group!.Name += "-ren";
-                        groups.Update(group);
-                        Assert.NotNull(groups.GetByName(group.Name));
+                        await groups.UpdateAsync(group);
+                        Assert.NotNull( await groups.GetByNameAsync(group.Name) );
                         break;
                     }
 
@@ -268,12 +270,12 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                     {
                         // Обновление студента: узкая атомарная мутация группы
                         // (SetGroup, SEC-001) на собственную группу цикла.
-                        var result = users.SetGroup(
+                        var result = await users.SetGroupAsync(
                             ownStudents[cycle],
                             ownGroups[cycle],
-                            groupId => groups.GetById(groupId) is not null);
+                            async groupId => await groups.GetByIdAsync(groupId) is not null);
                         Assert.Equal(SetGroupResult.Success, result);
-                        Assert.Equal(ownGroups[cycle], users.GetById(ownStudents[cycle])!.GroupId);
+                        Assert.Equal(ownGroups[cycle], (await users.GetByIdAsync(ownStudents[cycle]))!.GroupId);
                         break;
                     }
 
@@ -281,7 +283,7 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                     {
                         // Обновление сдачи: апсерт с новыми датами (запись пары
                         // сохраняется, даты заменяются).
-                        var saved = submissions.Upsert(
+                        var saved = await submissions.UpsertAsync(
                             ownStudents[cycle],
                             ownLabs[cycle],
                             new DateOnly(2026, 9, 15),
@@ -289,7 +291,7 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                             null,
                             now);
                         Assert.NotNull(saved);
-                        var reloaded = submissions.GetByStudentAndLab(ownStudents[cycle], ownLabs[cycle]);
+                        var reloaded = await submissions.GetByStudentAndLabAsync(ownStudents[cycle], ownLabs[cycle]);
                         Assert.Equal(new DateOnly(2026, 9, 15), reloaded!.SubmitDate);
                         Assert.Equal(new DateOnly(2026, 9, 20), reloaded.DefenseDate);
                         break;
@@ -298,11 +300,10 @@ public sealed class Ts181_Nfr005_EightBy200MixedOperationsTests : IClassFixture<
                     default:
                     {
                         // Смешанные чтения списков (шаг 9).
-                        Assert.Contains(
-                            labs.ListByFilter(ThreadSemester(threadIndex)),
-                            lab => lab.Id == ownLabs[cycle]);
-                        Assert.NotEmpty(users.ListStudents());
-                        Assert.NotEmpty(groups.GetAll());
+                        var semesterLabs = await labs.ListByFilterAsync(ThreadSemester(threadIndex));
+                        Assert.Contains(semesterLabs, lab => lab.Id == ownLabs[cycle]);
+                        Assert.NotEmpty(await users.ListStudentsAsync());
+                        Assert.NotEmpty(await groups.GetAllAsync());
                         break;
                     }
                 }

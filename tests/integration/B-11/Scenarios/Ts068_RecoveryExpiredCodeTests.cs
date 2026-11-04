@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B11.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B11.Scenarios;
@@ -36,7 +36,7 @@ public sealed class Ts068_RecoveryExpiredCodeTests(B11RecoveryDevSpyHost factory
         using var request = await B11RecoveryApi.RecoveryRequestAsync(client, StudentEmail);
         await B11RecoveryApi.AssertEmptyBodyOkAsync(request);
 
-        var live = securityTokens.FindLiveForUser(user.Id);
+        var live = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Equal(t0.AddMinutes(10).UtcDateTime, live.ExpiresAt);
         var devEmail = Assert.Single(B11RecoveryLogs.DevEmailEntries(_factory.LogSink));

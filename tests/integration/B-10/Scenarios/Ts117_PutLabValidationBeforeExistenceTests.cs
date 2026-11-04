@@ -17,7 +17,7 @@ public sealed class Ts117_PutLabValidationBeforeExistenceTests(B10NoDemoWebAppFa
     public async Task TS117_PutInvalidNumberOnUnknownId_Returns400Not404()
     {
         // given: неизвестный uuid в маршруте; сессия teacher.
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClient(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: валидное тело, кроме number=-1.

@@ -19,7 +19,7 @@ public sealed class Ts129_StudentMultiWordSearchTests(B04DemoSeedWebAppFactory f
     [Fact]
     public async Task TS129_GetStudentsSearchBothTokensInFullName_FindsStudent01()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: многословный поиск «иван 01» (пробел — разделитель токенов запроса).
         var search = Uri.EscapeDataString("иван 01");

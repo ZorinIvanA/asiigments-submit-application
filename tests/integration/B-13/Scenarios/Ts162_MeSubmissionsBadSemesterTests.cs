@@ -20,8 +20,8 @@ public sealed class Ts162_MeSubmissionsBadSemesterTests(B13WebAppFactory factory
     {
         // given: студент в группе с работой и своей сдачей в семестре 1; сессия студента.
         var login = "ts162-abc";
-        SeedStudentWithGroupWorkAndSubmission(login, semester: 1, number: 1);
-        using var client = HostClients.CreateStudentClient(_factory, login);
+        await SeedStudentWithGroupWorkAndSubmissionAsync(login, semester: 1, number: 1);
+        using var client = await HostClients.CreateStudentClientAsync(_factory, login);
 
         // when: GET /me/submissions?semester=abc.
         using var response = await client.GetAsync("/api/v1/me/submissions?semester=abc");
@@ -36,8 +36,8 @@ public sealed class Ts162_MeSubmissionsBadSemesterTests(B13WebAppFactory factory
     {
         // given: студент в группе с работой и своей сдачей в семестре 1; сессия студента.
         var login = "ts162-missing";
-        SeedStudentWithGroupWorkAndSubmission(login, semester: 1, number: 2);
-        using var client = HostClients.CreateStudentClient(_factory, login);
+        await SeedStudentWithGroupWorkAndSubmissionAsync(login, semester: 1, number: 2);
+        using var client = await HostClients.CreateStudentClientAsync(_factory, login);
 
         // when: GET /me/submissions (без параметра semester).
         using var response = await client.GetAsync("/api/v1/me/submissions");
@@ -65,11 +65,11 @@ public sealed class Ts162_MeSubmissionsBadSemesterTests(B13WebAppFactory factory
     /// ILabRepository класс-фикстуры — повторная пара даёт StorageConflictException
     /// (CR-001). Проверяемое поведение от пары не зависит: semester=abc/отсутствует
     /// → labs=[] и submissions=[] при любой корректной работе с сдачей студента.</summary>
-    private void SeedStudentWithGroupWorkAndSubmission(string login, int semester, int number)
+    private async Task SeedStudentWithGroupWorkAndSubmissionAsync(string login, int semester, int number)
     {
         var group = B13Seed.AddGroup(_factory, $"Группа TS-162 {login}");
         var student = B13Seed.AddStudent(_factory, login, "Алексеев", group.Id);
         var lab = B13Seed.AddLab(_factory, semester, number);
-        B13Seed.AddSubmission(_factory, student.Id, lab.Id, "2025-05-01", null);
+        await B13Seed.AddSubmissionAsync(_factory, student.Id, lab.Id, "2025-05-01", null);
     }
 }

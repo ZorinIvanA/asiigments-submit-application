@@ -9,7 +9,7 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -86,7 +86,7 @@ public sealed class SubmissionsController(
     /// хранилища преподаватель при живом access-токене — 401 из действия.
     /// </summary>
     [HttpGet("submissions")]
-    public IActionResult Grid(
+    public async Task<IActionResult> Grid(
         [FromQuery(Name = "groupId")] string? groupId,
         [FromQuery(Name = "semester")] string? semester,
         [FromQuery(Name = "page")] string? page)
@@ -99,7 +99,7 @@ public sealed class SubmissionsController(
         // Пользователь сессии существует в хранилище (зеркало мока
         // requireSessionUser): удалённая учётка при живом access-токене —
         // 401 из действия, ДО валидации query (тот же порядок, что в Update/Mine).
-        if (TryLoadCurrentUser() is null)
+        if (await TryLoadCurrentUserAsync() is null)
         {
             return UnauthorizedEnvelope();
         }
@@ -113,7 +113,7 @@ public sealed class SubmissionsController(
             return ValidationFailed(errors);
         }
 
-        if (_groups.GetById(ParseId(groupId)) is not { } group)
+        if (await _groups.GetByIdAsync(ParseId(groupId)) is not { } group)
         {
             return GroupNotFound();
         }
@@ -121,8 +121,7 @@ public sealed class SubmissionsController(
         // Двухколоночная сортировка fullName↑ затем login↑ по правилам русской
         // локали без учёта регистра (AR-005) — сервисная обязанность контроллера
         // (репозиторий порядок не определяёт, IF-015). total — ДО нарезки страницы.
-        var students = _users
-            .ListByGroup(group.Id)
+        var students = (await _users.ListByGroupAsync(group.Id))
             .OrderBy(student => student.FullName, Collation.SortComparer)
             .ThenBy(student => student.Login, Collation.SortComparer)
             .ToList();
@@ -138,17 +137,15 @@ public sealed class SubmissionsController(
             : students.Skip((int)skip).Take(PageSize);
         var pageStudents = slice.ToList();
 
-        var semesterLabs = _labs
-            .ListByFilter(semesterValue)
+        var semesterLabs = (await _labs.ListByFilterAsync(semesterValue))
             .OrderBy(lab => lab.Number)
             .ToList();
 
         // Только пары текущей страницы × работы семестра (FR-021): записи чужих
         // студентов и других семестров не отдаются ни при каких параметрах.
-        var gridSubmissions = _submissions
-            .GetByPairs(
+        var gridSubmissions = (await _submissions.GetByPairsAsync(
                 pageStudents.Select(student => student.Id).ToArray(),
-                semesterLabs.Select(lab => lab.Id).ToArray())
+                semesterLabs.Select(lab => lab.Id).ToArray()))
             .Select(ToDto)
             .ToArray();
 
@@ -178,7 +175,7 @@ public sealed class SubmissionsController(
             return denial;
         }
 
-        if (TryLoadCurrentUser() is not { } teacher)
+        if (await TryLoadCurrentUserAsync() is not { } teacher)
         {
             return UnauthorizedEnvelope();
         }
@@ -204,23 +201,23 @@ public sealed class SubmissionsController(
         var labId = ResolveIdField(document.RootElement, LabIdField);
 
         // Порядок 404: студент (существует И role=student) → работа.
-        var student = _users.GetById(studentId);
+        var student = await _users.GetByIdAsync(studentId);
         if (student is null || student.Role != UserRoles.Student)
         {
             return StudentNotFound();
         }
 
-        if (_labs.GetById(labId) is null)
+        if (await _labs.GetByIdAsync(labId) is null)
         {
             return LabNotFound();
         }
 
-        // Атомарный upsert пары под StorageLock (IF-015): полная замена обеих
+        // Атомарный upsert пары (IF-015): полная замена обеих
         // дат (null = сброс), метки — преподаватель сессии и TimeProvider.now.
         // Null-результат — нарушение контракта репозитория (IF-015: «всегда не
         // null»): fail-fast через InvalidOperationException → 500-конверт хоста
         // (IF-001), а не NullReferenceException вне конверта.
-        var saved = _submissions.Upsert(
+        var saved = await _submissions.UpsertAsync(
             studentId,
             labId,
             submitDate,
@@ -228,7 +225,7 @@ public sealed class SubmissionsController(
             teacher.Id,
             _timeProvider.GetUtcNow().UtcDateTime)
             ?? throw new InvalidOperationException(
-                "Репозиторий сдач вернул null из Upsert (нарушение контракта IF-015).");
+                "Репозиторий сдач вернул null из UpsertAsync (нарушение контракта IF-015).");
 
         return Ok(ToFullDto(saved));
     }
@@ -242,14 +239,14 @@ public sealed class SubmissionsController(
     /// ни при каких параметрах).
     /// </summary>
     [HttpGet("me/submissions")]
-    public IActionResult Mine([FromQuery(Name = "semester")] string? semester)
+    public async Task<IActionResult> Mine([FromQuery(Name = "semester")] string? semester)
     {
         if (DenyIfNotStudent() is { } denial)
         {
             return denial;
         }
 
-        if (TryLoadCurrentUser() is not { } student)
+        if (await TryLoadCurrentUserAsync() is not { } student)
         {
             return UnauthorizedEnvelope();
         }
@@ -270,15 +267,13 @@ public sealed class SubmissionsController(
             return Ok(new MySubmissionsDto { HasGroup = false });
         }
 
-        var semesterLabs = _labs
-            .ListByFilter(semesterValue)
+        var semesterLabs = (await _labs.ListByFilterAsync(semesterValue))
             .OrderBy(lab => lab.Number)
             .ToList();
 
-        var mySubmissions = _submissions
-            .ListForStudentAndSemester(
+        var mySubmissions = (await _submissions.ListForStudentAndSemesterAsync(
                 student.Id,
-                semesterLabs.Select(lab => lab.Id).ToArray())
+                semesterLabs.Select(lab => lab.Id).ToArray()))
             .Select(submission => new MySubmissionDto
             {
                 LabId = submission.LabId.ToString(),
@@ -335,10 +330,10 @@ public sealed class SubmissionsController(
     /// <summary>Текущий пользователь по claim sub (NameIdentifier); отсутствие
     /// claim при живой сессии либо удалённая запись → 401 из действия
     /// (зеркало мока requireSessionUser).</summary>
-    private User? TryLoadCurrentUser()
+    private async Task<User?> TryLoadCurrentUserAsync()
     {
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(rawId, out var id) ? _users.GetById(id) : null;
+        return Guid.TryParse(rawId, out var id) ? await _users.GetByIdAsync(id) : null;
     }
 
     private static IActionResult GroupNotFound() =>

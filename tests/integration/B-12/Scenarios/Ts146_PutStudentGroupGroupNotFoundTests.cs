@@ -18,13 +18,13 @@ public sealed class Ts146_PutStudentGroupGroupNotFoundTests(B12WebAppFactory fac
     public async Task TS146_UnknownGroupId_Returns404GroupNotFound()
     {
         // given: студент существует (DI-сид); неизвестный uuid группы; сессия teacher.
-        var student = B12Seed.EnsureStudent(
+        var student = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s146",
             fullName: "Без Группы Неизвестногрупович",
             email: "b12s146@x.ru");
         var unknownGroupId = Guid.NewGuid();
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: PUT /students/{id}/group {groupId:'<неизвестный-uuid>'}.
         using var put = await client.PutAsync(

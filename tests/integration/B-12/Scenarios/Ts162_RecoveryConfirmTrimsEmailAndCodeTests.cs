@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B12.Scenarios;
@@ -31,7 +31,7 @@ public sealed class Ts162_RecoveryConfirmTrimsEmailAndCodeTests(B12RecoveryWebAp
     {
         // given: студент student01@example.com создан DI-сидом (ADR-010) — владелец кода
         // (пароль кейсу не нужен; хэш — реальный IPasswordHasher хоста, IF-002).
-        B12RecoveryHarness.SeedStudentWithPassword(
+        await B12RecoveryHarness.SeedStudentWithPasswordAsync(
             _factory, Login, FullName, Email, B12RecoveryHarness.TestUserPassword);
 
         // given: живой код C — значение известно тесту из записи 'EmailDev' (IF-005).
@@ -39,11 +39,11 @@ public sealed class Ts162_RecoveryConfirmTrimsEmailAndCodeTests(B12RecoveryWebAp
         var code = await B12RecoveryHarness.RequestLiveCodeAsync(_factory, client, Email);
 
         // given (шов хранилища): запись живого кода владельца — Id для инспекции гашения.
-        var owner = _factory.Services.GetRequiredService<IUserRepository>().GetByEmail(Email)
+        var owner = await _factory.Services.GetRequiredService<IUserRepository>().GetByEmailAsync(Email)
             ?? throw new InvalidOperationException(
                 "Предусловие кейса: владелец кода не найден в хранилище после сида.");
-        var liveCode = _factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveForUser(owner.Id);
+        var liveCode = await _factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveForUserAsync(owner.Id);
         Assert.NotNull(liveCode);
 
         // when: confirm с пробельным обрамлением ОБЕИХ значений.

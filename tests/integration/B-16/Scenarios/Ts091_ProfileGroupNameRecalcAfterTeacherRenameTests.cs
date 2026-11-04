@@ -45,7 +45,7 @@ public sealed class Ts091_ProfileGroupNameRecalcAfterTeacherRenameTests : IClass
 
         // given: активна teacher-сессия; группа ИК-221 переименована в 'ИК-999'
         // ИМЕННО запросом PUT /api/v1/groups/{id} под сессией teacher.
-        using var teacherClient = B16GroupsSession.CreateTeacher(_factory);
+        using var teacherClient = await B16GroupsSession.CreateTeacherAsync(_factory);
         using var renameResponse = await B16GroupsApi.PutGroupAsync(
             teacherClient, group.Id.ToString(), RenamedGroupName);
         Assert.True(

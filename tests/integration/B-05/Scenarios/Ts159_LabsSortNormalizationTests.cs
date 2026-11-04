@@ -1,6 +1,6 @@
 using System.Text.Json;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -29,10 +29,10 @@ public sealed class Ts159_LabsSortNormalizationTests : IClassFixture<B05WebAppFa
     public async Task OutOfDictionarySortParams_NormalizeToDefaultOrderWithoutError()
     {
         // given: teacher; сид с 23 работами (20 семестра 1 + 3 семестра 2).
-        var labs = _factory.Services.GetRequiredService<ILabRepository>().GetAll();
+        var labs = await _factory.Services.GetRequiredService<ILabRepository>().GetAllAsync();
         Assert.Equal(23, labs.Count);
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: sortField=foo, sortDir=bar — вне словаря; и дефолтный список.
         using var garbageSort = await client.GetAsync($"{LabsEndpoint}?sortField=foo&sortDir=bar");

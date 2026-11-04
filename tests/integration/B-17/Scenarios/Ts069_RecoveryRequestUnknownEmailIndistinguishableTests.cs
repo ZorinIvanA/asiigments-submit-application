@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 using LabsApp.IntegrationTests.B17.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B17.Scenarios;
@@ -33,7 +33,7 @@ public sealed class Ts069_RecoveryRequestUnknownEmailIndistinguishableTests : IC
         // given: пользователя с lower(email)='nobody@example.com' не существует.
         using var client = B17Host.CreateClient(_factory);
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(users.GetByEmail(Email));
+        Assert.Null(await users.GetByEmailAsync(Email));
         Assert.Equal(0, B17Host.CountRecoveryCodeRecords(_factory));
         _factory.LogSink.Clear();
 

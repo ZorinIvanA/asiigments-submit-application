@@ -33,7 +33,7 @@ public sealed class Ts119_GroupNameLengthBoundaryTests : IClassFixture<B15Groups
     public async Task PostGroup_NameOf100CharsCreated_NameOf101Rejected()
     {
         // given: сессия teacher; имена граничной длины свободны.
-        using var client = B15GroupsSession.CreateTeacher(_factory);
+        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
         var name100 = new string('Г', 100);
         var name101 = new string('Г', 101);
 

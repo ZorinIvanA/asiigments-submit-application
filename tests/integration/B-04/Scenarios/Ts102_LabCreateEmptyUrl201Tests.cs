@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B04.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B04.Scenarios;
@@ -24,9 +24,9 @@ public sealed class Ts102_LabCreateEmptyUrl201Tests(B04LabsWebAppFactory factory
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
 
         // given: пары (semester=1, number=21) не существует.
-        Assert.Null(labs.TryGetByPair(semester: 1, number: 21));
+        Assert.Null( await labs.TryGetByPairAsync(semester: 1, number: 21) );
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с пустой ссылкой assignmentUrl=''.
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

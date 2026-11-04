@@ -26,12 +26,12 @@ public sealed class Ts062_AuthMeStudentAndTeacherTests(B10NoDemoWebAppFactory fa
     public async Task TS062_GetMe_AsStudentInGroup_ReturnsGroupAndRole()
     {
         // given: student01 в группе ИК-221; валидная access-сессия студента.
-        B10AuthSessions.SeedStudentWithGroup(
+        await B10AuthSessions.SeedStudentWithGroupAsync(
             _factory,
             login: "student01",
             fullName: "Иванов Иван Иванович 01",
             groupName: "ИК-221");
-        using var client = HostClients.CreateStudentClient(_factory, "student01");
+        using var client = await HostClients.CreateStudentClient(_factory, "student01");
 
         // when: GET /api/v1/auth/me с access-cookie student01.
         using var response = await client.GetAsync("/api/v1/auth/me");
@@ -49,7 +49,7 @@ public sealed class Ts062_AuthMeStudentAndTeacherTests(B10NoDemoWebAppFactory fa
     public async Task TS062_GetMe_AsTeacher_ReturnsTeacherWithoutGroup()
     {
         // given: валидная сессия сид-преподавателя (учётка создаётся сидом из Seed__*).
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClient(_factory);
 
         // when: GET /api/v1/auth/me с access-cookie teacher.
         using var response = await client.GetAsync("/api/v1/auth/me");

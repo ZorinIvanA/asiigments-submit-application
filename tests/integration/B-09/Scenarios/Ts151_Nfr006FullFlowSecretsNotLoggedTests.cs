@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B09.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B09.Scenarios;
@@ -142,9 +142,9 @@ public sealed class Ts151_Nfr006FullFlowSecretsNotLoggedTests
 
         // given (хэши): хэш пароля из хранилища и SHA-256-хэши значений
         // refresh-cookie (значения/хэши токенов и хэши паролей — тоже секреты).
-        var storedHash = factory.Services
+        var storedHash = (await factory.Services
             .GetRequiredService<IUserRepository>()
-            .GetByLogin(LoginName)!.PasswordHash;
+            .GetByLoginAsync(LoginName))!.PasswordHash;
         secrets.Add(storedHash);
         secrets.AddRange(secrets
             .Where(value => value.Length == 43 && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_'))

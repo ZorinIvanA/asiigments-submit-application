@@ -60,7 +60,7 @@ public sealed class Ts206_PasswordCurrentVerbatimNoTrimTests : IClassFixture<B18
         B18ProfileAssertions.MessageIs(trailingSpaceRoot, ErrorTexts.WrongCurrentPassword);
 
         // then №1: пароль НЕ применён — хранимый хэш прежний.
-        var storedAfterFirst = B18ProfileHarness.StoredUser(_factory, user.Id);
+        var storedAfterFirst = await B18ProfileHarness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(storedAfterFirst.PasswordHash, user.PasswordHash, StringComparison.Ordinal),
             "Ожидался неизменный хранимый хэш после отклонённой смены (currentPassword с пробелом), фактически хэш изменился.");

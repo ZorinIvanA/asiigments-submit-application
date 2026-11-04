@@ -5,7 +5,7 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,8 +30,8 @@ public sealed class Ts158_ForgedAccessTokenUnauthorizedTests(B12WebAppFactory fa
     public async Task Me_WithTamperedJwtPayload_IsUnauthorized()
     {
         // given: валидный JWT валидной сессии (сид-преподаватель).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
         var validJwt = _factory.Services.GetRequiredService<ITokenService>()
             .IssueAccessToken(teacher.Id, UserRoles.Teacher);

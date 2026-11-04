@@ -29,7 +29,7 @@ public sealed class Ts197_RefreshRotationNotIntroducedTests(B13WebAppFactory fac
         using var client = B13ScopeHost.CreateClient(_factory);
         var grant = B13ScopeHost.EstablishRefreshSession(_factory, user.Id);
 
-        var storedBefore = B13ScopeHost.FindStoredRefreshToken(_factory, grant);
+        var storedBefore = await B13ScopeHost.FindStoredRefreshTokenAsync(_factory, grant);
         Assert.NotNull(storedBefore);
         Assert.Null(storedBefore.RevokedAt);
         var expiresAtBefore = storedBefore.ExpiresAt;
@@ -62,7 +62,7 @@ public sealed class Ts197_RefreshRotationNotIntroducedTests(B13WebAppFactory fac
             // then: значение refresh-токена в хранилище не меняется — запись по
             // исходному хэшу найдена (не заменена новым токеном), жива
             // (revokedAt не появился) и неизменна (expiresAt прежний).
-            var storedAfter = B13ScopeHost.FindStoredRefreshToken(_factory, grant);
+            var storedAfter = await B13ScopeHost.FindStoredRefreshTokenAsync(_factory, grant);
             Assert.NotNull(storedAfter);
             Assert.Null(storedAfter.RevokedAt);
             Assert.Equal(expiresAtBefore, storedAfter.ExpiresAt);

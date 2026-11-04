@@ -4,9 +4,8 @@ using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
-using LabsApp.Tests.Storage;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -68,7 +67,7 @@ internal static class ProfileEndpointHarness
         return client;
     }
 
-    public static User SeedUser(
+    public static async Task<User> SeedUser(
         TestWebAppFactory factory,
         string login,
         string? email = null,
@@ -77,27 +76,27 @@ internal static class ProfileEndpointHarness
         Guid? groupId = null)
     {
         var repository = factory.Services.GetRequiredService<IUserRepository>();
-        repository.Add(TestEntities.User(login, email, role, groupId, fullName));
-        return repository.GetByLogin(login)
+        await repository.AddAsync(TestEntities.User(login, email, role, groupId, fullName));
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 
-    public static Group SeedGroup(TestWebAppFactory factory, string name)
+    public static async Task<Group> SeedGroup(TestWebAppFactory factory, string name)
     {
         var repository = factory.Services.GetRequiredService<IGroupRepository>();
-        repository.Add(TestEntities.Group(name));
-        return repository.GetByName(name)
+        await repository.AddAsync(TestEntities.Group(name));
+        return (await repository.GetByNameAsync(name))
             ?? throw new InvalidOperationException($"Группа {name} не сохранилась при DI-сиде.");
     }
 
-    public static void RenameGroup(TestWebAppFactory factory, Group group, string newName)
+    public static async Task RenameGroup(TestWebAppFactory factory, Group group, string newName)
     {
         group.Name = newName;
-        factory.Services.GetRequiredService<IGroupRepository>().Update(group);
+        await factory.Services.GetRequiredService<IGroupRepository>().UpdateAsync(group);
     }
 
-    public static User StoredUser(TestWebAppFactory factory, Guid id) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetById(id)
+    public static async Task<User> StoredUserAsync(TestWebAppFactory factory, Guid id) =>
+        await factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(id)
         ?? throw new InvalidOperationException("Пользователь исчез из хранилища.");
 
     public static StringContent Json(string json) => new(json, Encoding.UTF8, "application/json");
@@ -143,7 +142,7 @@ public sealed class ProfileGetEndpointTests(ProfileGetApiFixture fixture) : ICla
     public async Task Get_StudentWithGroup_ReturnsExactDemoProfile()
     {
         // given: student01 авторизован и состоит в ИК-221 (демо-сид).
-        var student = _factory.Services.GetRequiredService<IUserRepository>().GetByLogin("student01");
+        var student = await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("student01");
         Assert.NotNull(student);
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, student.Id, UserRoles.Student);
 
@@ -165,7 +164,7 @@ public sealed class ProfileGetEndpointTests(ProfileGetApiFixture fixture) : ICla
     public async Task Get_TeacherWithoutGroup_GroupNameNull()
     {
         // given: авторизованный teacher (роль без группы).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>().GetByLogin("teacher");
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, teacher.Id, UserRoles.Teacher);
 
@@ -183,9 +182,9 @@ public sealed class ProfileGetEndpointTests(ProfileGetApiFixture fixture) : ICla
     public async Task Get_GroupRenamedAfterSeeding_ShowsCurrentName()
     {
         // given: студент в группе; состояние групп изменено ПОСЛЕ сида пользователя.
-        var group = ProfileEndpointHarness.SeedGroup(_factory, "ИК-Гет-Переименование");
-        var user = ProfileEndpointHarness.SeedUser(_factory, "profile-get-renamed", groupId: group.Id);
-        ProfileEndpointHarness.RenameGroup(_factory, group, "ИК-Гет-Переименование (новое)");
+        var group = await ProfileEndpointHarness.SeedGroup(_factory, "ИК-Гет-Переименование");
+        var user = await ProfileEndpointHarness.SeedUser(_factory, "profile-get-renamed", groupId: group.Id);
+        await ProfileEndpointHarness.RenameGroup(_factory, group, "ИК-Гет-Переименование (новое)");
 
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
@@ -225,14 +224,14 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_ValidValues_IgnoresLoginField_UpdatesOnlyNameAndEmail()
     {
         // given: студент с группой; состояние групп изменено ДО PUT; email свободен.
-        var group = ProfileEndpointHarness.SeedGroup(_factory, "Группа Профиля Пут");
-        var user = ProfileEndpointHarness.SeedUser(
+        var group = await ProfileEndpointHarness.SeedGroup(_factory, "Группа Профиля Пут");
+        var user = await ProfileEndpointHarness.SeedUser(
             _factory,
             login: "profile-put-valid",
             email: "profile-put-valid@example.com",
             fullName: "Старое ФИО",
             groupId: group.Id);
-        ProfileEndpointHarness.RenameGroup(_factory, group, "Группа Профиля Пут (переименована)");
+        await ProfileEndpointHarness.RenameGroup(_factory, group, "Группа Профиля Пут (переименована)");
 
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
@@ -253,7 +252,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
         Assert.Equal("Группа Профиля Пут (переименована)", body.RootElement.GetProperty("groupName").GetString());
 
         // then: в хранилище обновлены только fullName/email.
-        var stored = ProfileEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await ProfileEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal("profile-put-valid", stored.Login);
         Assert.Equal("Новое ФИО", stored.FullName);
         Assert.Equal("new-put@example.com", stored.Email);
@@ -265,7 +264,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_SurroundingSpaces_StoresTrimmedValues()
     {
         // given: пользователь без группы.
-        var user = ProfileEndpointHarness.SeedUser(_factory, "profile-put-trim");
+        var user = await ProfileEndpointHarness.SeedUser(_factory, "profile-put-trim");
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT со значениями в обрамляющих пробелах (правила — по триммированному).
@@ -279,7 +278,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
         Assert.Equal("Трим ФИО", body.RootElement.GetProperty("fullName").GetString());
         Assert.Equal("trim-put@example.com", body.RootElement.GetProperty("email").GetString());
 
-        var stored = ProfileEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await ProfileEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal("Трим ФИО", stored.FullName);
         Assert.Equal("trim-put@example.com", stored.Email);
     }
@@ -288,7 +287,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_OwnEmail_NoConflict()
     {
         // given: пользователь с email X.
-        var user = ProfileEndpointHarness.SeedUser(
+        var user = await ProfileEndpointHarness.SeedUser(
             _factory,
             login: "profile-put-own",
             email: "own@example.com",
@@ -311,12 +310,12 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_ForeignEmail_Returns409WithDictionaryText()
     {
         // given: два пользователя; второй занял целевой email.
-        var user = ProfileEndpointHarness.SeedUser(
+        var user = await ProfileEndpointHarness.SeedUser(
             _factory,
             login: "profile-put-conflict",
             email: "conflict-first@example.com",
             fullName: "Первый ФИО");
-        ProfileEndpointHarness.SeedUser(
+        await ProfileEndpointHarness.SeedUser(
             _factory,
             login: "profile-put-foreign",
             email: "foreign@example.com",
@@ -334,7 +333,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
             "Пользователь с таким email уже существует",
             await ProfileEndpointHarness.MessageAsync(response));
 
-        var stored = ProfileEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await ProfileEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal("conflict-first@example.com", stored.Email);
         Assert.Equal("Первый ФИО", stored.FullName);
     }
@@ -343,7 +342,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_WhitespaceFullName_Returns400RequiredFullName()
     {
         // given: авторизованный пользователь.
-        var user = ProfileEndpointHarness.SeedUser(_factory, "profile-put-space-name");
+        var user = await ProfileEndpointHarness.SeedUser(_factory, "profile-put-space-name");
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT с ФИО из одних пробелов и валидным email.
@@ -362,7 +361,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_InvalidEmailFormat_Returns400FormatError()
     {
         // given: авторизованный пользователь.
-        var user = ProfileEndpointHarness.SeedUser(_factory, "profile-put-bad-email");
+        var user = await ProfileEndpointHarness.SeedUser(_factory, "profile-put-bad-email");
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT с пробелом в локальной части email.
@@ -381,7 +380,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_BothFieldsInvalid_ReturnsAllErrorsAtOnce()
     {
         // given: авторизованный пользователь.
-        var user = ProfileEndpointHarness.SeedUser(_factory, "profile-put-both-invalid");
+        var user = await ProfileEndpointHarness.SeedUser(_factory, "profile-put-both-invalid");
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT с пустым ФИО и отсутствующим email ({} после отказа от email).
@@ -400,7 +399,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_EmailLengthBoundary_254Valid_255TooLong()
     {
         // given: авторизованный пользователь; границы — после трима, формат валиден.
-        var user = ProfileEndpointHarness.SeedUser(_factory, "profile-put-email-boundary");
+        var user = await ProfileEndpointHarness.SeedUser(_factory, "profile-put-email-boundary");
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT с email длиной ровно 254 (242 + '@example.com').
@@ -430,7 +429,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_FullNameLengthBoundary_200Valid_201TooLong()
     {
         // given: авторизованный пользователь.
-        var user = ProfileEndpointHarness.SeedUser(
+        var user = await ProfileEndpointHarness.SeedUser(
             _factory,
             login: "profile-put-name-boundary",
             email: "name-boundary@example.com");
@@ -465,7 +464,7 @@ public sealed class ProfilePutEndpointTests(ProfilePutApiFixture fixture) : ICla
     public async Task Put_MalformedJson_Returns400WithoutErrors()
     {
         // given: авторизованный пользователь.
-        var user = ProfileEndpointHarness.SeedUser(_factory, "profile-put-broken-json");
+        var user = await ProfileEndpointHarness.SeedUser(_factory, "profile-put-broken-json");
         using var client = ProfileEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT с синтаксически некорректным JSON.

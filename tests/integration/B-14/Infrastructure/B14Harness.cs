@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -84,7 +84,7 @@ public static class B14Harness
         var tokens = factory.Services.GetRequiredService<ITokenService>();
         var grant = tokens.CreateRefreshToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -128,7 +128,7 @@ public static class B14Harness
             CreatedAt = DateTime.UtcNow,
         };
 
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -142,7 +142,7 @@ public static class B14Harness
             CreatedAt = DateTime.UtcNow,
         };
 
-        factory.Services.GetRequiredService<IGroupRepository>().Add(group);
+        factory.Services.GetRequiredService<IGroupRepository>().AddAsync(group);
         return group;
     }
 
@@ -151,10 +151,10 @@ public static class B14Harness
     /// (сидится всегда, независимо от Seed__DemoData; login — умолчание
     /// SeedOptions.DefaultTeacherLogin, GroupId=null).
     /// </summary>
-    public static User ResolveSeedTeacher(B14WebAppFactory factory)
+    public static async Task<User> ResolveSeedTeacherAsync(B14WebAppFactory factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>()
-            .GetByLogin(SeedOptions.DefaultTeacherLogin);
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+            .GetByLoginAsync(SeedOptions.DefaultTeacherLogin);
         Assert.True(
             teacher is not null,
             "Предусловие кейса: сид-преподаватель отсутствует в хранилище тестового хоста.");
@@ -164,9 +164,9 @@ public static class B14Harness
     }
 
     /// <summary>Пользователь по email (ci) из хранилища тестового хоста (копия-снимок, IF-015).</summary>
-    public static User UserByEmail(B14WebAppFactory factory, string email)
+    public static async Task<User> UserByEmailAsync(B14WebAppFactory factory, string email)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetByEmail(email);
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByEmailAsync(email);
         Assert.NotNull(user);
         return user!;
     }

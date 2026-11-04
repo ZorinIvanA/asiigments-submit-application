@@ -1,6 +1,6 @@
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B12.Scenarios;
@@ -22,16 +22,16 @@ public sealed class Ts062_LogoutKeepsForeignTokensTests(B12WebAppFactory factory
     {
         // given: пользователь A (сид-преподаватель) и пользователь B (DI-сид студента),
         // у обоих живые refresh-токены.
-        var userA = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var userA = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
-        var userB = B12Seed.EnsureStudent(
+        var userB = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12-ts062-student",
             fullName: "Токенов Чужих Тестович",
             email: "b12-ts062@t.local");
-        var refreshTokenA = B12AuthSessions.CreateLiveRefreshToken(_factory, userA.Id);
-        var refreshTokenB = B12AuthSessions.CreateLiveRefreshToken(_factory, userB.Id);
+        var refreshTokenA = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, userA.Id);
+        var refreshTokenB = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, userB.Id);
 
         using var client = B12AuthSessions.CreateClient(_factory);
 
@@ -47,7 +47,7 @@ public sealed class Ts062_LogoutKeepsForeignTokensTests(B12WebAppFactory factory
 
         // then: refresh-токен B остаётся действительным — запись ЖИВА по
         // контракту хранилища и POST /auth/refresh с cookie B — 204.
-        Assert.Null(B12AuthSessions.RequireStoredToken(_factory, refreshTokenB).RevokedAt);
+        Assert.Null((await B12AuthSessions.RequireStoredTokenAsync(_factory, refreshTokenB)).RevokedAt);
         using var refreshRequest = B12AuthSessions.CreateRefreshRequest(refreshTokenB);
         using var refreshResponse = await client.SendAsync(refreshRequest);
         Assert.Equal(HttpStatusCode.NoContent, refreshResponse.StatusCode);

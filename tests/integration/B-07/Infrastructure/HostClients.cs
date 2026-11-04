@@ -1,5 +1,5 @@
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -60,7 +60,7 @@ public static class HostClients
 
         await LoginAsync(client, login);
 
-        var userId = ResolveUserIdByEmail(factory, email);
+        var userId = await ResolveUserIdByEmailAsync(factory, email);
         return (client, userId);
     }
 
@@ -100,14 +100,14 @@ public static class HostClients
     }
 
     /// <summary>Пользователь по email (ci) из хранилища тестового хоста — для проверок given/then.</summary>
-    public static User ResolveUserByEmail(B07WebAppFactory factory, string email)
+    public static async Task<User> ResolveUserByEmailAsync(B07WebAppFactory factory, string email)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetByEmail(email);
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByEmailAsync(email);
         Assert.NotNull(user);
         return user;
     }
 
     /// <summary>uuid пользователя по email (ci) из хранилища тестового хоста.</summary>
-    public static Guid ResolveUserIdByEmail(B07WebAppFactory factory, string email) =>
-        ResolveUserByEmail(factory, email).Id;
+    public static async Task<Guid> ResolveUserIdByEmailAsync(B07WebAppFactory factory, string email) =>
+        (await ResolveUserByEmailAsync(factory, email)).Id;
 }

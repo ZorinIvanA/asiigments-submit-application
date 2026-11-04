@@ -20,8 +20,8 @@ public sealed class Ts067_MeRecomputesGroupNameAfterRenameTests(B12WebAppFactory
     public async Task Me_AfterGroupRename_ReturnsCurrentGroupName()
     {
         // given: student01 состоит в группе «ИК-221» (DI-сид).
-        var group = B12Seed.EnsureGroup(_factory, "ИК-221");
-        B12Seed.EnsureStudent(
+        var group = await B12Seed.EnsureGroupAsync(_factory, "ИК-221");
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "student01",
             fullName: "Иванов Иван Иванович 01",
@@ -29,7 +29,7 @@ public sealed class Ts067_MeRecomputesGroupNameAfterRenameTests(B12WebAppFactory
             groupId: group.Id);
 
         // given: teacher переименовал группу в «ИК-921» (PUT /groups/{id}, FR-019).
-        using var teacherClient = HostClients.CreateTeacherClient(_factory);
+        using var teacherClient = await HostClients.CreateTeacherClientAsync(_factory);
         using var rename = await teacherClient.PutAsJsonAsync(
             $"/api/v1/groups/{group.Id}",
             new { name = "ИК-921" });
@@ -38,7 +38,7 @@ public sealed class Ts067_MeRecomputesGroupNameAfterRenameTests(B12WebAppFactory
             $"given не исполнен: PUT /groups/{{id}} → {(int)rename.StatusCode} (ожидался успех по FR-019).");
 
         // when: GET /auth/me под student01.
-        using var studentClient = HostClients.CreateStudentClient(_factory, "student01");
+        using var studentClient = await HostClients.CreateStudentClientAsync(_factory, "student01");
         using var me = await studentClient.GetAsync(B12AuthEndpoints.Me);
 
         // then: 200; groupName='ИК-921' — вычисляется по текущему состоянию групп.

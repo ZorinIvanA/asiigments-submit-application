@@ -23,10 +23,10 @@ public sealed class Ts141_StudentsGroupNoneOnlyWithoutGroupTests : IClassFixture
         // given: в демо-сиде ровно student31 и student32 без группы; teacher авторизован.
         foreach (var login in new[] { "student31", "student32" })
         {
-            Assert.Null(B05SeedLookup.StudentByLogin(_factory, login).GroupId);
+            Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);
         }
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: фильтр по отсутствию группы.
         using var response = await client.GetAsync("/api/v1/students?groupId=none");

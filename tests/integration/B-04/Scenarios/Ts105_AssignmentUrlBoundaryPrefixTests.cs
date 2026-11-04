@@ -20,7 +20,7 @@ public sealed class Ts105_AssignmentUrlBoundaryPrefixTests(B04LabsWebAppFactory 
     [Fact]
     public async Task TS105_PostLabUrlExactly1000Chars_IsCreated()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: assignmentUrl = 'https://' (8) + 'x'×992 = ровно 1000 символов.
         var url = "https://" + new string('x', 992);
@@ -42,7 +42,7 @@ public sealed class Ts105_AssignmentUrlBoundaryPrefixTests(B04LabsWebAppFactory 
     [Fact]
     public async Task TS105_PostLabUrl1001Chars_ReturnsLengthError()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: assignmentUrl длиной 1001 символ после трима.
         var url = "https://" + new string('x', 993);
@@ -65,7 +65,7 @@ public sealed class Ts105_AssignmentUrlBoundaryPrefixTests(B04LabsWebAppFactory 
     [Fact]
     public async Task TS105_PostLabFtpUrl_ReturnsPrefixError()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: assignmentUrl с префиксом вне словаря (ftp://).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

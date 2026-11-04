@@ -1,8 +1,8 @@
 using System.Net;
 using LabsApp.Auth;
 using LabsApp.Domain.Validation;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
 
@@ -36,8 +36,8 @@ public sealed class PasswordResetBoundaryTests(RecoveryApiFixture fixture) : ICl
     public async Task Reset_PasswordExactly128Chars_BoundaryAccepted_204_LoginWithNewPassword_DeltaKdfOne()
     {
         // given: живой reset-токен; база Δkdf.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-max128");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-max128");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
 
@@ -78,8 +78,8 @@ public sealed class PasswordResetBoundaryTests(RecoveryApiFixture fixture) : ICl
     {
         // given: пользователь с ЖИВЫМ reset-токеном (значение отлично от
         // предъявляемого); база Δkdf.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-blank");
-        var liveToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-blank");
+        var liveToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
         var before = RecoveryEndpointHarness.KdfSnapshot(_factory);
 
@@ -94,8 +94,8 @@ public sealed class PasswordResetBoundaryTests(RecoveryApiFixture fixture) : ICl
         Assert.Equal(
             0,
             RecoveryEndpointHarness.KdfDelta(before, RecoveryEndpointHarness.KdfSnapshot(_factory)));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, liveToken));
-        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetById(user.Id);
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, liveToken));
+        var stored = await _factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(user.Id);
         Assert.NotNull(stored);
         Assert.True(_factory.Services.GetRequiredService<IPasswordHasher>()
             .Verify(RecoveryEndpointHarness.TestUserPassword, stored!.PasswordHash, KdfCallers.ResetPassword));
@@ -105,8 +105,8 @@ public sealed class PasswordResetBoundaryTests(RecoveryApiFixture fixture) : ICl
     public async Task Reset_NonStringResetToken_LenientEmpty_400ResetLinkInvalid_TokenKeptAlive()
     {
         // given: живой reset-токен с известным значением.
-        var user = RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-nonstring");
-        var resetToken = RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
+        var user = await RecoveryEndpointHarness.SeedUser(_factory, "rec-reset-nonstring");
+        var resetToken = await RecoveryEndpointHarness.SeedResetToken(_factory, user.Id);
         using var client = RecoveryEndpointHarness.CreateAnonymousClient(_factory);
 
         // when: ВАЛИДНЫЙ JSON, но поле resetToken — число (нестроковое значение,
@@ -120,7 +120,7 @@ public sealed class PasswordResetBoundaryTests(RecoveryApiFixture fixture) : ICl
         // гасит только НАЙДЕННЫЙ неживой, FR-014).
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(ValidationTexts.ResetTokenInvalid, await RecoveryEndpointHarness.MessageAsync(response));
-        Assert.NotNull(RecoveryEndpointHarness.ResetTokenRecord(_factory, resetToken));
+        Assert.NotNull(await RecoveryEndpointHarness.ResetTokenRecordAsync(_factory, resetToken));
 
         // then: токен остался применимым — повтор с валидной парой паролей — 204.
         using var ok = await RecoveryEndpointHarness.ResetAsync(

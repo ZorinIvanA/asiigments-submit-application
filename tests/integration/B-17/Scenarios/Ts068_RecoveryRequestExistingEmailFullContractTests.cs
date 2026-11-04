@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using LabsApp.IntegrationTests.B17.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B17.Scenarios;
@@ -43,7 +43,7 @@ public sealed class Ts068_RecoveryRequestExistingEmailFullContractTests : IClass
         using var client = B17Host.CreateClient(_factory);
         var user = B17Host.SeedStudent(_factory, Login, Email, FullName);
         var codes = _factory.Services.GetRequiredService<ISecurityTokenRepository>();
-        Assert.Null(codes.FindLiveForUser(user.Id));
+        Assert.Null(await codes.FindLiveForUserAsync(user.Id));
         Assert.Equal(0, B17Host.CountRecoveryCodeRecords(_factory));
         _factory.LogSink.Clear();
         var kdfBefore = kdfProbe.Total;
@@ -71,7 +71,7 @@ public sealed class Ts068_RecoveryRequestExistingEmailFullContractTests : IClass
 
         // then: создан ровно один живой код: expiresAt=now+10 мин, attempts=0.
         Assert.Equal(1, B17Host.CountRecoveryCodeRecords(_factory));
-        var live = codes.FindLiveForUser(user.Id);
+        var live = await codes.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Null(live.UsedAt);
         Assert.Equal(0, live.Attempts);

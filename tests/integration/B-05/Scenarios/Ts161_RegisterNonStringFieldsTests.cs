@@ -1,7 +1,7 @@
 using System.Text;
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -36,7 +36,7 @@ public sealed class Ts161_RegisterNonStringFieldsTests : IClassFixture<B05WebApp
     {
         // given: снимки числа студентов и суммарного счётчика KDF до запроса.
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var studentsBefore = users.ListStudents().Count;
+        var studentsBefore = (await users.ListStudentsAsync()).Count;
         var kdfCounter = _factory.Services.GetRequiredService<IKdfCounter>();
         var kdfBefore = TotalDerivations(kdfCounter);
 
@@ -68,7 +68,7 @@ public sealed class Ts161_RegisterNonStringFieldsTests : IClassFixture<B05WebApp
         B05ContractAsserts.SingleFieldErrorIs(root, "email", "Заполните поле");
 
         // then: пользователь не создан; дериваций KDF нет (Δkdf=0).
-        Assert.Equal(studentsBefore, users.ListStudents().Count);
+        Assert.Equal(studentsBefore, (await users.ListStudentsAsync()).Count);
         Assert.Equal(kdfBefore, TotalDerivations(kdfCounter));
     }
 

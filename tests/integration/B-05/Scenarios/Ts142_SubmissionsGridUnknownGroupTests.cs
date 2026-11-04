@@ -20,7 +20,7 @@ public sealed class Ts142_SubmissionsGridUnknownGroupTests : IClassFixture<B05We
     {
         // given: неизвестный uuid группы; teacher авторизован.
         var unknownGroupId = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: ведомость по несуществующей группе.
         using var response = await client.GetAsync(

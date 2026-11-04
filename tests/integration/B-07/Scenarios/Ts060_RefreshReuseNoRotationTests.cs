@@ -30,7 +30,7 @@ public sealed class Ts060_RefreshReuseNoRotationTests : IClassFixture<B07AuthWeb
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
 
         var refresh1 = B07AuthClients.RequiredSetCookie(login, AuthCoreDefaults.RefreshTokenCookieName);
-        var expiresAtAfterLogin = B07AuthClients.FindRefreshToken(_factory, refresh1).ExpiresAt;
+        var expiresAtAfterLogin = (await B07AuthClients.FindRefreshTokenAsync(_factory, refresh1)).ExpiresAt;
 
         using var first = await client.PostAsync(B07AuthClients.RefreshEndpoint, content: null);
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
@@ -58,7 +58,7 @@ public sealed class Ts060_RefreshReuseNoRotationTests : IClassFixture<B07AuthWeb
 
         // then: прежний refresh продолжает работать (2-й и 3-й вызовы — 204) —
         // reuse-detection отсутствует; revokedAt не появился.
-        var stored = B07AuthClients.FindRefreshToken(_factory, refresh1);
+        var stored = await B07AuthClients.FindRefreshTokenAsync(_factory, refresh1);
         Assert.Null(stored.RevokedAt);
 
         // then: expiresAt неизменен (TTL не продлевается).

@@ -26,7 +26,7 @@ public sealed class Ts048_LoginSetCookieFormTests
         using var client = B08AuthHost.CreateClient(factory);
 
         // given: пользователь существует (DI-сид); хост фикстуры — Development.
-        B08AuthHost.SeedUser(factory, Login, Email, "Куки Форма", UserRoles.Student);
+        await B08AuthHost.SeedUserAsync(factory, Login, Email, "Куки Форма", UserRoles.Student);
 
         // given: выполнен успешный вход.
         using var login = await client.PostAsync(

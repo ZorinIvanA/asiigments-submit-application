@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B13.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B13.Scenarios;
@@ -37,7 +37,7 @@ public sealed class Ts067_RecoveryResendSuppressesOldCodeTests(B13RecoveryDevSpy
         using var firstRequest = await B13RecoveryApi.RecoveryRequestAsync(client, StudentEmail);
         await B13RecoveryApi.AssertEmptyBodyOkAsync(firstRequest);
 
-        var c1Record = securityTokens.FindLiveForUser(user.Id);
+        var c1Record = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(c1Record);
         var firstDevEmail = Assert.Single(B13RecoveryLogAsserts.DevEmailEntries(_factory.LogSink));
         var c1 = B13RecoveryLogAsserts.VerifiedCode(firstDevEmail, tokens, c1Record.CodeHash);
@@ -52,7 +52,7 @@ public sealed class Ts067_RecoveryResendSuppressesOldCodeTests(B13RecoveryDevSpy
         Assert.NotNull(c1AfterResend);
         Assert.NotNull(c1AfterResend.UsedAt);
 
-        var c2Record = securityTokens.FindLiveForUser(user.Id);
+        var c2Record = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(c2Record);
         Assert.NotEqual(c1Record.Id, c2Record.Id);
         Assert.Null(c2Record.UsedAt);

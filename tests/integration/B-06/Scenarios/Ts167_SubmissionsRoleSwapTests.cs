@@ -21,9 +21,9 @@ public sealed class Ts167_SubmissionsRoleSwapTests : IClassFixture<B06Submission
     public async Task StudentOnGridAndTeacherOnMeSubmissions_BothGet403()
     {
         // given: валидные сессии student01 и teacher.
-        var groupId = B06SubmissionsSessions.RequireGroup(_factory, "ИК-221").Id.ToString();
-        using var studentClient = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
-        using var teacherClient = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        var groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
+        using var studentClient = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
+        using var teacherClient = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: GET /submissions?groupId=<ИК-221>&semester=1 под student01.
         using var studentResponse = await B06SubmissionsApi.GetGridAsync(

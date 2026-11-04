@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
@@ -45,16 +45,16 @@ public sealed class Ts096_ProfileReadonlyFieldsTests : IClassFixture<B07WebAppFa
             Name = "Группа X B-07",
             CreatedAt = DateTime.UtcNow,
         };
-        groups.Add(group);
+        await groups.AddAsync(group);
 
-        var student = users.GetByLogin(Login);
+        var student = await users.GetByLoginAsync(Login);
         Assert.NotNull(student);
         Assert.Equal(UserRoles.Student, student.Role);
         student.GroupId = group.Id;
-        users.Update(student);
+        await users.UpdateAsync(student);
 
         // given проверен: login='st01', role='student', groupId=X.
-        var givenUser = users.GetByLogin(Login);
+        var givenUser = await users.GetByLoginAsync(Login);
         Assert.NotNull(givenUser);
         Assert.Equal(UserRoles.Student, givenUser.Role);
         Assert.Equal(group.Id, givenUser.GroupId);
@@ -82,7 +82,7 @@ public sealed class Ts096_ProfileReadonlyFieldsTests : IClassFixture<B07WebAppFa
         BodyAssertions.StringPropertyIs(root, "email", Email);
 
         // then: и в хранилище login/role/groupId не изменились.
-        var stored = users.GetById(givenUser.Id);
+        var stored = await users.GetByIdAsync(givenUser.Id);
         Assert.NotNull(stored);
         Assert.Equal("st01", stored.Login);
         Assert.Equal(UserRoles.Student, stored.Role);

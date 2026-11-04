@@ -17,9 +17,9 @@ public sealed class Ts115_PutLabForeignPairConflictTests(B10NoDemoWebAppFactory 
     public async Task TS115_PutPairOccupiedByOtherLab_Returns409DictionaryMessage()
     {
         // given: X — работа (1,1); Y — работа (1,2) (обе — DI-сид, ADR-010).
-        var labX = B10Seed.AddLab(_factory, semester: 1, number: 1).Id;
-        _ = B10Seed.AddLab(_factory, semester: 1, number: 2);
-        using var client = HostClients.CreateTeacherClient(_factory);
+        var labX = (await B10Seed.AddLabAsync(_factory, semester: 1, number: 1)).Id;
+        await B10Seed.AddLabAsync(_factory, semester: 1, number: 2);
+        using var client = await HostClients.CreateTeacherClient(_factory);
 
         // when: перевод X на пару (1,2), занятую другой записью.
         using var response = await client.PutAsJsonAsync(

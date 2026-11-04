@@ -17,8 +17,8 @@ public sealed class Ts119_GetLabByIdTests(B10NoDemoWebAppFactory factory) : ICla
     public async Task TS119_GetLabById_ExistingReturnsLabDto_UnknownReturns404()
     {
         // given: DI-сид существующей лабы (1,1); сессия teacher.
-        var labX = B10Seed.AddLab(_factory, semester: 1, number: 1).Id;
-        using var client = HostClients.CreateTeacherClient(_factory);
+        var labX = (await B10Seed.AddLabAsync(_factory, semester: 1, number: 1)).Id;
+        using var client = await HostClients.CreateTeacherClient(_factory);
 
         // when/then: GET существующего id → 200 LabDto с точным набором полей DTO-словаря.
         using var found = await client.GetAsync($"/api/v1/labs/{labX}");

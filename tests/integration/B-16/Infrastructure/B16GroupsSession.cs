@@ -1,6 +1,6 @@
 using LabsApp.Auth;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,10 +22,10 @@ public static class B16GroupsSession
     /// во всех запросах клиента; без авто-редиректов и cookie-контейнера — точные
     /// статусы, CR-002).
     /// </summary>
-    public static HttpClient CreateTeacher(WebApplicationFactory<Program> factory)
+    public static async Task<HttpClient> CreateTeacherAsync(WebApplicationFactory<Program> factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>()
-            .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>()
+            .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сид-преподаватель не найден в DI-хранилище тестового хоста (шаг given «сессия teacher» неисполним).");
 

@@ -87,7 +87,7 @@ public sealed class Ts181_PasswordCurrentVerbatimNoTrimTests : IClassFixture<B17
             $"Ожидался Δkdf=1 (Verify дословной строки с хвостовым пробелом), фактически {firstDelta}.");
 
         // then №1: пароль НЕ изменён — хранимый хэш прежний.
-        var storedAfterFirst = B17ProfileHost.StoredUser(_factory, user.Id);
+        var storedAfterFirst = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(storedAfterFirst.PasswordHash, user.PasswordHash, StringComparison.Ordinal),
             "Ожидался неизменный хранимый хэш после отклонённой смены (currentPassword с пробелом), фактически хэш изменился.");

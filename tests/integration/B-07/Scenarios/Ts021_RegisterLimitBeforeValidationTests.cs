@@ -1,6 +1,6 @@
 using System.Text;
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
@@ -59,6 +59,6 @@ public sealed class Ts021_RegisterLimitBeforeValidationTests : IClassFixture<B07
         BodyAssertions.MessageIs(envelope, "Слишком много попыток. Повторите позже");
 
         // then: пользователь 'zzz' не создан.
-        Assert.Null(_factory.Services.GetRequiredService<IUserRepository>().GetByLogin("zzz"));
+        Assert.Null(await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("zzz"));
     }
 }

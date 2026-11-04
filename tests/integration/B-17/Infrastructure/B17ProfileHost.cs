@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -115,7 +115,7 @@ public static class B17ProfileHost
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
 
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -130,7 +130,7 @@ public static class B17ProfileHost
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
 
-        factory.Services.GetRequiredService<IGroupRepository>().Add(group);
+        factory.Services.GetRequiredService<IGroupRepository>().AddAsync(group);
         return group;
     }
 
@@ -140,9 +140,9 @@ public static class B17ProfileHost
     /// IGroupRepository.Update — ответ профиля должен показать НОВОЕ имя
     /// (вычисление по текущему состоянию групп, FR-015).
     /// </summary>
-    public static void RenameGroup(B17WebAppFactory factory, Group group, string newName)
+    public static async Task RenameGroupAsync(B17WebAppFactory factory, Group group, string newName)
     {
-        factory.Services.GetRequiredService<IGroupRepository>().Update(new Group
+        await factory.Services.GetRequiredService<IGroupRepository>().UpdateAsync(new Group
         {
             Id = group.Id,
             Name = newName,
@@ -162,7 +162,7 @@ public static class B17ProfileHost
         var clock = factory.Services.GetRequiredService<TimeProvider>();
         var grant = factory.Services.GetRequiredService<ITokenService>().CreateRefreshToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -175,9 +175,9 @@ public static class B17ProfileHost
     }
 
     /// <summary>Пользователь по uuid из хранилища тестового хоста (копия-снимок, IF-015).</summary>
-    public static User StoredUser(B17WebAppFactory factory, Guid userId)
+    public static async Task<User> StoredUserAsync(B17WebAppFactory factory, Guid userId)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetById(userId);
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(userId);
         Assert.NotNull(user);
         return user!;
     }

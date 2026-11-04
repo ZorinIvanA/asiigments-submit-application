@@ -1,6 +1,6 @@
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B13.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B13.Scenarios;
@@ -49,7 +49,7 @@ public sealed class Ts077_ResetPasswordTooLongPasswordNoKdfTests(B13RecoveryTime
         Assert.Equal(ErrorTexts.PasswordMax, maxText);
 
         // then: токен жив.
-        Assert.NotNull(securityTokens.FindLiveResetByHash(tokenHash));
+        Assert.NotNull( await securityTokens.FindLiveResetByHashAsync(tokenHash) );
 
         // then: Δkdf=0 (хэширование не выполнялось — отклонение до KDF).
         var kdfAfter = B13RecoveryHarness.KdfSnapshot(_factory);

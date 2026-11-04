@@ -19,6 +19,11 @@
          dotnet list package с ключами vulnerable и include-transitive —
          DependencyVulnerabilityGateTests в LabsApp.Tests. -->
     <PackageReference Include="Microsoft.Bcl.Memory" Version="9.0.14" />
+    <!-- Итерация «БД»: провайдер PostgreSQL для EF Core (пользователи, группы,
+         работы, токены) и сырой драйвер Npgsql (репозиторий сдач — ADO.NET).
+         Схему создают SQL-скрипты src/api/db, миграции EF не используются. -->
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+    <PackageReference Include="Npgsql" Version="8.0.7" />
   </ItemGroup>
 
 </Project>

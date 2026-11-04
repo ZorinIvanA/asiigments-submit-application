@@ -15,21 +15,28 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// (1,4), (1,3), (2,3), (1,2), (2,2), (1,1), (2,1) — при вторичном desc хвост
 /// отличался бы: (2,3), (1,3), (2,2), (1,2), (2,1), (1,1).
 /// </summary>
-public sealed class Ts174_LabsSortDescSecondarySemesterTests : IClassFixture<B03HostFactory>
+public sealed class Ts174_LabsSortDescSecondarySemesterTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts174_LabsSortDescSecondarySemesterTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task NumberDesc_SecondarySemesterAlwaysAsc_AcrossAllPages()
     {
         // given: сид 23 работ с межсеместровыми дублями номеров 1..3; teacher.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: сквозная выборка sortField=number&sortDir=desc (фильтр semester
         //       не передан) — три страницы по pageSize=10 (на последней 3 записи).

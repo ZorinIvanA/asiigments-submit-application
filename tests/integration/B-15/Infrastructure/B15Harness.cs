@@ -1,6 +1,6 @@
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -95,7 +95,7 @@ public static class B15Harness
             CreatedAt = DateTime.UtcNow,
         };
 
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -109,7 +109,7 @@ public static class B15Harness
             CreatedAt = DateTime.UtcNow,
         };
 
-        factory.Services.GetRequiredService<IGroupRepository>().Add(group);
+        factory.Services.GetRequiredService<IGroupRepository>().AddAsync(group);
         return group;
     }
 
@@ -133,22 +133,22 @@ public static class B15Harness
             UpdatedAt = now,
         };
 
-        factory.Services.GetRequiredService<ILabRepository>().Add(lab);
+        factory.Services.GetRequiredService<ILabRepository>().AddAsync(lab);
         return lab;
     }
 
     /// <summary>Пользователь по uuid из хранилища тестового хоста (копия-снимок, IF-015).</summary>
-    public static User UserById(B15WebAppFactory factory, Guid id)
+    public static async Task<User> UserByIdAsync(B15WebAppFactory factory, Guid id)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetById(id);
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(id);
         Assert.NotNull(user);
         return user;
     }
 
     /// <summary>Пользователь по email (ci) из хранилища тестового хоста (копия-снимок, IF-015).</summary>
-    public static User UserByEmail(B15WebAppFactory factory, string email)
+    public static async Task<User> UserByEmailAsync(B15WebAppFactory factory, string email)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetByEmail(email);
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByEmailAsync(email);
         Assert.NotNull(user);
         return user;
     }

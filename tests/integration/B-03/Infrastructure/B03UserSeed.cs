@@ -1,5 +1,5 @@
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,10 +19,10 @@ public static class B03UserSeed
     /// свободен; иначе возвращается существующая запись (идемпотентность сида —
     /// тестовый класс инстанцируется xUnit'ом на каждый тест-метод).
     /// </summary>
-    public static User AddStudent(WebApplicationFactory<Program> factory, string login, string email)
+    public static async Task<User> AddStudentAsync(WebApplicationFactory<Program> factory, string login, string email)
     {
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        if (users.GetByLogin(login) is { } existing)
+        if (await users.GetByLoginAsync(login) is { } existing)
         {
             return existing;
         }
@@ -38,15 +38,15 @@ public static class B03UserSeed
             PasswordHash = "di-seed-hash-not-used-by-register-cases",
             CreatedAt = DateTime.UtcNow,
         };
-        users.Add(student);
+        await users.AddAsync(student);
         return student;
     }
 
     /// <summary>Число студентов в хранилище (шаг given «известен состав пользователей» и проверка «пользователь не создан»).</summary>
-    public static int CountStudents(WebApplicationFactory<Program> factory) =>
-        factory.Services.GetRequiredService<IUserRepository>().ListStudents().Count;
+    public static async Task<int> CountStudentsAsync(WebApplicationFactory<Program> factory) =>
+        (await factory.Services.GetRequiredService<IUserRepository>().ListStudentsAsync()).Count;
 
     /// <summary>Пользователь по логину без учёта регистра либо null (проверка «пользователь не создан»).</summary>
-    public static User? FindByLogin(WebApplicationFactory<Program> factory, string login) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login);
+    public static async Task<User?> FindByLoginAsync(WebApplicationFactory<Program> factory, string login) =>
+        await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login);
 }

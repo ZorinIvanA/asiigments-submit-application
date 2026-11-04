@@ -11,24 +11,30 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// then:  первый — 404 'Студент не найден'; второй — 404 'Лабораторная не найдена'
 ///        (FR-021: проверки сущностей).
 /// </summary>
-public sealed class Ts150_SubmissionUnknownEntitiesTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts150_SubmissionUnknownEntitiesTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _existingStudentId;
-    private readonly Guid _existingLabId;
+    private Guid _existingStudentId;
+    private Guid _existingLabId;
 
     public Ts150_SubmissionUnknownEntitiesTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _existingStudentId = B06SubmissionsSessions.RequireUser(factory, "student05").Id;
-        _existingLabId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 1).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _existingStudentId = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student05")).Id;
+        _existingLabId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 1)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionWithUnknownStudent_Returns404StudentNotFound()
     {
         // given: сессия teacher; даты валидны (null); studentId не существует.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /submissions {неизвестный studentId, существующий labId, null, null}.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(
@@ -48,7 +54,7 @@ public sealed class Ts150_SubmissionUnknownEntitiesTests : IClassFixture<B06Subm
     public async Task PutSubmissionWithUnknownLab_Returns404LabNotFound()
     {
         // given: сессия teacher; даты валидны (null); labId не существует.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /submissions {существующий studentId, неизвестный labId, null, null}.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

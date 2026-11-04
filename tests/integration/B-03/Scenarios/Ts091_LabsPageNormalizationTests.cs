@@ -9,15 +9,22 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// ?page=abc; ?page=2.5; ?page=99; then — первые три page=1 в ответе (эхо исходного
 /// значения запрещено); page=99 — items=[], total=23, page=99.
 /// </summary>
-public sealed class Ts091_LabsPageNormalizationTests : IClassFixture<B03HostFactory>
+public sealed class Ts091_LabsPageNormalizationTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts091_LabsPageNormalizationTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Theory]
     [InlineData("page=0")]
@@ -26,7 +33,7 @@ public sealed class Ts091_LabsPageNormalizationTests : IClassFixture<B03HostFact
     public async Task GetLabsWithInvalidPage_NormalizesToPage1(string pageQuery)
     {
         // given: сессия teacher; в выборке 23 записи при pageSize=10.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: GET /labs с некорректным значением page.
         using var response = await B03LabsApi.GetLabsAsync(client, pageQuery);
@@ -42,7 +49,7 @@ public sealed class Ts091_LabsPageNormalizationTests : IClassFixture<B03HostFact
     public async Task GetLabsPage99_ReturnsEmptyItemsWithFullTotal()
     {
         // given: сессия teacher; в выборке 23 записи при pageSize=10 (последняя — 3-я).
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: страница 99.
         using var response = await B03LabsApi.GetLabsAsync(client, "page=99");

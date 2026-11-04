@@ -17,7 +17,7 @@ public sealed class Ts160_MeSubmissionsNoGroupTests(B13WebAppFactory factory) : 
     {
         // given: студент без группы (GroupId = null); сессия студента.
         B13Seed.AddStudent(_factory, "ts160-loner", "Одиноков", null);
-        using var client = HostClients.CreateStudentClient(_factory, "ts160-loner");
+        using var client = await HostClients.CreateStudentClientAsync(_factory, "ts160-loner");
 
         // when: GET /me/submissions?semester=1.
         using var response = await client.GetAsync("/api/v1/me/submissions?semester=1");

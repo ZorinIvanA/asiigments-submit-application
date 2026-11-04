@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B15.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B15.Scenarios;
 
@@ -47,7 +47,7 @@ public sealed class Ts089_ProfileUpdateTrimTests : IClassFixture<B15WebAppFactor
         BodyAssertions.StringPropertyIs(root, "email", "n@e.ru");
 
         // then: и в хранилище значения триммяты (контракт IF-015: чтение — копия-снимок).
-        var stored = B15Harness.UserByEmail(_factory, "n@e.ru");
+        var stored = await B15Harness.UserByEmailAsync(_factory, "n@e.ru");
         Assert.Equal(seeded.Id, stored.Id);
         Assert.Equal("Новое Имя", stored.FullName);
         Assert.Equal("n@e.ru", stored.Email);

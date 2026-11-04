@@ -19,7 +19,7 @@ public sealed class Ts034_DuplicateEmailTests : IClassFixture<B03HostFactory>
     public async Task Register_DuplicateEmailOtherCase_ReturnsEmailConflict()
     {
         // given: существует пользователь с email 'a@b.ru'; логин запроса свободен.
-        B03UserSeed.AddStudent(_factory, login: "ab-owner", email: "a@b.ru");
+        await B03UserSeed.AddStudentAsync(_factory, login: "ab-owner", email: "a@b.ru");
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.34.0.1");
 
         // when: регистрация с новым логином и email 'A@B.RU' (тот же email в другом регистре).

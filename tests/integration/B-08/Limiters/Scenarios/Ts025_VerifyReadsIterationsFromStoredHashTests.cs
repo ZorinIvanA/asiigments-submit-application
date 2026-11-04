@@ -51,7 +51,7 @@ public sealed class Ts025_VerifyReadsIterationsFromStoredHashTests : IClassFixtu
             repeatPassword = B08LimitersClients.TestUserPassword,
         });
         Assert.Equal(HttpStatusCode.Created, legacyRegister.StatusCode);
-        var legacyHash = B08LimitersClients.FindUserByLogin(_factory, LegacyLogin)!.PasswordHash;
+        var legacyHash = (await B08LimitersClients.FindUserByLoginAsync(_factory, LegacyLogin))!.PasswordHash;
         Assert.StartsWith("pbkdf2-sha256$1000$", legacyHash, StringComparison.Ordinal);
 
         // given: hasher пересоздан с Auth__Pbkdf2Iterations=2000 в рамках того
@@ -77,7 +77,7 @@ public sealed class Ts025_VerifyReadsIterationsFromStoredHashTests : IClassFixtu
         // пользователя создаётся с 2000 ('pbkdf2-sha256$2000$').
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         Assert.Equal(HttpStatusCode.Created, freshRegister.StatusCode);
-        var freshHash = B08LimitersClients.FindUserByLogin(_factory, FreshLogin)!.PasswordHash;
+        var freshHash = (await B08LimitersClients.FindUserByLoginAsync(_factory, FreshLogin))!.PasswordHash;
         Assert.StartsWith("pbkdf2-sha256$2000$", freshHash, StringComparison.Ordinal);
     }
 }

@@ -9,7 +9,7 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
@@ -147,13 +147,13 @@ public sealed class AuthController(
         var trimmedEmail = email.Trim();
 
         // (3) Дубликат lower(login) — РАНЬШЕ email (FR-006); ci-правило репозитория.
-        if (_users.GetByLogin(trimmedLogin) is not null)
+        if (await _users.GetByLoginAsync(trimmedLogin) is not null)
         {
             return Duplicate(ValidationTexts.DuplicateLogin);
         }
 
         // (4) Дубликат lower(email).
-        if (_users.GetByEmail(trimmedEmail) is not null)
+        if (await _users.GetByEmailAsync(trimmedEmail) is not null)
         {
             return Duplicate(ValidationTexts.DuplicateEmail);
         }
@@ -174,20 +174,20 @@ public sealed class AuthController(
 
         try
         {
-            // Атомарная ci-проверка + вставка под StorageLock (IF-015): гонка двух
-            // регистраций на один login/email → 409 по исключению репозитория.
-            _users.Add(user);
+            // Атомарная ci-проверка + вставка (IF-015): гонка двух регистраций на
+            // один login/email → 409 по исключению репозитория.
+            await _users.AddAsync(user);
         }
         catch (StorageConflictException)
         {
             // Порядок конфликтов сохраняется: сначала login, потом email.
-            return Duplicate(_users.GetByLogin(trimmedLogin) is not null
+            return Duplicate(await _users.GetByLoginAsync(trimmedLogin) is not null
                 ? ValidationTexts.DuplicateLogin
                 : ValidationTexts.DuplicateEmail);
         }
 
-        IssueSession(user.Id, user.Role, user.Login);
-        return StatusCode(StatusCodes.Status201Created, ToMeDto(user));
+        await IssueSessionAsync(user.Id, user.Role, user.Login);
+        return StatusCode(StatusCodes.Status201Created, await ToMeDtoAsync(user));
     }
 
     // ------------------------------------------------------------------
@@ -213,7 +213,7 @@ public sealed class AuthController(
 
         // (3)+(4) Поиск и РОВНО одна деривация: Verify при найденном,
         // VerifyReference при ненайденном — ветки неразличимы по стоимости.
-        var user = _users.GetByLogin(lookupLogin);
+        var user = await _users.GetByLoginAsync(lookupLogin);
         var passwordCandidate = password.Length == 0 ? EmptyPasswordStandIn : password;
         var authenticated = user is not null
             ? _hasher.Verify(passwordCandidate, user.PasswordHash, KdfCallers.Login)
@@ -222,8 +222,8 @@ public sealed class AuthController(
         if (user is not null && authenticated)
         {
             // (5) Успех: токены+cookie; лимитер НЕ опрашивается и НЕ пишет метку.
-            IssueSession(user.Id, user.Role, user.Login);
-            return Ok(ToMeDto(user));
+            await IssueSessionAsync(user.Id, user.Role, user.Login);
+            return Ok(await ToMeDtoAsync(user));
         }
 
         // (6) Отказ: ShouldBlock ПОСЛЕ выполненной KDF; блок → 429 без метки.
@@ -243,9 +243,9 @@ public sealed class AuthController(
 
     /// <summary>POST /api/v1/auth/refresh — новый access-cookie по refresh-cookie (204; 401 без Set-Cookie).</summary>
     [HttpPost("refresh")]
-    public IActionResult Refresh()
+    public async Task<IActionResult> Refresh()
     {
-        if (FindLiveRefreshRecord() is not { } record || _users.GetById(record.UserId) is not { } user)
+        if (await FindLiveRefreshRecordAsync() is not { } record || await _users.GetByIdAsync(record.UserId) is not { } user)
         {
             return UnauthorizedEnvelope();
         }
@@ -263,13 +263,13 @@ public sealed class AuthController(
 
     /// <summary>POST /api/v1/auth/logout — идемпотентный выход (всегда 204 + сброс обеих cookie).</summary>
     [HttpPost("logout")]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout()
     {
         // FR-010: валидный access не требуется; отзывается только ЖИВОЙ
         // предъявленный refresh (отсутствующий/чужой токен — отсутствие операции).
-        if (FindLiveRefreshRecord() is { } live)
+        if (await FindLiveRefreshRecordAsync() is { } live)
         {
-            _securityTokens.Revoke(live.Id);
+            await _securityTokens.RevokeAsync(live.Id);
             // Факт безопасности — ТОЛЬКО при фактическом отзыве (IF-016/ADR-034):
             // идемпотентный 204 без отзыва ничего не пишет.
             _securityEvents.LogRefreshTokenRevoked(SecurityEventReasons.Logout);
@@ -286,9 +286,9 @@ public sealed class AuthController(
     /// <summary>GET /api/v1/auth/me — MeDto текущего пользователя (любая роль, FR-022 role=user).</summary>
     [Authorize]
     [HttpGet("me")]
-    public IActionResult Me()
+    public async Task<IActionResult> Me()
     {
-        return TryLoadCurrentUser() is { } user ? Ok(ToMeDto(user)) : UnauthorizedEnvelope();
+        return await TryLoadCurrentUserAsync() is { } user ? Ok(await ToMeDtoAsync(user)) : UnauthorizedEnvelope();
     }
 
     // ------------------------------------------------------------------
@@ -301,11 +301,11 @@ public sealed class AuthController(
     /// <paramref name="login"/> передаётся в access-JWT явно (канал subject,
     /// аменда CR-001/ADR-044): вызывающие (register/login) — всегда user.Login.
     /// </summary>
-    private void IssueSession(Guid userId, string role, string? login)
+    private async Task IssueSessionAsync(Guid userId, string role, string? login)
     {
         var access = _tokens.IssueAccessToken(userId, role, login);
         var refresh = _tokens.CreateRefreshToken(userId);
-        _securityTokens.Add(new RefreshToken
+        await _securityTokens.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -322,7 +322,7 @@ public sealed class AuthController(
     /// предъявленного значения; живость (не отозван, expiresAt &gt; now)
     /// вычисляет хранилище лениво (IF-015); иначе null.
     /// </summary>
-    private RefreshToken? FindLiveRefreshRecord()
+    private async Task<RefreshToken?> FindLiveRefreshRecordAsync()
     {
         var value = Request.Cookies[AuthCoreDefaults.RefreshTokenCookieName];
         if (string.IsNullOrEmpty(value))
@@ -330,7 +330,7 @@ public sealed class AuthController(
             return null;
         }
 
-        return _securityTokens.FindLiveByHash(Sha256Hex(value));
+        return await _securityTokens.FindLiveByHashAsync(Sha256Hex(value));
     }
 
     /// <summary>
@@ -338,19 +338,19 @@ public sealed class AuthController(
     /// живой сессии либо запись, удалённая из хранилища, дают null — действие
     /// отвечает 401 «Не авторизован» (зеркало мока requireSessionUser).
     /// </summary>
-    private User? TryLoadCurrentUser()
+    private async Task<User?> TryLoadCurrentUserAsync()
     {
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(rawId, out var id) ? _users.GetById(id) : null;
+        return Guid.TryParse(rawId, out var id) ? await _users.GetByIdAsync(id) : null;
     }
 
     /// <summary>MeDto: groupName — по ТЕКУЩЕМУ состоянию групп (FR-011).</summary>
-    private MeDto ToMeDto(User user) => new()
+    private async Task<MeDto> ToMeDtoAsync(User user) => new()
     {
         Login = user.Login,
         FullName = user.FullName,
         Role = user.Role,
-        GroupName = user.GroupId is { } groupId ? _groups.GetById(groupId)?.Name : null,
+        GroupName = user.GroupId is { } groupId ? (await _groups.GetByIdAsync(groupId))?.Name : null,
     };
 
     // ------------------------------------------------------------------

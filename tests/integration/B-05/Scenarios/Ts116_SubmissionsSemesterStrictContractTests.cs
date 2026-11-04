@@ -29,8 +29,8 @@ public sealed class Ts116_SubmissionsSemesterStrictContractTests : IClassFixture
     public async Task OutOfRange_NonNumeric_AndMissingSemester_AreRejectedWithFieldError()
     {
         // given: валидная группа ИК-221; teacher авторизован; MaxSemester=10.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: semester=0; semester=99; semester=abc; semester отсутствует.
         using var belowRange = await client.GetAsync(
@@ -62,7 +62,7 @@ public sealed class Ts116_SubmissionsSemesterStrictContractTests : IClassFixture
     public async Task MissingGroupId_IsRejectedWithRequiredFieldError()
     {
         // given: teacher авторизован; валидный semester=1; groupId не передан.
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: GET /submissions?semester=1&page=1 (без groupId).
         using var response = await client.GetAsync($"{GridEndpoint}?semester=1&page=1");

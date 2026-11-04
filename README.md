@@ -27,17 +27,30 @@ httpOnly-cookie (access 15 мин + refresh 7 дней).
   `{message, errors?}`
 - Аутентификация: JWT в httpOnly-cookie, PBKDF2-хэширование паролей,
   rate-limiting входа/восстановления
-- Хранилище: in-memory реализации интерфейсов репозиториев (подготовлено к
-  замене на реальную БД без изменения контроллеров)
+- Хранилище: **PostgreSQL 16** — EF Core (Npgsql) для пользователей, групп,
+  работ и токенов; репозиторий сдач — на «сыром» ADO.NET
+  (`NpgsqlCommand`/`NpgsqlDataReader`); схема создаётся SQL-скриптами
+  [`src/api/db/`](src/api/db/README.md), все репозитории и контроллеры
+  асинхронны
 - Health-check `GET /health`; Swagger UI — только в Development
-- Тесты: xUnit — 1107 юнит-тестов (`src/api/LabsApp.Tests`) + 22
-  интеграционные зоны (`tests/integration/B-01…B-22`, HTTP-контракты `/api/v1`
-  через WebApplicationFactory)
+- Тесты: xUnit — юнит-тесты (`src/api/LabsApp.Tests`) + интеграционные зоны
+  (`tests/integration/B-01…B-23`, HTTP-контракты `/api/v1` через
+  WebApplicationFactory; B-23 — сквозные проверки на реальной БД)
 
 ## Установка и запуск
 
 Требуется Node.js LTS (20.19+ или 22.12+) и npm, Google Chrome (для
-unit-тестов в ChromeHeadless), .NET SDK 8.0.
+unit-тестов в ChromeHeadless), .NET SDK 8.0, PostgreSQL 16.
+
+### Подготовка базы данных (однократно)
+
+Схема и демо-данные применяются SQL-скриптами из
+[`src/api/db/`](src/api/db/README.md):
+
+```bash
+psql -h 127.0.0.1 -p 5434 -U labsapp -d labsapp -f src/api/db/02_schema.sql
+psql -h 127.0.0.1 -p 5434 -U labsapp -d labsapp -f src/api/db/03_seed_demo.sql
+```
 
 ### Режим разработки (два процесса)
 
@@ -82,10 +95,11 @@ dotnet test tests/integration/B-01                    # одна зона (пр�
 
 ## Демо-учётки и данные
 
-Данные бэкенда — in-memory: сид выполняется при старте, изменения живут до
-перезапуска процесса (перезапуск = сброс к сиду). В Development «письма»
-восстановления пароля не отправляются: код выводится в журнал бэкенда с
-маркером `[DEV-EMAIL]` (запуск `dotnet run` показывает его в консоли).
+Данные живут в PostgreSQL (применяются скриптами `src/api/db/`, сид приложения
+при старте идемпотентен): изменения переживают перезапуск процесса. В
+Development «письма» восстановления пароля не отправляются: код выводится в
+журнал бэкенда с маркером `[DEV-EMAIL]` (запуск `dotnet run` показывает его в
+консоли).
 
 ### Демо-учётки
 
@@ -100,6 +114,82 @@ dotnet test tests/integration/B-01                    # одна зона (пр�
 
 Остальные данные сида: группы ИК-221/ИК-222/ИК-223 (у ИК-223 студентов нет),
 23 лабораторные работы (семестр 1 — №1–20, семестр 2 — №1–3), сид-сдачи.
+
+## Схема данных
+
+Схема PostgreSQL в третьей нормальной форме (3НФ): каждая неключевая колонка
+зависит только от ключа своей таблицы, имя группы и семестр сдачи нигде не
+дублируются, `studentCount` вычисляется. Скрипты создания и описания —
+[`src/api/db/`](src/api/db/README.md).
+
+```mermaid
+erDiagram
+    groups {
+        uuid id PK
+        text name "уникален ci: lower(name)"
+        timestamptz created_at
+    }
+    users {
+        uuid id PK
+        text login "уникален ci: lower(login)"
+        text email "уникален ci: lower(email)"
+        text password_hash "PBKDF2"
+        text full_name
+        text role "student | teacher (CHECK)"
+        uuid group_id FK "null = без группы"
+        timestamptz created_at
+    }
+    labs {
+        uuid id PK
+        int semester ">= 1"
+        int number "> 0, UNIQUE(semester, number)"
+        text content
+        text assignment_url "null допустим"
+        boolean defense_required
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    submissions {
+        uuid id PK
+        uuid student_id FK
+        uuid lab_id FK
+        date submit_date "null = не сдано"
+        date defense_date "null = не защищено"
+        uuid updated_by FK "преподаватель, null допустим"
+        timestamptz updated_at
+    }
+    refresh_tokens {
+        uuid id PK
+        uuid user_id FK
+        text token_hash "UNIQUE, SHA-256"
+        timestamptz expires_at
+        timestamptz revoked_at "null = жив"
+        timestamptz created_at
+    }
+    recovery_codes {
+        uuid id PK
+        uuid user_id FK
+        text code_hash "солёный SHA-256"
+        timestamptz expires_at "10 минут"
+        timestamptz used_at "null = жив"
+        int attempts "5-я ошибка гасит код"
+        timestamptz created_at
+    }
+    password_reset_tokens {
+        text token_hash PK "SHA-256 дайджест"
+        uuid user_id FK
+        timestamptz expires_at "15 минут"
+        timestamptz used_at "null = жив"
+    }
+
+    groups         ||--o{ users                 : "group_id ON DELETE SET NULL"
+    users          ||--o{ submissions           : "student_id ON DELETE CASCADE"
+    labs           ||--o{ submissions           : "lab_id ON DELETE CASCADE"
+    users          ||--o{ submissions           : "updated_by ON DELETE SET NULL"
+    users          ||--o{ refresh_tokens        : "user_id ON DELETE CASCADE"
+    users          ||--o{ recovery_codes        : "user_id ON DELETE CASCADE"
+    users          ||--o{ password_reset_tokens : "user_id ON DELETE CASCADE"
+```
 
 ### Особенности демо-режима
 
@@ -128,7 +218,8 @@ src/client/app/layout/    — оболочка приложения и стра�
     app-root/              — корневой компонент (точка входа бутстрапа)
 src/client/app/features/  — фичи: features/<фича>/pages, features/<фича>/components
 src/api/                  — бэкенд: ASP.NET Core, REST API /api/v1 (см. src/api/README.md)
-tests/integration/        — интеграционные зоны B-01…B-22 (xUnit + TS-зоны B-17/B-18)
+src/api/db/               — SQL-скрипты БД: схема 3НФ, индексы, демо-данные
+tests/integration/        — интеграционные зоны B-01…B-23 (xUnit + TS-зоны B-17/B-18)
 src/client/styles.scss    — глобальные стили
 src/client/styles/        — SCSS-примеси: единственный брейкпоинт 768px
 ```

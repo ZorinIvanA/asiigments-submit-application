@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B04.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B04.Scenarios;
@@ -22,10 +22,10 @@ public sealed class Ts110_LabPutForeignPairConflictTests(B04LabsWebAppFactory fa
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
 
         // given: существуют записи (1,5) и (1,6).
-        B04DomainSeed.AddLab(labs, semester: 1, number: 5);
-        var record = B04DomainSeed.AddLab(labs, semester: 1, number: 6);
+        await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 5);
+        var record = await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 6);
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT записи (1,6) на пару (1,5), занятую другой записью.
         using var response = await client.PutAsJsonAsync($"/api/v1/labs/{record.Id}", new

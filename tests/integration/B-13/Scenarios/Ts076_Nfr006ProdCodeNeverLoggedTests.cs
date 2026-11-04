@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B13.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -42,7 +42,7 @@ public sealed class Ts076_Nfr006ProdCodeNeverLoggedTests(B13RecoveryProdSecretsH
 
         // then: запрос отработан (200 с пустым телом — контракт IF-008 един).
         await B13RecoveryApi.AssertEmptyBodyOkAsync(response);
-        var live = securityTokens.FindLiveForUser(user.Id);
+        var live = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
 
         // then: ни одна запись журнала не содержит код: категория 'EmailDev'

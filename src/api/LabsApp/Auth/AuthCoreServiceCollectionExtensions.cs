@@ -2,8 +2,7 @@ using System.Diagnostics.Metrics;
 using LabsApp.Auth.RateLimiting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Observability;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -36,7 +35,6 @@ public static class AuthCoreServiceCollectionExtensions
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(_ => new Meter(ObservabilityMiddleware.MeterName, "1.0"));
-        services.TryAddSingleton<StorageLock>();
         // Умолчание окружения только для изолированных ServiceCollection
         // (юнит-тесты): в хосте IHostEnvironment уже зарегистрирован — TryAdd
         // не срабатывает, признак Development берётся из реального окружения.
@@ -56,12 +54,11 @@ public static class AuthCoreServiceCollectionExtensions
         // коды восстановления и их солёный SHA-256 (0 KDF на recovery — ASM-005).
         services.AddSingleton<ITokenService, TokenService>();
 
-        // IF-015/T-101 (FR-024): консолидированное in-memory хранилище refresh-
-        // токенов, кодов восстановления и reset-токенов — singleton под общим
-        // StorageLock (выше TryAdd; в хосте выигрывает регистрация AddInMemoryStorage).
-        // Регистрации токенных хранилищ собраны в AddAuthCore — единый
-        // писатель DI-регистраций Auth (ADR-030).
-        services.AddSingleton<ISecurityTokenRepository, InMemorySecurityTokenRepository>();
+        // IF-015/T-101 (FR-024): хранилище refresh-токенов, кодов восстановления
+        // и reset-токенов регистрирует AddPostgresStorage (единственный провайдер
+        // приложения); тестовые хосты подменяют регистрации своими двойками.
+        // AddAuthCore собственной регистрации не выполняет (ADR-030: единый
+        // писатель DI-регистраций Auth).
 
         // IF-004: cookie — обе Path=/, Secure iff окружение ≠ Development.
         services.AddSingleton<ICookieService, CookieService>();

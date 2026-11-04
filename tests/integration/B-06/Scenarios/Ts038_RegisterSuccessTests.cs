@@ -2,7 +2,7 @@ using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
@@ -58,7 +58,7 @@ public sealed class Ts038_RegisterSuccessTests : IClassFixture<B06WebAppFactory>
         // then: в хранилище пользователь с триммированными значениями (IF-015:
         // чтение возвращает копию-снимок).
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var stored = users.GetByLogin("new.user");
+        var stored = await users.GetByLoginAsync("new.user");
         Assert.NotNull(stored);
         Assert.Equal("new.user", stored.Login);
         Assert.Equal("new@x.ru", stored.Email);

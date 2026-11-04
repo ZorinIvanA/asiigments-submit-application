@@ -29,14 +29,14 @@ public sealed class Ts060_LogoutExpiredAccessRevokesRefreshTests(B10NoDemoWebApp
     {
         // given: владелец refresh-сессии; access-токен с истёкшим exp (ключ стенда);
         // refresh-токен жив (минт, ADR-015/ADR-022).
-        var owner = B10Seed.AddStudent(_factory, "b10ts060.expired");
+        var owner = await B10Seed.AddStudentAsync(_factory, "b10ts060.expired");
         var expiredAccess = B10AuthSessions.CraftAccessToken(
             owner.Id,
             UserRoles.Student,
             issuedAt: DateTimeOffset.UtcNow - ExpiredFor - TimeSpan.FromMinutes(1),
             expiresAt: DateTimeOffset.UtcNow - ExpiredFor,
             signingKey: B10HostFactory.TestJwtKey);
-        var refreshToken = B10AuthSessions.MintRefreshToken(_factory, owner.Id);
+        var refreshToken = await B10AuthSessions.MintRefreshTokenAsync(_factory, owner.Id);
         using var client = HostClients.Create(_factory);
 
         // when: POST /auth/logout с истёкшим access-cookie и живым refresh-cookie.
@@ -58,8 +58,8 @@ public sealed class Ts060_LogoutExpiredAccessRevokesRefreshTests(B10NoDemoWebApp
     {
         // given: владелец refresh-сессии; access-cookie отсутствует (второй вариант
         // given «без валидного access»); refresh-токен жив.
-        var owner = B10Seed.AddStudent(_factory, "b10ts060.noaccess");
-        var refreshToken = B10AuthSessions.MintRefreshToken(_factory, owner.Id);
+        var owner = await B10Seed.AddStudentAsync(_factory, "b10ts060.noaccess");
+        var refreshToken = await B10AuthSessions.MintRefreshTokenAsync(_factory, owner.Id);
         using var client = HostClients.Create(_factory);
 
         // when: POST /auth/logout только с refresh-cookie.

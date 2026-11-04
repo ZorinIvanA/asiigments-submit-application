@@ -1,0 +1,29 @@
+# Опционально: PostgreSQL 16 в Docker для окружений без локального сервера.
+# Локальный сервер уже слушает 127.0.0.1:5432 — тогда этот файл не нужен.
+#
+#   docker compose up -d
+#   psql -h 127.0.0.1 -U labsapp -d labsapp -f 02_schema.sql   # схема
+#   psql -h 127.0.0.1 -U labsapp -d labsapp -f 03_seed_demo.sql # демо-данные
+#
+# Контейнер создаёт пользователя labsapp/labsapp и базу labsapp;
+# скрипт 01_create_database.sql в этом варианте не требуется.
+services:
+  postgres:
+    image: postgres:16
+    container_name: labsapp-postgres
+    environment:
+      POSTGRES_USER: labsapp
+      POSTGRES_PASSWORD: labsapp
+      POSTGRES_DB: labsapp
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - labsapp-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labsapp -d labsapp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  labsapp-pgdata:

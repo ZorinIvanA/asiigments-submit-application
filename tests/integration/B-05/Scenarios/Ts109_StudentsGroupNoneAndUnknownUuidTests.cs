@@ -23,10 +23,10 @@ public sealed class Ts109_StudentsGroupNoneAndUnknownUuidTests : IClassFixture<B
         // given: в сиде ровно student31 и student32 без группы; teacher авторизован.
         foreach (var login in new[] { "student31", "student32" })
         {
-            Assert.Null(B05SeedLookup.StudentByLogin(_factory, login).GroupId);
+            Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);Assert.Null((await B05SeedLookup.StudentByLoginAsync(_factory, login)).GroupId);
         }
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: фильтр по отсутствию группы.
         using var response = await client.GetAsync("/api/v1/students?groupId=none");
@@ -56,7 +56,7 @@ public sealed class Ts109_StudentsGroupNoneAndUnknownUuidTests : IClassFixture<B
     {
         // given: uuid, которого нет среди сид-групп; teacher авторизован.
         var unknownGroupId = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: фильтр по неизвестной группе.
         using var response = await client.GetAsync($"/api/v1/students?groupId={unknownGroupId}");

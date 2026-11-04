@@ -32,7 +32,7 @@ public sealed class Ts021_RegisterLimitBeforeValidationTests : IClassFixture<B08
     public async Task Register_SixthAttemptWithGarbageBody_429BeforeValidation()
     {
         // given: пользователь 'zzz' не существует.
-        Assert.Null(B08LimitersClients.FindUserByLogin(_factory, "zzz"));
+        Assert.Null(await B08LimitersClients.FindUserByLoginAsync(_factory, "zzz"));
 
         // given: 5 успешных регистраций (201) с IP X — разные свободные логины
         // reg01..reg05 и разные email; ключ счётчика может состоять только из IP.
@@ -62,6 +62,6 @@ public sealed class Ts021_RegisterLimitBeforeValidationTests : IClassFixture<B08
         B08LimitersBodyAssertions.MessageIs(envelope, RateLimitedMessage);
 
         // then: пользователь 'zzz' не создан.
-        Assert.Null(B08LimitersClients.FindUserByLogin(_factory, "zzz"));
+        Assert.Null(await B08LimitersClients.FindUserByLoginAsync(_factory, "zzz"));
     }
 }

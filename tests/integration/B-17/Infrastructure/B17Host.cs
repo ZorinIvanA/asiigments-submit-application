@@ -4,8 +4,8 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
+using LabsApp.Infrastructure;
+using LabsApp.TestInfrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -75,7 +75,7 @@ public static partial class B17Host
             GroupId = null,
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        users.AddAsync(user);
         return user;
     }
 

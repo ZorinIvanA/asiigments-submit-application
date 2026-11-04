@@ -40,7 +40,7 @@ public sealed class Ts027_LegacyHashBranchesEqualDerivationsTests
 
         // given: пользователь создан при Auth__Pbkdf2Iterations=1000 (DI-сид —
         // реальный IPasswordHasher фикстуры, метка seed).
-        B08AuthHost.SeedUser(
+        await B08AuthHost.SeedUserAsync(
             factory, LegacyLogin, LegacyEmail, "Легаси Ветка", LabsApp.Domain.Entities.UserRoles.Student);
 
         // given: конфигурация процесса изменена на 2000; хранилище не пересоздано.

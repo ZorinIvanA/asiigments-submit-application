@@ -36,14 +36,14 @@ public sealed class Ts062_AuthMeStudentAndTeacherTests(B12WebAppFactory factory)
     public async Task Me_RolesAndGroupless_Then_RecomputesGroupNameAfterRename()
     {
         // given: student01 состоит в ИК-221; student31 без группы (groupId=null).
-        var group = B12Seed.EnsureGroup(_factory, "ИК-221");
-        B12Seed.EnsureStudent(
+        var group = await B12Seed.EnsureGroupAsync(_factory, "ИК-221");
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "student01",
             fullName: "Иванов Иван Иванович 01",
             email: "s01@x.ru",
             groupId: group.Id);
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "student31",
             fullName: "Сидоров Сидор Сидорович 31",
@@ -51,9 +51,9 @@ public sealed class Ts062_AuthMeStudentAndTeacherTests(B12WebAppFactory factory)
 
         // given: валидные сессии student01, student31 и teacher; access student01
         // минтится ОДИН раз — повторный GET после переименования идёт с тем же токеном.
-        using var student01 = HostClients.CreateStudentClient(_factory, "student01");
-        using var student31 = HostClients.CreateStudentClient(_factory, "student31");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var student01 = await HostClients.CreateStudentClientAsync(_factory, "student01");
+        using var student31 = await HostClients.CreateStudentClientAsync(_factory, "student31");
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when/then: GET /auth/me с access-cookie student01 — дословный MeDto кейса.
         using var meStudent01 = await student01.GetAsync(B12AuthEndpoints.Me);

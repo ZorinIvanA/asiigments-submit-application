@@ -22,7 +22,7 @@ public sealed class Ts150_SubmissionsGroupNotFoundTests(B13WebAppFactory factory
     public async Task TS150_UnknownGroupId_Returns404GroupNotFound()
     {
         // given: случайный uuid (ни одна группа не существует — демо-сид выключен); сессия teacher.
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /submissions?groupId=<случайный-uuid>&semester=1.
         using var response = await client.GetAsync(
@@ -40,7 +40,7 @@ public sealed class Ts150_SubmissionsGroupNotFoundTests(B13WebAppFactory factory
     public async Task TS150_MissingGroupId_Returns400RequiredFieldError()
     {
         // given: сессия teacher; параметр groupId отсутствует.
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /submissions?semester=1 (без groupId).
         using var response = await client.GetAsync("/api/v1/submissions?semester=1");

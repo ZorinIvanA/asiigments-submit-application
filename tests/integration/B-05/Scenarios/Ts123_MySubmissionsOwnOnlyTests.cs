@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -29,11 +29,11 @@ public sealed class Ts123_MySubmissionsOwnOnlyTests : IClassFixture<B05WebAppFac
     public async Task StudentInGroup_GetsSemesterLabsAndOnlyOwnSubmissions()
     {
         // given: student01 в ИК-221; 20 работ семестра 1; 3 сид-сдачи student01.
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
         Assert.Equal(ik221.Id, student01.GroupId);
 
-        var labs = _factory.Services.GetRequiredService<ILabRepository>().GetAll();
+        var labs = await _factory.Services.GetRequiredService<ILabRepository>().GetAllAsync();
         var semester1LabIds = labs
             .Where(lab => lab.Semester == 1)
             .Select(lab => lab.Id)

@@ -1,6 +1,6 @@
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B13.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B13.Scenarios;
@@ -34,7 +34,7 @@ public sealed class Ts071_RecoveryRequestExistingEmailTests(B13RecoveryDevSpyHos
         var services = _factory.Services;
         var tokens = services.GetRequiredService<ITokenService>();
         var securityTokens = services.GetRequiredService<ISecurityTokenRepository>();
-        Assert.Null(securityTokens.FindLiveForUser(user.Id));
+        Assert.Null( await securityTokens.FindLiveForUserAsync(user.Id) );
         var kdfBefore = B13RecoveryHarness.KdfSnapshot(_factory);
 
         // given: часы T0 (инжектируемые, FR-003); клиент без cookie-контейнера.
@@ -48,7 +48,7 @@ public sealed class Ts071_RecoveryRequestExistingEmailTests(B13RecoveryDevSpyHos
         await B13RecoveryApi.AssertEmptyBodyOkAsync(response);
 
         // then: создан ровно ОДИН живой RecoveryCode с expiresAt=T0+10 мин.
-        var live = securityTokens.FindLiveForUser(user.Id);
+        var live = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Null(live.UsedAt);
         Assert.Equal(0, live.Attempts);

@@ -1,7 +1,7 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B08.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B08.Scenarios;
@@ -46,7 +46,7 @@ public sealed class Ts071_RecoveryRequestProductionNoCodeTests : IClassFixture<B
     {
         // given: Production-хост; пользователь с email a@b.ru.
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
         _factory.LogSink.Clear();
 
         // when: POST /auth/recovery/request.

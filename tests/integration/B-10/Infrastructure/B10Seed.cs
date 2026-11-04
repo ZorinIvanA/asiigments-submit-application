@@ -1,6 +1,6 @@
 using System.Globalization;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B10.Infrastructure;
@@ -23,7 +23,7 @@ public static class B10Seed
     public const string StudentLogin = "b10student";
 
     /// <summary>Добавляет студента напрямую в IUserRepository (сессия будет минтиться, ADR-022).</summary>
-    public static User AddStudent(B10HostFactory factory, string login, Guid? groupId = null)
+    public static async Task<User> AddStudentAsync(B10HostFactory factory, string login, Guid? groupId = null)
     {
         var user = new User
         {
@@ -37,12 +37,12 @@ public static class B10Seed
             GroupId = groupId,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        await factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
     /// <summary>Добавляет группу напрямую в IGroupRepository (шаг given «группа известна», TS-120).</summary>
-    public static Group AddGroup(B10HostFactory factory, string name)
+    public static async Task<Group> AddGroupAsync(B10HostFactory factory, string name)
     {
         var group = new Group
         {
@@ -50,12 +50,12 @@ public static class B10Seed
             Name = name,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<IGroupRepository>().Add(group);
+        await factory.Services.GetRequiredService<IGroupRepository>().AddAsync(group);
         return group;
     }
 
     /// <summary>Добавляет работу напрямую в ILabRepository (DI-сид кейса, ADR-010).</summary>
-    public static Lab AddLab(
+    public static async Task<Lab> AddLabAsync(
         B10HostFactory factory,
         int semester,
         int number,
@@ -74,32 +74,32 @@ public static class B10Seed
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<ILabRepository>().Add(lab);
+        await factory.Services.GetRequiredService<ILabRepository>().AddAsync(lab);
         return lab;
     }
 
     /// <summary>Добавляет сдачу напрямую в ISubmissionRepository (шаг given «сдачи студентов», TS-120).</summary>
-    public static Submission AddSubmission(
+    public static async Task<Submission> AddSubmissionAsync(
         B10HostFactory factory,
         Guid studentId,
         Guid labId,
         DateOnly? submitDate,
         DateOnly? defenseDate)
     {
-        var stored = factory.Services.GetRequiredService<ISubmissionRepository>()
-            .Upsert(studentId, labId, submitDate, defenseDate, updatedBy: null, updatedAt: DateTime.UtcNow);
+        var stored = await factory.Services.GetRequiredService<ISubmissionRepository>()
+            .UpsertAsync(studentId, labId, submitDate, defenseDate, updatedBy: null, updatedAt: DateTime.UtcNow);
         return stored
             ?? throw new InvalidOperationException(
                 "Сид: сдача не сохранилась — репозиторий вернул null (обе даты null означают отсутствие записи).");
     }
 
     /// <summary>Общее число работ в хранилище — шаг given «в хранилище есть лабораторные».</summary>
-    public static int TotalLabCount(B10HostFactory factory) =>
-        factory.Services.GetRequiredService<ILabRepository>().GetAll().Count;
+    public static async Task<int> TotalLabCountAsync(B10HostFactory factory) =>
+        (await factory.Services.GetRequiredService<ILabRepository>().GetAllAsync()).Count;
 
     /// <summary>Сдачи работы напрямую из ISubmissionRepository (инспекция каскада, TS-120).</summary>
-    public static IReadOnlyList<Submission> SubmissionsByLab(B10HostFactory factory, Guid labId) =>
-        factory.Services.GetRequiredService<ISubmissionRepository>().ListByLabIds(new[] { labId });
+    public static async Task<IReadOnlyList<Submission>> SubmissionsByLabAsync(B10HostFactory factory, Guid labId) =>
+        await factory.Services.GetRequiredService<ISubmissionRepository>().ListByLabIdsAsync(new[] { labId });
 
     /// <summary>
     /// Все записи ведомости группы за семестр: GET /api/v1/submissions читается

@@ -9,21 +9,28 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// defenseRequired:false}; then — 409 'Лабораторная с таким номером уже есть
 /// в семестре'.
 /// </summary>
-public sealed class Ts093_LabDuplicatePairTests : IClassFixture<B03HostFactory>
+public sealed class Ts093_LabDuplicatePairTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts093_LabDuplicatePairTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddLab(_factory, semester: 1, number: 1);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddLabAsync(_factory, semester: 1, number: 1);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task CreateLab_DuplicatePair_ReturnsConflict()
     {
         // given: сессия teacher.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: POST с существующей парой (1,1).
         using var response = await B03LabInputApi.PostAsync(

@@ -22,12 +22,12 @@ public sealed class Ts140_StudentsSearchLengthBoundaryTests(B12WebAppFactory fac
         // given: сессия teacher; search ровно из 200 символов; в хранилище студент,
         // ни одно поле которого не содержит ни 'x', ни 200-символьной последовательности
         // (CR-002: иначе total=0 неотличим от «поиск игнорируется»).
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s140",
             fullName: "Граница Поиска Двухсот Символов",
             email: "b12s140@mail.ru");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
         var search = new string('x', MaxSearchLength);
 
         // when: GET /students?search=<200 символов>.
@@ -45,7 +45,7 @@ public sealed class Ts140_StudentsSearchLengthBoundaryTests(B12WebAppFactory fac
     public async Task TS140_Search_201Chars_Returns400WithSearchFieldError()
     {
         // given: сессия teacher; search из 201 символа.
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
         var search = new string('x', MaxSearchLength + 1);
 
         // when: GET /students?search=<201 символ>.

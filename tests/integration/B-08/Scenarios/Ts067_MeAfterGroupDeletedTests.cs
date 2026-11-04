@@ -30,14 +30,14 @@ public sealed class Ts067_MeAfterGroupDeletedTests : IClassFixture<B08WebAppFact
     public async Task Me_AfterGroupDeleted_ReturnsNullGroupNameWithoutDanglingLink()
     {
         // given: группа ИК-221 со студентом; сессии студента и преподавателя.
-        var group = B08Host.SeedGroup(_factory, GroupName);
+        var group = await B08Host.SeedGroupAsync(_factory, GroupName);
         using var studentClient = B08Host.CreateClient(_factory);
-        var student = B08Host.SeedStudent(_factory, StudentLogin, StudentEmail, StudentFullName, groupId: group.Id);
-        B08Host.EstablishSession(_factory, studentClient, student.Id, UserRoles.Student);
+        var student = await B08Host.SeedStudentAsync(_factory, StudentLogin, StudentEmail, StudentFullName, groupId: group.Id);
+        await B08Host.EstablishSessionAsync(_factory, studentClient, student.Id, UserRoles.Student);
 
         using var teacherClient = B08Host.CreateClient(_factory);
-        var teacher = B08Host.SeedTeacher(_factory, TeacherLogin, TeacherEmail, TeacherFullName);
-        B08Host.EstablishSession(_factory, teacherClient, teacher.Id, UserRoles.Teacher);
+        var teacher = await B08Host.SeedTeacherAsync(_factory, TeacherLogin, TeacherEmail, TeacherFullName);
+        await B08Host.EstablishSessionAsync(_factory, teacherClient, teacher.Id, UserRoles.Teacher);
 
         // when: группу студента удалили (DELETE /groups/{id}, FR-043).
         using var delete = await teacherClient.DeleteAsync($"{B08Host.GroupsEndpointPrefix}{group.Id}");

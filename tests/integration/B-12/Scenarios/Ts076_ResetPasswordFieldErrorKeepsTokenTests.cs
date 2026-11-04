@@ -1,6 +1,6 @@
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B12.Scenarios;
@@ -56,7 +56,7 @@ public sealed class Ts076_ResetPasswordFieldErrorKeepsTokenTests(B12RecoveryDevS
         Assert.Equal(expected, texts);
 
         // then: токен остался живым (полевая ошибка НЕ гасит токен).
-        Assert.NotNull(securityTokens.FindLiveResetByHash(tokenHash));
+        Assert.NotNull( await securityTokens.FindLiveResetByHashAsync(tokenHash) );
 
         // then: повтор с валидным password даёт 204.
         using var retry = await B12RecoveryHarness.ResetPasswordAsync(client, TokenValue, "NewPass1!", "NewPass1!");

@@ -30,8 +30,8 @@ public sealed class Ts065_LogoutRepeatedIdempotentTests : IClassFixture<B08WebAp
     {
         // given: сессия; прежние (ещё не отозванные) значения обеих cookie зафиксированы.
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
-        B08Host.EstablishSession(_factory, client, user.Id, UserRoles.Student);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
+        await B08Host.EstablishSessionAsync(_factory, client, user.Id, UserRoles.Student);
 
         var previousAccess = client.Cookies.GetValue(AuthCoreDefaults.AccessTokenCookieName);
         var previousRefresh = client.Cookies.GetValue(AuthCoreDefaults.RefreshTokenCookieName);

@@ -7,7 +7,7 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
@@ -75,7 +75,7 @@ public sealed class MePasswordController(
     {
         // (0) Текущий пользователь: без claim/записи при живой сессии — 401
         // «Не авторизован» (зеркало мока requireSessionUser, FR-022: 401 раньше 400).
-        if (TryLoadCurrentUser() is not { } user)
+        if (await TryLoadCurrentUserAsync() is not { } user)
         {
             return UnauthorizedEnvelope();
         }
@@ -115,7 +115,7 @@ public sealed class MePasswordController(
         // IUserRepository.SetPassword меняет ТОЛЬКО PasswordHash хранимой записи:
         // login/роль/группа/профиль не перечитываются и не откатываются устаревшим
         // снимком; конкурентные правка профиля и SetGroup сохраняются.
-        if (!_users.SetPassword(user.Id, _hasher.Hash(password, KdfCallers.ChangePassword)))
+        if (!await _users.SetPasswordAsync(user.Id, _hasher.Hash(password, KdfCallers.ChangePassword)))
         {
             // Пользователь удалён из хранилища между TryLoadCurrentUser и мутацией
             // (IF-015 NOT_FOUND → 401, IF-013): без отзыва токенов и без событий —
@@ -126,7 +126,7 @@ public sealed class MePasswordController(
         // Арбитраж ISS-002: отзываются ВСЕ refresh-токены пользователя, КРОМЕ
         // совпадающего с refresh-cookie текущего запроса (в хранилище лежит
         // SHA-256-хэш значения — IF-003); cookie нет — отзываются все.
-        _securityTokens.RevokeAllForUserExcept(user.Id, ExceptTokenHashFromCookie());
+        await _securityTokens.RevokeAllForUserExceptAsync(user.Id, ExceptTokenHashFromCookie());
 
         // Факты безопасности (IF-016/ADR-034) — после фактического применения
         // нового пароля и отзыва, до ответа 204; без значений токенов (NFR-006).
@@ -145,10 +145,10 @@ public sealed class MePasswordController(
     /// живой сессии либо запись, удалённая из хранилища, дают null — действие
     /// отвечает 401 «Не авторизован» (зеркало мока requireSessionUser).
     /// </summary>
-    private User? TryLoadCurrentUser()
+    private async Task<User?> TryLoadCurrentUserAsync()
     {
         var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return Guid.TryParse(rawId, out var id) ? _users.GetById(id) : null;
+        return Guid.TryParse(rawId, out var id) ? await _users.GetByIdAsync(id) : null;
     }
 
     /// <summary>

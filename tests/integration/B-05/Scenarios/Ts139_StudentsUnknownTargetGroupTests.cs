@@ -20,8 +20,8 @@ public sealed class Ts139_StudentsUnknownTargetGroupTests : IClassFixture<B05Web
     public async Task PutUnknownGroupForStudent_ReturnsGroupNotFound()
     {
         // given: student31 существует; teacher авторизован.
-        var student31 = B05SeedLookup.StudentByLogin(_factory, "student31");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение в несуществующую группу.
         using var put = await client.PutAsJsonAsync(

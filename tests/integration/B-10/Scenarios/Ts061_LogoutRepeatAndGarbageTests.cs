@@ -24,10 +24,10 @@ public sealed class Ts061_LogoutRepeatAndGarbageTests(B10NoDemoWebAppFactory fac
     {
         // given: два пользователя; refresh-токен первого будет отозван, второго —
         // остаётся живым контрольным значением (шаг given «валидная сессия другого»).
-        var exiting = B10Seed.AddStudent(_factory, "b10ts061.exiting");
-        var foreign = B10Seed.AddStudent(_factory, "b10ts061.foreign");
-        var exitingRefresh = B10AuthSessions.MintRefreshToken(_factory, exiting.Id);
-        var foreignRefresh = B10AuthSessions.MintRefreshToken(_factory, foreign.Id);
+        var exiting = await B10Seed.AddStudentAsync(_factory, "b10ts061.exiting");
+        var foreign = await B10Seed.AddStudentAsync(_factory, "b10ts061.foreign");
+        var exitingRefresh = await B10AuthSessions.MintRefreshTokenAsync(_factory, exiting.Id);
+        var foreignRefresh = await B10AuthSessions.MintRefreshTokenAsync(_factory, foreign.Id);
         using var client = HostClients.Create(_factory);
 
         // given: logout уже выполнен — первый выход отзывает предъявленный refresh.

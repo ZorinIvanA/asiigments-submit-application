@@ -35,7 +35,7 @@ public sealed class Ts157_XffDoesNotChangeLimiterKeyTests
 
         // given: пользователь 'victim' существует; 4 неудачных попытки без
         // заголовков дают 4 метки ключа 'victim|RemoteIpAddress'.
-        B08AuthHost.SeedUser(factory, Login, Email, "Жертва Лимитера", UserRoles.Student);
+        await B08AuthHost.SeedUserAsync(factory, Login, Email, "Жертва Лимитера", UserRoles.Student);
         var wrongBody = "{\"login\":\"" + Login + "\",\"password\":\"" + WrongPassword + "\"}";
         for (var attempt = 1; attempt <= 4; attempt++)
         {

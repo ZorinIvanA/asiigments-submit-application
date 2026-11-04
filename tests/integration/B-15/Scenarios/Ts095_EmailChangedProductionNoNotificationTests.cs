@@ -1,6 +1,6 @@
 using LabsApp.IntegrationTests.B15.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B15.Scenarios;
 
@@ -71,6 +71,6 @@ public sealed class Ts095_EmailChangedProductionNoNotificationTests : IClassFixt
         Assert.Empty(_factory.LogSink.OfCategory(DevEmailSender.LogCategory));
 
         // then: хранилище подтверждает смену (email обновлён).
-        Assert.Equal(NewEmail, B15Harness.UserByEmail(_factory, NewEmail).Email);
+        Assert.Equal(NewEmail, (await B15Harness.UserByEmailAsync(_factory, NewEmail)).Email);
     }
 }

@@ -16,14 +16,14 @@ public sealed class Ts144_PutStudentGroupRemoveTests(B12WebAppFactory factory) :
     public async Task TS144_RemoveFromGroup_JsonNull_Returns204_AndGroupIdNull()
     {
         // given: студент в группе X (DI-сид); сессия teacher.
-        var groupX = B12Seed.EnsureGroup(_factory, "B12-X");
-        var student = B12Seed.EnsureStudent(
+        var groupX = await B12Seed.EnsureGroupAsync(_factory, "B12-X");
+        var student = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s144",
             fullName: "Исключаемый Исключ Исключевич",
             email: "b12s144@x.ru",
             groupId: groupX.Id);
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: PUT /students/{id}/group {groupId:null} (литерал JSON null).
         using var put = await teacher.PutAsync(

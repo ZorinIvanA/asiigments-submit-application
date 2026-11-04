@@ -21,10 +21,10 @@ public sealed class Ts135_StudentsAssignGroupTests : IClassFixture<B05WebAppFact
     public async Task PutGroupUuid_TransfersStudentIntoIk223()
     {
         // given: student31 без группы; ИК-223 существует; teacher авторизован.
-        var student31 = B05SeedLookup.StudentByLogin(_factory, "student31");
+        var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
         Assert.Null(student31.GroupId);
-        var ik223 = B05SeedLookup.GroupByName(_factory, "ИК-223");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var ik223 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-223");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение student31 в ИК-223.
         using var put = await client.PutAsJsonAsync(

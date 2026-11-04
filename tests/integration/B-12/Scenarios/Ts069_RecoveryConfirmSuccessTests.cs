@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B12.Scenarios;
@@ -56,7 +56,7 @@ public sealed class Ts069_RecoveryConfirmSuccessTests(B12RecoveryDevSpyHost fact
         // then: создан PasswordResetToken со сроком 15 минут (поиск по SHA-256
         // значения resetToken — как в прод-потоке, IF-003).
         var resetHash = B12RecoveryStore.Sha256Hex(resetToken);
-        var resetRecord = securityTokens.FindLiveResetByHash(resetHash);
+        var resetRecord = await securityTokens.FindLiveResetByHashAsync(resetHash);
         Assert.NotNull(resetRecord);
         Assert.Null(resetRecord.UsedAt);
         Assert.Equal(confirmedAt.AddMinutes(15).UtcDateTime, resetRecord.ExpiresAt);

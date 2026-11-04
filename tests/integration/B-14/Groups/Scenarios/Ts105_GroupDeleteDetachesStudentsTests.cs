@@ -31,7 +31,7 @@ public sealed class Ts105_GroupDeleteDetachesStudentsTests : IClassFixture<B14Gr
     public async Task DeleteGroup_DetachesStudents_RepeatedDeleteNotFound()
     {
         // given: сессия teacher; id группы ИК-222 (в ней студенты student26..student30).
-        using var client = B14GroupsSession.CreateTeacher(_factory);
+        using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var ik222Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 
         // when: DELETE /groups/{ИК-222.id}.

@@ -7,8 +7,8 @@ using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
@@ -96,7 +96,7 @@ internal static class MePasswordEndpointHarness
     /// DI-сид пользователя с РЕАЛЬНЫМ PBKDF2-хэшем пароля (метка seed — Δkdf
     /// считается снимками ПОСЛЕ сида, IF-002: каждая деривация считается).
     /// </summary>
-    public static User SeedUser(
+    public static async Task<User> SeedUser(
         TestWebAppFactory factory,
         string login,
         string? email = null,
@@ -108,7 +108,7 @@ internal static class MePasswordEndpointHarness
             .GetRequiredService<IPasswordHasher>()
             .Hash(password, KdfCallers.Seed);
         var repository = factory.Services.GetRequiredService<IUserRepository>();
-        repository.Add(new User
+        await repository.AddAsync(new User
         {
             Id = Guid.NewGuid(),
             Login = login,
@@ -119,7 +119,7 @@ internal static class MePasswordEndpointHarness
             GroupId = null,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByLogin(login)
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 
@@ -127,13 +127,13 @@ internal static class MePasswordEndpointHarness
     /// given «действующий refresh-токен устройства»: ITokenService.CreateRefreshToken
     /// + запись в ISecurityTokenRepository; возвращает ОТКРЫТОЕ значение токена.
     /// </summary>
-    public static string SeedRefreshToken(TestWebAppFactory factory, Guid userId)
+    public static async Task<string> SeedRefreshToken(TestWebAppFactory factory, Guid userId)
     {
         var grant = factory.Services
             .GetRequiredService<ITokenService>()
             .CreateRefreshToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -146,8 +146,8 @@ internal static class MePasswordEndpointHarness
     }
 
     /// <summary>Пользователь по uuid из хранилища тестового хоста (копия-снимок).</summary>
-    public static User StoredUser(TestWebAppFactory factory, Guid id) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetById(id)
+    public static async Task<User> StoredUserAsync(TestWebAppFactory factory, Guid id) =>
+        await factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(id)
         ?? throw new InvalidOperationException("Пользователь исчез из хранилища.");
 
     /// <summary>
@@ -158,9 +158,9 @@ internal static class MePasswordEndpointHarness
     /// из живой выборки (с базой Assert.NotNull до отзыва) и поведенчески —
     /// POST /auth/refresh с этим токеном → 401.
     /// </summary>
-    public static RefreshToken? RefreshTokenRecord(TestWebAppFactory factory, string tokenValue) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveByHash(Sha256Hex(tokenValue));
+    public static async Task<RefreshToken?> RefreshTokenRecordAsync(TestWebAppFactory factory, string tokenValue) =>
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveByHashAsync(Sha256Hex(tokenValue));
 
     /// <summary>Снимок KDF-счётчика (тестовый шов IKdfCounter, FR-027/ADR-031).</summary>
     public static IReadOnlyDictionary<string, long> KdfSnapshot(TestWebAppFactory factory) =>
@@ -228,11 +228,11 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
     public async Task Put_WrongCurrentWithWeakNew_Returns400WithoutErrors_OneKdf_HashKept()
     {
         // given: пользователь с реальным хэшем; сессия минтована.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-wrong");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-wrong");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // given: база Δkdf ровно вокруг PUT; хранимый хэш зафиксирован.
-        var storedBefore = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var storedBefore = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         var before = MePasswordEndpointHarness.KdfSnapshot(_factory);
 
         // when: НЕВЕРНЫЙ currentPassword вместе с НЕВАЛИДНЫМ новым (дискриминирующая
@@ -256,7 +256,7 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
             MePasswordEndpointHarness.KdfDelta(before, MePasswordEndpointHarness.KdfSnapshot(_factory)));
 
         // then: хранимый passwordHash неизменен.
-        var storedAfter = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var storedAfter = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal(storedBefore.PasswordHash, storedAfter.PasswordHash);
     }
 
@@ -264,10 +264,10 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
     public async Task Put_OversizedCurrent129_Returns400_ZeroKdf_HashKept()
     {
         // given: пользователь с реальным хэшем; сессия минтована.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-oversized");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-oversized");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
-        var storedBefore = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var storedBefore = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         var before = MePasswordEndpointHarness.KdfSnapshot(_factory);
 
         // when: currentPassword длиной 129 (граница гейта — 128) с валидной парой нового.
@@ -285,7 +285,7 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
             0,
             MePasswordEndpointHarness.KdfDelta(before, MePasswordEndpointHarness.KdfSnapshot(_factory)));
 
-        var storedAfter = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var storedAfter = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal(storedBefore.PasswordHash, storedAfter.PasswordHash);
     }
 
@@ -294,7 +294,7 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
     {
         // given: пользователь с реальным хэшем; граница: 128 символов — легальная
         // длина, проверка выполняется (Δkdf=1), в отличие от 129 без KDF.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-len128");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-len128");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         var before = MePasswordEndpointHarness.KdfSnapshot(_factory);
@@ -319,7 +319,7 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
     public async Task Put_CurrentWithTrailingSpace_Rejected_ThenVerbatimCurrent_Accepted()
     {
         // given: пользователь с хэшем пароля БЕЗ крайних пробелов.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-verbatim");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-verbatim");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when №1: currentPassword с хвостовым пробелом (иная строка — трима нет).
@@ -331,7 +331,7 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
         // then №1: 400 «Неверный текущий пароль»; хэш не изменён.
         Assert.Equal(HttpStatusCode.BadRequest, trailing.StatusCode);
         Assert.Equal("Неверный текущий пароль", await MePasswordEndpointHarness.MessageAsync(trailing));
-        var storedAfterFirst = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var storedAfterFirst = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal(user.PasswordHash, storedAfterFirst.PasswordHash);
 
         // when №2: повторный PUT с ДОСЛОВНЫМ currentPassword.
@@ -342,7 +342,7 @@ public sealed class MePasswordWrongCurrentTests(MePasswordApiFixture fixture) : 
 
         // then №2: 204 — дословное сравнение прошло, пароль сменён.
         Assert.Equal(HttpStatusCode.NoContent, verbatim.StatusCode);
-        var stored = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.NotEqual(user.PasswordHash, stored.PasswordHash);
     }
 }
@@ -361,14 +361,14 @@ public sealed class MePasswordSuccessTests(MePasswordApiFixture fixture) : IClas
     public async Task Put_Success_WithRefreshCookie_KeepsCurrentToken_RevokesOtherDevice_AndCountsTwoKdf()
     {
         // given: пользователь; refresh-токены текущей сессии и второго «устройства».
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-arb");
-        var currentDeviceRefresh = MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
-        var otherDeviceRefresh = MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-arb");
+        var currentDeviceRefresh = await MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var otherDeviceRefresh = await MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
 
         // given: оба токена живы до смены (база для последующего Assert.Null —
         // FindLiveByHash live-only: исчезновение записи = отзыв).
-        Assert.NotNull(MePasswordEndpointHarness.RefreshTokenRecord(_factory, currentDeviceRefresh));
-        Assert.NotNull(MePasswordEndpointHarness.RefreshTokenRecord(_factory, otherDeviceRefresh));
+        Assert.NotNull(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, currentDeviceRefresh));
+        Assert.NotNull(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, otherDeviceRefresh));
 
         // given: сессия с access- И refresh-cookie текущего запроса; база Δkdf.
         using var client = MePasswordEndpointHarness.CreateSessionClient(
@@ -412,22 +412,22 @@ public sealed class MePasswordSuccessTests(MePasswordApiFixture fixture) : IClas
         // второй из живой выборки исчез — отозван (CR-001: FindLiveByHash
         // live-only, чтение RevokedAt отозванной записи контрактом недоступно;
         // поведение подтверждено выше — refresh 204/401).
-        Assert.NotNull(MePasswordEndpointHarness.RefreshTokenRecord(_factory, currentDeviceRefresh));
-        Assert.Null(MePasswordEndpointHarness.RefreshTokenRecord(_factory, otherDeviceRefresh));
+        Assert.NotNull(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, currentDeviceRefresh));
+        Assert.Null(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, otherDeviceRefresh));
     }
 
     [Fact]
     public async Task Put_Success_WithoutRefreshCookie_RevokesAllRefreshTokens()
     {
         // given: пользователь; в хранилище два его refresh-токена «устройств».
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-nocookie");
-        var firstDeviceRefresh = MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
-        var secondDeviceRefresh = MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-nocookie");
+        var firstDeviceRefresh = await MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
+        var secondDeviceRefresh = await MePasswordEndpointHarness.SeedRefreshToken(_factory, user.Id);
 
         // given: оба токена живы до смены (база для последующего Assert.Null —
         // FindLiveByHash live-only: исчезновение записи = отзыв).
-        Assert.NotNull(MePasswordEndpointHarness.RefreshTokenRecord(_factory, firstDeviceRefresh));
-        Assert.NotNull(MePasswordEndpointHarness.RefreshTokenRecord(_factory, secondDeviceRefresh));
+        Assert.NotNull(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, firstDeviceRefresh));
+        Assert.NotNull(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, secondDeviceRefresh));
 
         // given: в запросе ТОЛЬКО access-cookie (refresh-cookie нет).
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
@@ -442,8 +442,8 @@ public sealed class MePasswordSuccessTests(MePasswordApiFixture fixture) : IClas
         // FindLiveByHash live-only, RevokedAt отозванной записи прочитать
         // нельзя; поведение подтверждено refresh → 401 ниже).
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Null(MePasswordEndpointHarness.RefreshTokenRecord(_factory, firstDeviceRefresh));
-        Assert.Null(MePasswordEndpointHarness.RefreshTokenRecord(_factory, secondDeviceRefresh));
+        Assert.Null(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, firstDeviceRefresh));
+        Assert.Null(await MePasswordEndpointHarness.RefreshTokenRecordAsync(_factory, secondDeviceRefresh));
 
         using var firstRefreshClient = MePasswordEndpointHarness.CreateAnonymousClient(_factory);
         using var firstRefresh = await MePasswordEndpointHarness.RefreshAsync(firstRefreshClient, firstDeviceRefresh);
@@ -458,7 +458,7 @@ public sealed class MePasswordSuccessTests(MePasswordApiFixture fixture) : IClas
     public async Task Put_Success_TeacherRole_Allowed_AndHashReplaced()
     {
         // given: авторизованный teacher (FR-022: любая роль); база хэша.
-        var user = MePasswordEndpointHarness.SeedUser(
+        var user = await MePasswordEndpointHarness.SeedUser(
             _factory, "me-pwd-teacher", role: UserRoles.Teacher);
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Teacher);
 
@@ -471,7 +471,7 @@ public sealed class MePasswordSuccessTests(MePasswordApiFixture fixture) : IClas
         // then: 204; хэш перезаписан и соответствует новому паролю (verify), старый не подходит.
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         var hasher = _factory.Services.GetRequiredService<IPasswordHasher>();
-        var stored = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.NotEqual(user.PasswordHash, stored.PasswordHash);
         Assert.True(hasher.Verify(MePasswordEndpointHarness.NewPassword, stored.PasswordHash, KdfCallers.ChangePassword));
         Assert.False(hasher.Verify(MePasswordEndpointHarness.TestUserPassword, stored.PasswordHash, KdfCallers.ChangePassword));
@@ -499,7 +499,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
     public async Task Put_WeakNewPassword_Returns400_WithMinDigitSpecialErrors()
     {
         // given: пользователь; currentPassword совпадает с текущим.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-weak");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-weak");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: слабый новый пароль 'abc' (короче 8, без цифры и спецзнака).
@@ -521,7 +521,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
             MePasswordEndpointHarness.ErrorOf(errors, "password"));
 
         // then: пароль не применён — хранимый хэш прежний.
-        var stored = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal(user.PasswordHash, stored.PasswordHash);
     }
 
@@ -529,7 +529,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
     public async Task Put_OversizedNewPassword129_Returns400_WithPasswordMaxOnly()
     {
         // given: пользователь; currentPassword верный.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-newmax");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-newmax");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: новый пароль длиной 129 — серверный текст password.max, состав не проверяется.
@@ -551,7 +551,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
     public async Task Put_ConfirmMismatch_Returns400_MismatchText_HashKept()
     {
         // given: пользователь; currentPassword верный, новый валиден.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-mismatch");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-mismatch");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: повтор нового пароля не совпадает.
@@ -569,7 +569,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
             MePasswordEndpointHarness.ErrorOf(errors, "confirmPassword"));
 
         // then: пароль не изменён.
-        var stored = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal(user.PasswordHash, stored.PasswordHash);
     }
 
@@ -577,7 +577,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
     public async Task Put_MissingNewPasswordFields_Returns400_WithBothFieldErrors()
     {
         // given: пользователь; currentPassword верный; валидный JSON без password/confirmPassword.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-missing");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-missing");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT {"currentPassword":"student123!"}.
@@ -607,7 +607,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
     public async Task Put_MalformedJson_Returns400WithoutErrors_ZeroKdf_HashKept()
     {
         // given: пользователь с реальным хэшем; сессия минтована.
-        var user = MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-broken");
+        var user = await MePasswordEndpointHarness.SeedUser(_factory, "me-pwd-broken");
         using var client = MePasswordEndpointHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         var before = MePasswordEndpointHarness.KdfSnapshot(_factory);
@@ -627,7 +627,7 @@ public sealed class MePasswordValidationTests(MePasswordApiFixture fixture) : IC
         Assert.Equal(
             0,
             MePasswordEndpointHarness.KdfDelta(before, MePasswordEndpointHarness.KdfSnapshot(_factory)));
-        var stored = MePasswordEndpointHarness.StoredUser(_factory, user.Id);
+        var stored = await MePasswordEndpointHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal(user.PasswordHash, stored.PasswordHash);
     }
 }

@@ -20,19 +20,19 @@ public sealed class Ts120_DeleteLabCascadeTests(B10NoDemoWebAppFactory factory) 
     public async Task TS120_DeleteLab_RemovesLabAndAllItsSubmissions()
     {
         // given: DI-сид (ADR-010): лаба X=(1,1); группа; два её студента со сдачами по X.
-        var labX = B10Seed.AddLab(_factory, semester: 1, number: 1).Id;
-        var groupId = B10Seed.AddGroup(_factory, "Б-10-ДиСид").Id;
-        var student1 = B10Seed.AddStudent(_factory, "b10cascade01", groupId);
-        var student2 = B10Seed.AddStudent(_factory, "b10cascade02", groupId);
-        B10Seed.AddSubmission(
+        var labX = (await B10Seed.AddLabAsync(_factory, semester: 1, number: 1)).Id;
+        var groupId = (await B10Seed.AddGroupAsync(_factory, "Б-10-ДиСид")).Id;
+        var student1 = await B10Seed.AddStudentAsync(_factory, "b10cascade01", groupId);
+        var student2 = await B10Seed.AddStudentAsync(_factory, "b10cascade02", groupId);
+        await B10Seed.AddSubmissionAsync(
             _factory, student1.Id, labX, submitDate: new DateOnly(2026, 9, 1), defenseDate: null);
-        B10Seed.AddSubmission(
+        await B10Seed.AddSubmissionAsync(
             _factory, student2.Id, labX, submitDate: new DateOnly(2026, 9, 2), defenseDate: new DateOnly(2026, 9, 3));
-        var before = B10Seed.SubmissionsByLab(_factory, labX);
+        var before = await B10Seed.SubmissionsByLabAsync(_factory, labX);
         Assert.True(
             before.Count == 2 && before.Select(submission => submission.StudentId).Distinct().Count() == 2,
             $"Шаг given неисполним: у работы X ожидались сдачи двух студентов, фактически {before.Count}.");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClient(_factory);
 
         // when: DELETE /labs/X.
         using var deleted = await client.DeleteAsync($"/api/v1/labs/{labX}");
@@ -57,7 +57,7 @@ public sealed class Ts120_DeleteLabCascadeTests(B10NoDemoWebAppFactory factory) 
             exactSingleMessageProperty: true);
 
         // then: записей с labId=X в репозитории сдач нет.
-        Assert.Empty(B10Seed.SubmissionsByLab(_factory, labX));
+        Assert.Empty(await B10Seed.SubmissionsByLabAsync(_factory, labX));
 
         // then: в ведомости семестра (GET /submissions) записи по X отсутствуют.
         var grid = await B10Seed.ReadAllGridSubmissionsAsync(client, groupId, semester: 1);

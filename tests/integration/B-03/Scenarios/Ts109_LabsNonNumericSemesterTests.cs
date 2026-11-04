@@ -9,21 +9,28 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// /labs?semester=2.5; then — оба — 200 с total=23 и page=1 (поведение
 /// совпадает с запросом без параметра semester; НЕ 400).
 /// </summary>
-public sealed class Ts109_LabsNonNumericSemesterTests : IClassFixture<B03HostFactory>
+public sealed class Ts109_LabsNonNumericSemesterTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts109_LabsNonNumericSemesterTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task GetLabsWithNonNumericSemester_AppliesNoFilter()
     {
         // given: сессия teacher.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: обе попытки мягкой нормализации и эталонный запрос без semester.
         using var alpha = await B03LabsApi.GetLabsAsync(client, "semester=abc");

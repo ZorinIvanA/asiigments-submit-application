@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B05.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;

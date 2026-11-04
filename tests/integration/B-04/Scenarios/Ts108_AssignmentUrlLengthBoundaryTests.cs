@@ -19,7 +19,7 @@ public sealed class Ts108_AssignmentUrlLengthBoundaryTests(B04LabsWebAppFactory 
     [Fact]
     public async Task TS108_PostLabAssignmentUrlExactly1000Created1001Rejected()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: assignmentUrl ровно 1000 символов после трима (префикс https://).
         var url1000 = "https://" + new string('a', 1000 - "https://".Length);

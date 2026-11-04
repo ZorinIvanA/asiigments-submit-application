@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B22.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B22.Scenarios;
 
@@ -68,20 +68,28 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
 
         public Fixture()
         {
+        }
+
+        /// <summary>
+        /// Базовый DI-сид фикстуры. Вынесен из конструктора: сид асинхронен
+        /// (репозитории — async), конструктор await не умеет; вызывается
+        /// первым шагом теста.
+        /// </summary>
+        public async Task SeedBaseAsync()
+        {
             // Базовый набор given: лабораторные (семестр 9: 1..3), группы, студенты.
             for (var number = 1; number <= 3; number++)
             {
-                B22DomainSeed.AddLab(Factory, 9, number);
+                await B22DomainSeed.AddLabAsync(Factory, 9, number);
             }
 
-            B22DomainSeed.AddGroup(Factory, "B188-Base-Group-1");
-            B22DomainSeed.AddGroup(Factory, "B188-Base-Group-2");
-            B22DomainSeed.AddStudent(Factory, "b188-base-student-1");
-            B22DomainSeed.AddStudent(Factory, "b188-base-student-2");
-            B22DomainSeed.AddStudent(Factory, "b188-base-student-3");
+            await B22DomainSeed.AddGroupAsync(Factory, "B188-Base-Group-1");
+            await B22DomainSeed.AddGroupAsync(Factory, "B188-Base-Group-2");
+            await B22DomainSeed.AddStudentAsync(Factory, "b188-base-student-1");
+            await B22DomainSeed.AddStudentAsync(Factory, "b188-base-student-2");
+            await B22DomainSeed.AddStudentAsync(Factory, "b188-base-student-3");
 
-            Assert.NotNull(
-                Factory.Services.GetRequiredService<IUserRepository>().GetByLogin(SeedOptions.DefaultTeacherLogin));
+            Assert.NotNull(await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(SeedOptions.DefaultTeacherLogin));
         }
 
         public void Dispose() => Factory.Dispose();
@@ -90,11 +98,13 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
     [Fact]
     public async Task EightThreads_TwoHundredMixedOperationsEach_CompleteWithoutExceptions_KeepingUniquenessInvariants()
     {
+            await _fixture.SeedBaseAsync();
+
         // given: in-memory репозитории; uuid teacher (автор сдач) разрешается из DI
         // (вся нагрузка — репозиторная по верификации NFR-005 «многопоточный тест на
         // in-memory репозиториях», HTTP-клиент не создаётся и запросов не отправляет).
-        var teacher = _fixture.Factory.Services.GetRequiredService<IUserRepository>()
-            .GetByLogin(SeedOptions.DefaultTeacherLogin);
+        var teacher = await _fixture.Factory.Services.GetRequiredService<IUserRepository>()
+            .GetByLoginAsync(SeedOptions.DefaultTeacherLogin);
         Assert.True(
             teacher is not null,
             "Предусловие given: сид-преподаватель не найден в DI-хранилище тестового хоста.");
@@ -112,8 +122,8 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
         // labs, groups, students, submissions; итерация ContendedStep —
         // создание с заранее совпадающими ключами).
         var workers = Enumerable.Range(0, ThreadCount)
-            .Select(threadIndex => Task.Run(() =>
-                RunMixedOperations(threadIndex, teacherId, barrier, failures, contendedSucceeded, contendedConflicts)))
+            .Select(threadIndex => Task.Run(async () =>
+                await RunMixedOperationsAsync(threadIndex, teacherId, barrier, failures, contendedSucceeded, contendedConflicts)))
             .ToArray();
         await Task.WhenAll(workers);
 
@@ -125,12 +135,12 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
             + string.Join(Environment.NewLine, failures.Take(10)));
 
         // then (2): инварианты уникальности не нарушены.
-        VerifyUniquenessInvariants();
+        await VerifyUniquenessInvariantsAsync();
 
         // then (3): оспариваемые ключи — ровно одна запись на ключ; каждый спор
         // закончился штатно (1 успех + 7 StorageConflictException), поэтому
         // пост-проверка (2) имела реальный шанс поймать дубли.
-        AssertContendedKeyOutcomes(contendedSucceeded, contendedConflicts);
+        await AssertContendedKeyOutcomesAsync(contendedSucceeded, contendedConflicts);
     }
 
     /// <summary>
@@ -139,7 +149,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
     /// 11 — обновление с изменением уникального ключа работы и студента); шаг
     /// ContendedStep — оспариваемые вставки.
     /// </summary>
-    private void RunMixedOperations(
+    private async Task RunMixedOperationsAsync(
         int threadIndex,
         Guid teacherId,
         Barrier barrier,
@@ -153,8 +163,8 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
         var submissions = _fixture.Factory.Services.GetRequiredService<ISubmissionRepository>();
 
         // Собственные ключи потока: базовая работа/студент для операций сдач.
-        var ownLab = B22DomainSeed.AddLab(_fixture.Factory, 9, 100 + threadIndex);
-        var ownStudent = B22DomainSeed.AddStudent(_fixture.Factory, $"b188-own-{threadIndex}");
+        var ownLab = await B22DomainSeed.AddLabAsync(_fixture.Factory, 9, 100 + threadIndex);
+        var ownStudent = await B22DomainSeed.AddStudentAsync(_fixture.Factory, $"b188-own-{threadIndex}");
         var createdLabs = new List<Lab>();
         var createdGroups = new List<Group>();
         var createdStudents = new List<User>();
@@ -189,15 +199,15 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                             CreatedAt = DateTime.UtcNow,
                             UpdatedAt = DateTime.UtcNow,
                         };
-                        labs.Add(lab);
+                        await labs.AddAsync(lab);
                         createdLabs.Add(lab);
                         break;
                     }
                     case 1:
                     {
                         // Чтение: все работы + работа по паре.
-                        _ = labs.GetAll().Count;
-                        _ = labs.TryGetByPair(threadIndex + 1, 1 + (threadIndex * 1000));
+                        _ = (await labs.GetAllAsync()).Count;
+                        _ = await labs.TryGetByPairAsync(threadIndex + 1, 1 + (threadIndex * 1000));
                         break;
                     }
                     case 2:
@@ -217,7 +227,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                                 CreatedAt = source.CreatedAt,
                                 UpdatedAt = DateTime.UtcNow,
                             };
-                            labs.Update(updated);
+                            await labs.UpdateAsync(updated);
                             createdLabs[^1] = updated;
                         }
 
@@ -232,17 +242,17 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                             Name = $"B188-T{threadIndex}-G{i:D3}",
                             CreatedAt = DateTime.UtcNow,
                         };
-                        groups.Add(group);
+                        await groups.AddAsync(group);
                         createdGroups.Add(group);
                         break;
                     }
                     case 4:
                     {
                         // Чтение: все группы + группа по имени.
-                        _ = groups.GetAll().Count;
+                        _ = (await groups.GetAllAsync()).Count;
                         if (createdGroups.Count > 0)
                         {
-                            _ = groups.GetByName(createdGroups[^1].Name);
+                            _ = await groups.GetByNameAsync(createdGroups[^1].Name);
                         }
 
                         break;
@@ -261,17 +271,17 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                             PasswordHash = "b188-load-hash-not-used",
                             CreatedAt = DateTime.UtcNow,
                         };
-                        users.Add(student);
+                        await users.AddAsync(student);
                         createdStudents.Add(student);
                         break;
                     }
                     case 6:
                     {
                         // Чтение: студенты + по логину.
-                        _ = users.ListStudents().Count;
+                        _ = (await users.ListStudentsAsync()).Count;
                         if (createdStudents.Count > 0)
                         {
-                            _ = users.GetByLogin(createdStudents[^1].Login);
+                            _ = await users.GetByLoginAsync(createdStudents[^1].Login);
                         }
 
                         break;
@@ -293,7 +303,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                                 PasswordHash = source.PasswordHash,
                                 CreatedAt = source.CreatedAt,
                             };
-                            users.Update(updated);
+                            await users.UpdateAsync(updated);
                             createdStudents[^1] = updated;
                         }
 
@@ -303,7 +313,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                     {
                         // Сдача: upsert пары (собственный студент, собственная работа) —
                         // каждая итерация двигает дату сдачи (ветка обновления).
-                        submissions.Upsert(
+                        await submissions.UpsertAsync(
                             ownStudent.Id,
                             ownLab.Id,
                             new DateOnly(2026, 1, 1).AddDays(i % 28),
@@ -315,8 +325,8 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                     case 9:
                     {
                         // Чтение сдач: по паре и по студенту.
-                        _ = submissions.GetByStudentAndLab(ownStudent.Id, ownLab.Id);
-                        _ = submissions.ListByStudent(ownStudent.Id).Count;
+                        _ = await submissions.GetByStudentAndLabAsync(ownStudent.Id, ownLab.Id);
+                        _ = (await submissions.ListByStudentAsync(ownStudent.Id)).Count;
                         break;
                     }
                     case 10:
@@ -332,7 +342,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                                 Name = $"B188-T{threadIndex}-RG{i:D3}",
                                 CreatedAt = source.CreatedAt,
                             };
-                            groups.Update(renamed);
+                            await groups.UpdateAsync(renamed);
                             createdGroups[^1] = renamed;
                         }
 
@@ -358,7 +368,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                                 CreatedAt = source.CreatedAt,
                                 UpdatedAt = DateTime.UtcNow,
                             };
-                            labs.Update(renumbered);
+                            await labs.UpdateAsync(renumbered);
                             createdLabs[^1] = renumbered;
                         }
 
@@ -376,7 +386,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
                                 PasswordHash = source.PasswordHash,
                                 CreatedAt = source.CreatedAt,
                             };
-                            users.Update(relinked);
+                            await users.UpdateAsync(relinked);
                             createdStudents[^1] = relinked;
                         }
 
@@ -406,7 +416,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
     {
         TryContendedAdd(
             0,
-            () => labs.Add(new Lab
+            () => labs.AddAsync(new Lab
             {
                 Id = Guid.NewGuid(),
                 Semester = ContendedLabSemester,
@@ -422,7 +432,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
 
         TryContendedAdd(
             1,
-            () => groups.Add(new Group
+            () => groups.AddAsync(new Group
             {
                 Id = Guid.NewGuid(),
                 Name = ContendedGroupName,
@@ -433,7 +443,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
 
         TryContendedAdd(
             2,
-            () => users.Add(new User
+            () => users.AddAsync(new User
             {
                 Id = Guid.NewGuid(),
                 Login = ContendedLogin,
@@ -467,7 +477,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
     /// ThreadCount-1 конфликтов на ключ; в хранилище — ровно одна запись на
     /// каждый оспариваемый ключ.
     /// </summary>
-    private void AssertContendedKeyOutcomes(int[] succeeded, int[] conflicts)
+    private async Task AssertContendedKeyOutcomesAsync(int[] succeeded, int[] conflicts)
     {
         var keyNames = new[]
         {
@@ -494,7 +504,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
         var groups = _fixture.Factory.Services.GetRequiredService<IGroupRepository>();
         var users = _fixture.Factory.Services.GetRequiredService<IUserRepository>();
 
-        var contendedLabCount = labs.GetAll()
+        var contendedLabCount = (await labs.GetAllAsync())
             .Count(lab => lab.Semester == ContendedLabSemester && lab.Number == ContendedLabNumber);
         Assert.True(
             contendedLabCount == 1,
@@ -502,14 +512,14 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
             + $"парой ({ContendedLabSemester}, {ContendedLabNumber}) (ожидалась 1) — "
             + "нарушена уникальность пар (semester, number).");
 
-        var contendedGroupCount = groups.GetAll()
+        var contendedGroupCount = (await groups.GetAllAsync())
             .Count(group => string.Equals(group.Name, ContendedGroupName, StringComparison.OrdinalIgnoreCase));
         Assert.True(
             contendedGroupCount == 1,
             $"NFR-005: в хранилище {contendedGroupCount} групп с оспариваемым "
             + $"именем «{ContendedGroupName}» (ожидалась 1) — нарушена ci-уникальность имён групп.");
 
-        var contendedStudentCount = users.ListStudents()
+        var contendedStudentCount = (await users.ListStudentsAsync())
             .Count(student => string.Equals(student.Login, ContendedLogin, StringComparison.OrdinalIgnoreCase));
         Assert.True(
             contendedStudentCount == 1,
@@ -518,7 +528,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
     }
 
     /// <summary>then (2): инварианты уникальности по фактическому состоянию репозиториев.</summary>
-    private void VerifyUniquenessInvariants()
+    private async Task VerifyUniquenessInvariantsAsync()
     {
         var labs = _fixture.Factory.Services.GetRequiredService<ILabRepository>();
         var groups = _fixture.Factory.Services.GetRequiredService<IGroupRepository>();
@@ -526,14 +536,14 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
         var submissions = _fixture.Factory.Services.GetRequiredService<ISubmissionRepository>();
 
         // Нет дублей пар (semester, number).
-        var labPairs = labs.GetAll().Select(lab => (lab.Semester, lab.Number)).ToList();
+        var labPairs = (await labs.GetAllAsync()).Select(lab => (lab.Semester, lab.Number)).ToList();
         Assert.True(
             labPairs.Count == labPairs.Distinct().Count(),
             "NFR-005: нарушена уникальность пар (semester, number) работ: "
             + string.Join(", ", labPairs.GroupBy(pair => pair).Where(group => group.Count() > 1).Select(group => group.Key)));
 
         // Нет дублей lower(login) и lower(email).
-        var students = users.ListStudents();
+        var students = await users.ListStudentsAsync();
         var duplicateLogins = students
             .GroupBy(student => student.Login, StringComparer.OrdinalIgnoreCase)
             .Where(group => group.Count() > 1)
@@ -552,7 +562,7 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
             "NFR-005: нарушена ci-уникальность email: " + string.Join(", ", duplicateEmails));
 
         // Нет дублей lower(group.name).
-        var duplicateGroupNames = groups.GetAll()
+        var duplicateGroupNames = (await groups.GetAllAsync())
             .GroupBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
             .Where(group => group.Count() > 1)
             .Select(group => group.Key)
@@ -562,8 +572,8 @@ public sealed class Ts188_ConcurrentMixedOperationsTests : IClassFixture<Ts188_C
             "NFR-005: нарушена ci-уникальность имени группы: " + string.Join(", ", duplicateGroupNames));
 
         // Нет дублей (studentId, labId) среди всех сдач всех работ.
-        var labIds = labs.GetAll().Select(lab => lab.Id).ToList();
-        var submissionPairs = submissions.ListByLabIds(labIds)
+        var labIds = (await labs.GetAllAsync()).Select(lab => lab.Id).ToList();
+        var submissionPairs = (await submissions.ListByLabIdsAsync(labIds))
             .Select(submission => (submission.StudentId, submission.LabId))
             .ToList();
         Assert.True(

@@ -1,6 +1,6 @@
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -39,7 +39,7 @@ public sealed class Ts033_PasswordHashTests(B05SecurityWebAppFactory factory)
 
         // when: чтение passwordHash пользователя из IUserRepository.
         var hasher = _factory.Services.GetRequiredService<IPasswordHasher>();
-        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetByLogin(Login);
+        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(Login);
         Assert.True(
             stored is not null,
             "Предусловие кейса: зарегистрированный пользователь обязан находиться в IUserRepository.");

@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B04.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B04.Scenarios;
@@ -21,9 +21,9 @@ public sealed class Ts115_LabNumberStringTests(B04LabsWebAppFactory factory) : I
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
 
         // given: пары (semester=1, number=22) не существует.
-        Assert.Null(labs.TryGetByPair(semester: 1, number: 22));
+        Assert.Null( await labs.TryGetByPairAsync(semester: 1, number: 22) );
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с number строкой из цифр с пробелами.
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

@@ -6,8 +6,8 @@ using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using LabsApp.Tests.Students;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -127,7 +127,7 @@ internal static class Cr001GateHarness
     /// DI-сид пользователя с РЕАЛЬНЫМ PBKDF2-хэшем пароля (метка seed) и
     /// опциональной группой одной вставкой.
     /// </summary>
-    public static User SeedHashedUser(
+    public static async Task<User> SeedHashedUser(
         WebApplicationFactory<Program> factory,
         string login,
         string role = UserRoles.Student,
@@ -137,7 +137,7 @@ internal static class Cr001GateHarness
             .GetRequiredService<IPasswordHasher>()
             .Hash(TestUserPassword, KdfCallers.Seed);
         var repository = factory.Services.GetRequiredService<IUserRepository>();
-        repository.Add(new User
+        await repository.AddAsync(new User
         {
             Id = Guid.NewGuid(),
             Login = login,
@@ -148,20 +148,20 @@ internal static class Cr001GateHarness
             GroupId = groupId,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByLogin(login)
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 
-    public static Group SeedGroup(WebApplicationFactory<Program> factory, string name)
+    public static async Task<Group> SeedGroup(WebApplicationFactory<Program> factory, string name)
     {
         var repository = factory.Services.GetRequiredService<IGroupRepository>();
-        repository.Add(new Group
+        await repository.AddAsync(new Group
         {
             Id = Guid.NewGuid(),
             Name = name,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByName(name)
+        return (await repository.GetByNameAsync(name))
             ?? throw new InvalidOperationException($"Группа {name} не сохранилась при DI-сиде.");
     }
 
@@ -172,13 +172,13 @@ internal static class Cr001GateHarness
     /// given «действующий refresh-токен устройства»: ITokenService.CreateRefreshToken
     /// + запись в ISecurityTokenRepository; возвращает ОТКРЫТОЕ значение токена.
     /// </summary>
-    public static string SeedRefreshToken(WebApplicationFactory<Program> factory, Guid userId)
+    public static async Task<string> SeedRefreshToken(WebApplicationFactory<Program> factory, Guid userId)
     {
         var grant = factory.Services
             .GetRequiredService<ITokenService>()
             .CreateRefreshToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -194,13 +194,13 @@ internal static class Cr001GateHarness
     /// given «живой reset-токен» (DI-сид): возвращает ОТКРЫТОЕ значение, в
     /// хранилище — только SHA-256-дайджест (IF-003).
     /// </summary>
-    public static string SeedResetToken(WebApplicationFactory<Program> factory, Guid userId)
+    public static async Task<string> SeedResetToken(WebApplicationFactory<Program> factory, Guid userId)
     {
         var grant = factory.Services
             .GetRequiredService<ITokenService>()
             .CreatePasswordResetToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new PasswordResetToken
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new PasswordResetToken
         {
             TokenHash = grant.TokenHash,
             UserId = userId,
@@ -212,27 +212,27 @@ internal static class Cr001GateHarness
     }
 
     /// <summary>Пользователь по uuid из хранилища тестового хоста (копия-снимок).</summary>
-    public static User StoredUser(WebApplicationFactory<Program> factory, Guid id) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetById(id)
+    public static async Task<User> StoredUserAsync(WebApplicationFactory<Program> factory, Guid id) =>
+        await factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(id)
         ?? throw new InvalidOperationException("Пользователь исчез из хранилища.");
 
     /// <summary>
     /// ЖИВАЯ запись refresh-токена по ОТКРЫТОМУ значению либо null (live-only
     /// FindLiveByHash, IF-015): отозванная запись из живой выборки исчезает.
     /// </summary>
-    public static RefreshToken? RefreshTokenRecord(
+    public static async Task<RefreshToken?> RefreshTokenRecordAsync(
         WebApplicationFactory<Program> factory, string tokenValue) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveByHash(Sha256Hex(tokenValue));
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveByHashAsync(Sha256Hex(tokenValue));
 
     /// <summary>
     /// ЖИВАЯ запись reset-токена по ОТКРЫТОМУ значению либо null (live-only
     /// FindLiveResetByHash, IF-015): погашенный токен из выборки исчезает.
     /// </summary>
-    public static PasswordResetToken? ResetTokenRecord(
+    public static async Task<PasswordResetToken?> ResetTokenRecordAsync(
         WebApplicationFactory<Program> factory, string tokenValue) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveResetByHash(Sha256Hex(tokenValue));
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveResetByHashAsync(Sha256Hex(tokenValue));
 
     /// <summary>Снимок KDF-счётчика (тестовый шов IKdfCounter, FR-027/ADR-031).</summary>
     public static IReadOnlyDictionary<string, long> KdfSnapshot(WebApplicationFactory<Program> factory) =>
@@ -286,10 +286,10 @@ public sealed class MePasswordAtomicityTests(Cr001GateFixture fixture) : IClassF
     {
         // given: студент в группе ИК-221; конкурентная цель — ИК-222; refresh-токен
         // текущего запроса и «второго устройства».
-        var groupB = Cr001GateHarness.SeedGroup(_factory, "ИК-222");
-        var student = Cr001GateHarness.SeedHashedUser(_factory, "me-pwd-atomic", groupId: null);
-        var currentDeviceRefresh = Cr001GateHarness.SeedRefreshToken(_factory, student.Id);
-        var otherDeviceRefresh = Cr001GateHarness.SeedRefreshToken(_factory, student.Id);
+        var groupB = await Cr001GateHarness.SeedGroup(_factory, "ИК-222");
+        var student = await Cr001GateHarness.SeedHashedUser(_factory, "me-pwd-atomic", groupId: null);
+        var currentDeviceRefresh = await Cr001GateHarness.SeedRefreshToken(_factory, student.Id);
+        var otherDeviceRefresh = await Cr001GateHarness.SeedRefreshToken(_factory, student.Id);
         var hasher = _factory.Services.GetRequiredService<IPasswordHasher>();
         var users = Cr001GateHarness.Users(_factory);
 
@@ -306,7 +306,7 @@ public sealed class MePasswordAtomicityTests(Cr001GateFixture fixture) : IClassF
                 $$"""{"currentPassword":"{{Cr001GateHarness.TestUserPassword}}","password":"{{Cr001GateHarness.NewPassword}}","confirmPassword":"{{Cr001GateHarness.NewPassword}}"}"""));
 
         await arrived.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        Assert.Equal(SetGroupResult.Success, users.SetGroup(student.Id, groupB.Id, _ => true));
+        Assert.Equal(SetGroupResult.Success, await users.SetGroupAsync(student.Id, groupB.Id, _ => Task.FromResult(true)));
         release.TrySetResult();
 
         using var response = await putTask;
@@ -319,14 +319,14 @@ public sealed class MePasswordAtomicityTests(Cr001GateFixture fixture) : IClassF
 
         // then: группа студента равна значению конкурентной операции (не откатана
         // снимком), пароль сменён.
-        var stored = Cr001GateHarness.StoredUser(_factory, student.Id);
+        var stored = await Cr001GateHarness.StoredUserAsync(_factory, student.Id);
         Assert.Equal(groupB.Id, stored.GroupId);
         Assert.NotEqual(student.PasswordHash, stored.PasswordHash);
         Assert.True(hasher.Verify(Cr001GateHarness.NewPassword, stored.PasswordHash, KdfCallers.ChangePassword));
 
         // then: refresh-токены отозваны кроме текущего (арбитраж ISS-002).
-        Assert.NotNull(Cr001GateHarness.RefreshTokenRecord(_factory, currentDeviceRefresh));
-        Assert.Null(Cr001GateHarness.RefreshTokenRecord(_factory, otherDeviceRefresh));
+        Assert.NotNull(await Cr001GateHarness.RefreshTokenRecordAsync(_factory, currentDeviceRefresh));
+        Assert.Null(await Cr001GateHarness.RefreshTokenRecordAsync(_factory, otherDeviceRefresh));
     }
 }
 
@@ -345,8 +345,8 @@ public sealed class ProfileAtomicityTests(Cr001GateFixture fixture) : IClassFixt
     public async Task Put_ConcurrentSetPasswordAndSetGroup_PasswordHashAndGroupNotReverted()
     {
         // given: пользователь; конкурентные цели — новый пароль и группа ИК-222.
-        var groupB = Cr001GateHarness.SeedGroup(_factory, "ИК-222");
-        var user = Cr001GateHarness.SeedHashedUser(_factory, "me-prof-atomic");
+        var groupB = await Cr001GateHarness.SeedGroup(_factory, "ИК-222");
+        var user = await Cr001GateHarness.SeedHashedUser(_factory, "me-prof-atomic");
         var users = Cr001GateHarness.Users(_factory);
 
         var before = Cr001GateHarness.KdfSnapshot(_factory);
@@ -360,8 +360,8 @@ public sealed class ProfileAtomicityTests(Cr001GateFixture fixture) : IClassFixt
             Cr001GateHarness.Json("""{"fullName":"Новое ФИО","email":"new@example.com"}"""));
 
         await arrived.Task.WaitAsync(TimeSpan.FromSeconds(30));
-        Assert.True(users.SetPassword(user.Id, "concurrent-password-hash"));
-        Assert.Equal(SetGroupResult.Success, users.SetGroup(user.Id, groupB.Id, _ => true));
+        Assert.True(await users.SetPasswordAsync(user.Id, "concurrent-password-hash"));
+        Assert.Equal(SetGroupResult.Success, await users.SetGroupAsync(user.Id, groupB.Id, _ => Task.FromResult(true)));
         release.TrySetResult();
 
         using var response = await putTask;
@@ -376,7 +376,7 @@ public sealed class ProfileAtomicityTests(Cr001GateFixture fixture) : IClassFixt
 
         // then: passwordHash и groupId — от конкурентных операций (не откатаны),
         // fullName/email — от запроса; прочие поля прежние.
-        var stored = Cr001GateHarness.StoredUser(_factory, user.Id);
+        var stored = await Cr001GateHarness.StoredUserAsync(_factory, user.Id);
         Assert.Equal("concurrent-password-hash", stored.PasswordHash);
         Assert.Equal(groupB.Id, stored.GroupId);
         Assert.Equal("Новое ФИО", stored.FullName);

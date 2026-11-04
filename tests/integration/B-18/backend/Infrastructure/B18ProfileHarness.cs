@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -116,7 +116,7 @@ public static class B18ProfileHarness
             CreatedAt = DateTime.UtcNow,
         };
 
-        factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 
@@ -130,7 +130,7 @@ public static class B18ProfileHarness
             CreatedAt = DateTime.UtcNow,
         };
 
-        factory.Services.GetRequiredService<IGroupRepository>().Add(group);
+        factory.Services.GetRequiredService<IGroupRepository>().AddAsync(group);
         return group;
     }
 
@@ -139,9 +139,9 @@ public static class B18ProfileHarness
     /// переименование группы прямым DI-сидом IGroupRepository.Update — ответ профиля
     /// должен показать НОВОЕ имя (вычисление по текущему состоянию групп, FR-015).
     /// </summary>
-    public static void RenameGroup(B18ProfileWebAppFactory factory, Group group, string newName)
+    public static async Task RenameGroupAsync(B18ProfileWebAppFactory factory, Group group, string newName)
     {
-        factory.Services.GetRequiredService<IGroupRepository>().Update(new Group
+        await factory.Services.GetRequiredService<IGroupRepository>().UpdateAsync(new Group
         {
             Id = group.Id,
             Name = newName,
@@ -160,7 +160,7 @@ public static class B18ProfileHarness
         var tokens = factory.Services.GetRequiredService<ITokenService>();
         var grant = tokens.CreateRefreshToken(userId);
 
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(new RefreshToken
+        factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -173,9 +173,9 @@ public static class B18ProfileHarness
     }
 
     /// <summary>Пользователь по uuid из хранилища тестового хоста (копия-снимок, IF-015).</summary>
-    public static User StoredUser(B18ProfileWebAppFactory factory, Guid userId)
+    public static async Task<User> StoredUserAsync(B18ProfileWebAppFactory factory, Guid userId)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetById(userId);
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(userId);
         Assert.NotNull(user);
         return user!;
     }

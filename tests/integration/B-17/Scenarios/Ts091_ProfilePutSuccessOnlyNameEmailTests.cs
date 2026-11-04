@@ -64,7 +64,7 @@ public sealed class Ts091_ProfilePutSuccessOnlyNameEmailTests : IClassFixture<B1
 
         // given (продолжение кейса): groupName пересчитывается по ТЕКУЩЕМУ
         // состоянию групп — группа пользователя переименована после PUT.
-        B17ProfileHost.RenameGroup(_factory, group, RenamedGroupName);
+        await B17ProfileHost.RenameGroupAsync(_factory, group, RenamedGroupName);
 
         // when (продолжение): контрольный GET /me/profile.
         using var getResponse = await client.GetAsync(B17ProfileHost.ProfileEndpoint);
@@ -83,7 +83,7 @@ public sealed class Ts091_ProfilePutSuccessOnlyNameEmailTests : IClassFixture<B1
 
         // then: в хранилище обновлены только fullName/email — login/роль/группа
         // прежние.
-        var stored = B17ProfileHost.StoredUser(_factory, user.Id);
+        var stored = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}».");

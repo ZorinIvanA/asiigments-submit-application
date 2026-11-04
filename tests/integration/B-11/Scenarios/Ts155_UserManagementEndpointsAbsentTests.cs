@@ -25,7 +25,7 @@ public sealed class Ts155_UserManagementEndpointsAbsentTests(B11WebAppFactory fa
         // given: хост запущен; сессия teacher; uuid студента известен.
         var student = B11AuthSessions.SeedStudent(
             _factory, "b11ts155.student", "Пользователь Сто Пятьдесят Пять");
-        using var teacher = B11AuthSessions.CreateSessionClient(
+        using var teacher = await B11AuthSessions.CreateSessionClientAsync(
             _factory, SeedOptions.DefaultTeacherLogin);
 
         // when: DELETE /api/v1/users/<uuid>; PUT /api/v1/users/<uuid>/role.

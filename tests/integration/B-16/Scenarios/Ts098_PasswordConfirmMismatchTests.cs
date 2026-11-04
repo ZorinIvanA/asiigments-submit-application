@@ -56,7 +56,7 @@ public sealed class Ts098_PasswordConfirmMismatchTests : IClassFixture<B16WebApp
         B16Assertions.ErrorFieldEquals(root, "confirmPassword", ErrorTexts.PasswordMismatch);
 
         // then: пароль не изменён — хранимый хэш прежний.
-        var stored = B16Harness.StoredUser(_factory, user.Id);
+        var stored = await B16Harness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.PasswordHash, user.PasswordHash, StringComparison.Ordinal),
             "Ожидался неизменный хранимый хэш пароля (несовпадение повтора — смена не выполняется), фактически хэш изменился.");

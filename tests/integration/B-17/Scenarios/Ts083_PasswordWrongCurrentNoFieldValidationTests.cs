@@ -75,7 +75,7 @@ public sealed class Ts083_PasswordWrongCurrentNoFieldValidationTests : IClassFix
             $"Ожидался Δkdf(change_password)=1 (только Verify текущего пароля), фактически {changePasswordDelta}.");
 
         // then: новый пароль не применён — хранимый хэш не изменился.
-        var stored = B17ProfileHost.StoredUser(_factory, user.Id);
+        var stored = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.PasswordHash, user.PasswordHash, StringComparison.Ordinal),
             "Ожидался неизменный хранимый хэш пароля (неверный currentPassword — до " +

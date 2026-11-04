@@ -20,7 +20,7 @@ public sealed class Ts138_StudentsUnknownStudentTests : IClassFixture<B05WebAppF
     {
         // given: uuid, которого нет среди пользователей; teacher авторизован.
         var unknownStudentId = Guid.NewGuid();
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение группы несуществующему студенту.
         using var put = await client.PutAsJsonAsync(

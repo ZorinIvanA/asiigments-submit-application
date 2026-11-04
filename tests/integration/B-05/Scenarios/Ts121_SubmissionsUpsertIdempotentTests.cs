@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -43,15 +43,15 @@ public sealed class Ts121_SubmissionsUpsertIdempotentTests : IClassFixture<B05We
     {
         // given: пара (student05, работа 1:1) свободна; teacher с известным uuid;
         //        шов хранилища сдач (ISubmissionRepository из DI).
-        var student05 = B05SeedLookup.StudentByLogin(_factory, "student05");
-        var lab = _factory.Services.GetRequiredService<ILabRepository>().TryGetByPair(1, 1)
+        var student05 = await B05SeedLookup.StudentByLoginAsync(_factory, "student05");
+        var lab = await _factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(1, 1)
             ?? throw new InvalidOperationException(
                 "Работа 1:1 не найдена в демо-сиде — given кейса неисполним.");
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        Assert.Null(submissions.GetByStudentAndLab(student05.Id, lab.Id));
+        Assert.Null( await submissions.GetByStudentAndLabAsync(student05.Id, lab.Id) );
 
-        var teacher = B05SeedLookup.Teacher(_factory);
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var teacher = await B05SeedLookup.TeacherAsync(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when (1): два последовательных одинаковых PUT (submitDate '2026-10-01').
         using var first = await client.PutAsync(
@@ -73,7 +73,7 @@ public sealed class Ts121_SubmissionsUpsertIdempotentTests : IClassFixture<B05We
 
         // then (1): в хранилище РОВНО ОДНА запись пары; updatedBy/updatedAt —
         //           от последнего (второго) запроса.
-        var storedAfterSequential = submissions.GetByPairs([student05.Id], [lab.Id]);
+        var storedAfterSequential = await submissions.GetByPairsAsync([student05.Id], [lab.Id]);
         Assert.Single(storedAfterSequential);
         var sequentialRecord = storedAfterSequential[0];
         Assert.Equal(teacher.Id, sequentialRecord.UpdatedBy);
@@ -118,7 +118,7 @@ public sealed class Ts121_SubmissionsUpsertIdempotentTests : IClassFixture<B05We
         //           (studentId, labId) не обходится конкуренцией — FR-024); её
         //           даты равны значениям параллельного тела (тела идентичны —
         //           итог детерминирован), updatedBy — преподаватель сессии.
-        var storedAfterParallel = submissions.GetByPairs([student05.Id], [lab.Id]);
+        var storedAfterParallel = await submissions.GetByPairsAsync([student05.Id], [lab.Id]);
         Assert.Single(storedAfterParallel);
         var parallelRecord = storedAfterParallel[0];
         Assert.Equal(new DateOnly(2026, 10, 2), parallelRecord.SubmitDate);

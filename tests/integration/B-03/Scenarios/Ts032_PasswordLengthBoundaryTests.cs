@@ -50,7 +50,7 @@ public sealed class Ts032_PasswordLengthBoundaryTests : IClassFixture<B03HostFac
         Assert.Equal(1, B03Kdf.TotalDelta(before, after));
 
         // when: вторая попытка — password длиной 129 (другие свободные логин/email).
-        var studentsBeforeSecond = B03UserSeed.CountStudents(_factory);
+        var studentsBeforeSecond = await B03UserSeed.CountStudentsAsync(_factory);
         var before129 = kdf.Snapshot();
         using var rejected = await B03RegisterApi.PostAsync(
             client,
@@ -71,7 +71,7 @@ public sealed class Ts032_PasswordLengthBoundaryTests : IClassFixture<B03HostFac
 
         // then: пользователь не создан, Δkdf=0.
         Assert.Equal(0, B03Kdf.TotalDelta(before129, after129));
-        Assert.Equal(studentsBeforeSecond, B03UserSeed.CountStudents(_factory));
-        Assert.Null(B03UserSeed.FindByLogin(_factory, "b03-pw129"));
+        Assert.Equal(studentsBeforeSecond, await B03UserSeed.CountStudentsAsync(_factory));
+        Assert.Null(await B03UserSeed.FindByLoginAsync(_factory, "b03-pw129"));
     }
 }

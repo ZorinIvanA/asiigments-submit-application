@@ -16,7 +16,7 @@ public sealed class Ts111_LabPutUnknownIdTests(B04LabsWebAppFactory factory) : I
     [Fact]
     public async Task TS111_PutLabWithUnknownId_Returns404NotFoundMessage()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT по uuid, которого нет в хранилище, с валидным телом.
         using var response = await client.PutAsJsonAsync($"/api/v1/labs/{Guid.NewGuid()}", new

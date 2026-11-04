@@ -40,7 +40,7 @@ public sealed class Ts057_RefreshRevokedByLogoutTests : IClassFixture<B07AuthWeb
         var refreshToken = B07AuthClients.RequiredSetCookie(login, AuthCoreDefaults.RefreshTokenCookieName);
 
         // given (предусловие): запись в хранилище жива — отзыва ещё нет.
-        Assert.Null(B07AuthClients.FindRefreshToken(_factory, refreshToken).RevokedAt);
+        Assert.Null((await B07AuthClients.FindRefreshTokenAsync(_factory, refreshToken)).RevokedAt);
 
         // given: refresh отозван logout'ом — logout с явными Cookie-заголовками
         // обеих cookie (браузер присылает обе; контракт: выполнение при любой из cookie).

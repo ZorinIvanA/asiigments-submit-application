@@ -10,21 +10,28 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// два 200 с total=23 и page=1 (мягкая нормализация, поведение как без параметра);
 /// третий — 200 {items:[], total:0, page:1, pageSize:10} — НЕ 400.
 /// </summary>
-public sealed class Ts090_LabsSemesterFilterBoundaryTests : IClassFixture<B03HostFactory>
+public sealed class Ts090_LabsSemesterFilterBoundaryTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts090_LabsSemesterFilterBoundaryTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task GetLabsWithNonNumericSemester_AppliesNoFilter()
     {
         // given: сессия teacher.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when/then: ?semester=abc — нечисловая строка: 200, total=23, page=1.
         using var alpha = await B03LabsApi.GetLabsAsync(client, "semester=abc");
@@ -49,7 +56,7 @@ public sealed class Ts090_LabsSemesterFilterBoundaryTests : IClassFixture<B03Hos
     public async Task GetLabsSemester99_ReturnsEmptyPageNot400()
     {
         // given: сессия teacher; сид — работы только в семестрах 1 и 2.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: целочисленный semester вне диапазона.
         using var response = await B03LabsApi.GetLabsAsync(client, "semester=99");

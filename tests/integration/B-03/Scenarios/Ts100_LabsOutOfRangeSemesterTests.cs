@@ -8,21 +8,28 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// given — сид: работы только в семестрах 1 и 2; сессия teacher; when — GET
 /// /labs?semester=99; then — 200 {items:[], total:0, page:1, pageSize:10} — НЕ 400.
 /// </summary>
-public sealed class Ts100_LabsOutOfRangeSemesterTests : IClassFixture<B03HostFactory>
+public sealed class Ts100_LabsOutOfRangeSemesterTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts100_LabsOutOfRangeSemesterTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task GetLabsSemester99_ReturnsEmptyPageNot400()
     {
         // given: сессия teacher; сид — работы только в семестрах 1 и 2.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: целочисленный semester вне диапазона.
         using var response = await B03LabsApi.GetLabsAsync(client, "semester=99");

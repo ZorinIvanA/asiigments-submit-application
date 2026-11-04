@@ -21,8 +21,8 @@ public sealed class Ts137_StudentsTeacherNotStudentTests : IClassFixture<B05WebA
     public async Task PutGroupForTeacher_ReturnsStudentNotFound()
     {
         // given: существующий пользователь с ролью teacher; сессия teacher.
-        var teacher = B05SeedLookup.Teacher(_factory);
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var teacher = await B05SeedLookup.TeacherAsync(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: попытка назначить группу пользователю-преподавателю.
         using var put = await client.PutAsJsonAsync(

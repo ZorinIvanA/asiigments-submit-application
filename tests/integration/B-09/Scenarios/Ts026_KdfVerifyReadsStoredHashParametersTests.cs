@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B09.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B09.Scenarios;
@@ -51,7 +51,7 @@ public sealed class Ts026_KdfVerifyReadsStoredHashParametersTests : IClassFixtur
         B09KdfSeams.SetPbkdf2Iterations(_factory, 1000);
         await B09HostClients.RegisterStudentAsync(
             _factory, "Двадцать Шестой", LegacyLogin, LegacyEmail, ip: LegacyRegistrationIp);
-        Assert.NotNull(_factory.Services.GetRequiredService<IUserRepository>().GetByLogin(LegacyLogin));
+        Assert.NotNull(await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(LegacyLogin));
 
         // given: ...в рамках того же процесса конфигурация изменена на 2000
         // (хранилище не пересоздано — тот же хост).
@@ -72,7 +72,7 @@ public sealed class Ts026_KdfVerifyReadsStoredHashParametersTests : IClassFixtur
             "вход со старым правильным паролем (хэш 1000, конфигурация 2000)");
 
         // then: хэш нового пользователя начинается с 'pbkdf2-sha256$2000$'.
-        var newHash = B09HostClients.ResolveUserByEmail(_factory, NewEmail).PasswordHash;
+        var newHash = (await B09HostClients.ResolveUserByEmailAsync(_factory, NewEmail)).PasswordHash;
         Assert.True(
             newHash.StartsWith("pbkdf2-sha256$2000$", StringComparison.Ordinal),
             "Хэш нового пользователя должен создаваться с итерациями текущей конфигурации (2000): " +

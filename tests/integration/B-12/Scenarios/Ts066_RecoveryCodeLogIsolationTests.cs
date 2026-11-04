@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.IntegrationTests.B12.Infrastructure;
 using LabsApp.Observability;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -47,7 +47,7 @@ public sealed class Ts066_RecoveryCodeLogIsolationTests(
 
         // then: код из записи 'EmailDev' (опознан верификацией по хэшу живого кода)
         // отсутствует в КАЖДОЙ записи вне категории 'EmailDev'.
-        var devLive = devSecurity.FindLiveForUser(devUser.Id);
+        var devLive = await devSecurity.FindLiveForUserAsync(devUser.Id);
         Assert.NotNull(devLive);
         var devEntries = B12RecoveryLogs.DevEmailEntries(_devFactory.LogSink);
         var devEmailEntry = Assert.Single(devEntries);
@@ -69,7 +69,7 @@ public sealed class Ts066_RecoveryCodeLogIsolationTests(
         // then: ни одна запись журнала вообще не содержит код: ни одна запись не
         // содержит адресата, категория 'EmailDev' отсутствует, ни один 6-цифровой
         // кандидат ни в одной записи не верифицируется как код хранилища.
-        var prodLive = prodSecurity.FindLiveForUser(prodUser.Id);
+        var prodLive = await prodSecurity.FindLiveForUserAsync(prodUser.Id);
         Assert.NotNull(prodLive);
         Assert.Empty(B12RecoveryLogs.DevEmailEntries(_prodFactory.LogSink));
         foreach (var record in _prodFactory.LogSink.Snapshot())

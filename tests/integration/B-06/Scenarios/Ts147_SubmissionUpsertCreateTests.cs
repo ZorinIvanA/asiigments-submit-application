@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
@@ -18,32 +18,38 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        defenseDate:null, updatedAt:ISO-8601, updatedBy:&lt;uuid преподавателя&gt;};
 ///        ведомость отражает дату (FR-021 AC «Upsert создаёт»).
 /// </summary>
-public sealed class Ts147_SubmissionUpsertCreateTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts147_SubmissionUpsertCreateTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private const string SubmitDate = "2026-09-20";
 
     private const int GridPageSize = 5; // ведомость: страница студентов по 5 (FR-021).
 
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _studentId;
-    private readonly Guid _labId;
-    private readonly Guid _groupId;
+    private Guid _studentId;
+    private Guid _labId;
+    private Guid _groupId;
 
     public Ts147_SubmissionUpsertCreateTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _studentId = B06SubmissionsSessions.RequireUser(factory, "student05").Id;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 1).Id;
-        _groupId = B06SubmissionsSessions.RequireGroup(factory, "ИК-221").Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _studentId = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student05")).Id;
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 1)).Id;
+        _groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionWithFreePair_CreatesRecordAndGridReflectsDate()
     {
         // given: пара (student05, работа 1.1) в хранилище отсутствует; сессия teacher.
-        Assert.Null(_factory.Services.GetRequiredService<ISubmissionRepository>()
-            .GetByStudentAndLab(_studentId, _labId));
-        var (client, teacherId) = B06SubmissionsSessions.CreateTeacherSession(_factory);
+        Assert.Null(await _factory.Services.GetRequiredService<ISubmissionRepository>()
+            .GetByStudentAndLabAsync(_studentId, _labId));
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
         using var _client = client;
 
         // when: PUT /submissions {studentId, labId, submitDate:'2026-09-20', defenseDate:null}.

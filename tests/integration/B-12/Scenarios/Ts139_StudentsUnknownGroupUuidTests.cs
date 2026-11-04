@@ -20,12 +20,12 @@ public sealed class Ts139_StudentsUnknownGroupUuidTests(B12WebAppFactory factory
         // given: случайный uuid (в хранилище такой группы нет); студент, НЕ входящий
         // в искомую группу (DI-сид, ADR-010); сессия teacher.
         var unknownGroupId = Guid.NewGuid();
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s139",
             fullName: "Фильтр Неизвестной Группы Студентович",
             email: "b12s139@mail.ru");
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /students?groupId=<случайный-uuid>.
         using var response = await client.GetAsync($"/api/v1/students?groupId={unknownGroupId}");

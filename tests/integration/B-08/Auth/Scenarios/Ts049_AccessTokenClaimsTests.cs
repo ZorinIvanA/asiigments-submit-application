@@ -25,7 +25,7 @@ public sealed class Ts049_AccessTokenClaimsTests
         using var client = B08AuthHost.CreateClient(factory);
 
         // given: учитель существует (DI-сид — роль teacher) и вошёл успешно.
-        var teacher = B08AuthHost.SeedTeacher(factory, Login, Email, "Клеймы Учитель");
+        var teacher = await B08AuthHost.SeedTeacher(factory, Login, Email, "Клеймы Учитель");
         using var login = await client.PostAsync(
             B08AuthHost.LoginEndpoint,
             "{\"login\":\"" + Login + "\",\"password\":\"" + B08AuthHost.TestUserPassword + "\"}");

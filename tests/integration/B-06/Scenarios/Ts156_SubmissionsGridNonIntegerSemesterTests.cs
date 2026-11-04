@@ -15,17 +15,23 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// then:  оба — 400 'Данные заполнены неверно' + errors.semester
 ///        (ISS-011/AR-002: отсутствие/нечисловое/нецелое → 400, строгий контракт).
 /// </summary>
-public sealed class Ts156_SubmissionsGridNonIntegerSemesterTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts156_SubmissionsGridNonIntegerSemesterTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly string _groupId;
+    private string _groupId = string.Empty;
 
     public Ts156_SubmissionsGridNonIntegerSemesterTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _groupId = B06SubmissionsSessions.RequireGroup(factory, "ИК-221").Id.ToString();
     }
 
+    public async Task InitializeAsync()
+    {
+        _groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task GetGridWithNonNumericAndNonIntegerSemester_Returns400ForBoth()
     {
@@ -33,7 +39,7 @@ public sealed class Ts156_SubmissionsGridNonIntegerSemesterTests : IClassFixture
         Assert.Equal(
             LabsOptions.DefaultMaxSemester,
             _factory.Services.GetRequiredService<IOptions<LabsOptions>>().Value.MaxSemester);
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when/then: semester=abc (нечисловой) — 400 со строгой ошибкой semester.
         using var nonNumeric = await B06SubmissionsApi.GetGridAsync(client, _groupId, semester: "abc", page: "1");

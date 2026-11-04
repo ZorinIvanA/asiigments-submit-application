@@ -24,12 +24,12 @@ public sealed class Ts155_UserManagementEndpointsAbsentTests(B12WebAppFactory fa
     public async Task TS197_DeleteUser_PutUserRole_PostUser_AreAbsent_Return404NotFound()
     {
         // given: сессия teacher; uuid DI-сид-студента.
-        var studentId = B12Seed.EnsureStudent(
+        var studentId = (await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12-ts155-student",
             fullName: "Скоуп Пользователей Тестович",
-            email: "b12-ts155@t.local").Id;
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+            email: "b12-ts155@t.local")).Id;
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: DELETE /api/v1/users/<uuid>.
         using var deleteUser = await teacher.DeleteAsync($"/api/v1/users/{studentId}");

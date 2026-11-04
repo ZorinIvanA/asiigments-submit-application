@@ -3,7 +3,7 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -26,8 +26,8 @@ public sealed class Ts066_MeExpiredAccessUnauthorizedTests(B12FakeTimeWebAppFact
     public async Task Me_AfterAccessExpired_IsUnauthorized()
     {
         // given: access-токен выпущен (для сид-преподавателя).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
         using var client = B12AuthSessions.CreateClientWithAccess(
             _factory, teacher.Id, UserRoles.Teacher);

@@ -17,7 +17,7 @@ public sealed class Ts107_LabSemesterBoundariesTests(B04LabsWebAppFactory factor
     [Fact]
     public async Task TS107_PostLabSemesterBoundaryValues_Accepts1And10Rejects0And11()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when/then: semester=1 → 201; semester=10 → 201 (пары свободны — номера разные).
         using var semesterMin = await PostLabAsync(client, semester: 1, number: 31);

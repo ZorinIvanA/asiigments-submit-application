@@ -18,7 +18,7 @@ public sealed class Ts110_LabGetPutUnknownId404Tests(B04LabsWebAppFactory factor
     public async Task TS110_GetAndPutUnknownLabId_Return404LabNotFound()
     {
         // given: uuid, которого нет в хранилище; teacher.
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
         var unknownId = Guid.NewGuid();
 
         // when/then: GET /labs/{uuid} — 404 'Лабораторная не найдена'.

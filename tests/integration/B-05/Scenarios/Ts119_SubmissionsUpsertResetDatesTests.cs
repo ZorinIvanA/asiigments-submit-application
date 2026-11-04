@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -29,18 +29,18 @@ public sealed class Ts119_SubmissionsUpsertResetDatesTests : IClassFixture<B05We
     public async Task UpsertWithNullDates_ResetsBothAndKeepsRecordIdWithoutDuplicate()
     {
         // given: сид-запись student01 × работа 1:1 с датами 2026-09-01/2026-09-11.
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
-        var lab = _factory.Services.GetRequiredService<ILabRepository>().TryGetByPair(1, 1)
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        var lab = await _factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(1, 1)
             ?? throw new InvalidOperationException(
                 "Работа 1:1 не найдена в демо-сиде — given кейса неисполним.");
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        var seeded = submissions.GetByStudentAndLab(student01.Id, lab.Id)
+        var seeded = (await submissions.GetByStudentAndLabAsync(student01.Id, lab.Id))
             ?? throw new InvalidOperationException(
                 "Сид-сдача student01 × 1:1 отсутствует — given кейса неисполним.");
         Assert.Equal(new DateOnly(2026, 9, 1), seeded.SubmitDate);
         Assert.Equal(new DateOnly(2026, 9, 11), seeded.DefenseDate);
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // Снимок времени того же TimeProvider, что использует приложение,
         // непосредственно перед PUT (CR-002: без привязки к абсолютной метке сида
@@ -74,7 +74,7 @@ public sealed class Ts119_SubmissionsUpsertResetDatesTests : IClassFixture<B05We
             $"updatedAt «{updatedAtRaw}» не обновлён (снимок перед PUT {beforePut:O}).");
 
         // then: в хранилище та же запись (без дубля) с обеими сброшенными датами.
-        var stored = submissions.GetByStudentAndLab(student01.Id, lab.Id);
+        var stored = await submissions.GetByStudentAndLabAsync(student01.Id, lab.Id);
         Assert.NotNull(stored);
         Assert.Equal(seeded.Id, stored!.Id);
         Assert.Null(stored.SubmitDate);

@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B03.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B03.Scenarios;
@@ -38,7 +38,7 @@ public sealed class Ts038_RoleIgnoredTests : IClassFixture<B03HostFactory>
         Assert.Equal("ts038-role-input", body.RootElement.GetProperty("login").GetString());
         Assert.Equal("student", body.RootElement.GetProperty("role").GetString());
 
-        var created = B03UserSeed.FindByLogin(_factory, "ts038-role-input");
+        var created = await B03UserSeed.FindByLoginAsync(_factory, "ts038-role-input");
         Assert.NotNull(created);
         Assert.Equal(UserRoles.Student, created!.Role);
     }

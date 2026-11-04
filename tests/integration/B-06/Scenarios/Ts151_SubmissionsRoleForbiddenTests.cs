@@ -19,10 +19,10 @@ public sealed class Ts151_SubmissionsRoleForbiddenTests : IClassFixture<B06Submi
     [Fact]
     public async Task StudentOnGridAndTeacherOnMeSubmissions_BothGet403()
     {
-        var groupId = B06SubmissionsSessions.RequireGroup(_factory, "ИК-221").Id.ToString();
+        var groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
 
         // when: GET /submissions?groupId=<валидный>&semester=1&page=1 под student.
-        using var studentClient = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
+        using var studentClient = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
         using var studentResponse = await B06SubmissionsApi.GetGridAsync(
             studentClient, groupId, semester: "1", page: "1");
 
@@ -32,7 +32,7 @@ public sealed class Ts151_SubmissionsRoleForbiddenTests : IClassFixture<B06Submi
         BodyAssertions.MessageIs(studentRoot, "Доступ запрещён");
 
         // when: GET /me/submissions?semester=1 под teacher.
-        using var teacherClient = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var teacherClient = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
         using var teacherResponse = await B06SubmissionsApi.GetMeSubmissionsAsync(teacherClient, semester: "1");
 
         // then: 403 'Доступ запрещён'.

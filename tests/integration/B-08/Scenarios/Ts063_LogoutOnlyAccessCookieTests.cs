@@ -28,8 +28,8 @@ public sealed class Ts063_LogoutOnlyAccessCookieTests : IClassFixture<B08WebAppF
     {
         // given: access действителен, refresh отсутствует.
         using var client = B08Host.CreateClient(_factory);
-        var user = B08Host.SeedStudent(_factory, Login, Email, FullName);
-        B08Host.EstablishSession(_factory, client, user.Id, UserRoles.Student);
+        var user = await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
+        await B08Host.EstablishSessionAsync(_factory, client, user.Id, UserRoles.Student);
         Assert.True(
             client.Cookies.Remove(AuthCoreDefaults.RefreshTokenCookieName),
             "Предусловие: refresh-cookie удалена из контейнера.");

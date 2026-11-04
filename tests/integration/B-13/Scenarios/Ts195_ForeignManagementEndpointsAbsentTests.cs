@@ -1,7 +1,7 @@
 using System.Text;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B13.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B13.Scenarios;
 
@@ -99,7 +99,7 @@ public sealed class Ts195_ForeignManagementEndpointsAbsentTests
     /// </summary>
     private static async Task AssertStudentIntactAsync(B13ScopeWebAppFactory factory, Guid studentId)
     {
-        using (var teacherClient = B13ScopeHost.CreateTeacherClient(factory))
+        using (var teacherClient = await B13ScopeHost.CreateTeacherClientAsync(factory))
         {
             using var students = await teacherClient.GetAsync(B13ScopeHost.StudentsEndpoint);
             var body = await ApiAssert.ReadOkJsonAsync(students);

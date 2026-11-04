@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B04.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B04.Scenarios;
@@ -22,7 +22,7 @@ public sealed class Ts112_LabAccessRolesTests(B04LabsWebAppFactory factory)
     {
         // given: валидная сессия student01 (DI-сид записи + минт access-JWT).
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var student01 = B04DomainSeed.AddStudent(users, "student01");
+        var student01 = await B04DomainSeed.AddStudentAsync(users, "student01");
         using var studentClient = MintedSessions.CreateStudentClient(_factory, student01);
 
         // when/then: GET /labs под student01 → 403 'Доступ запрещён'.

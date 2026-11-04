@@ -37,14 +37,14 @@ public sealed class Ts126_RoleMatrixAccessClassTests(B12WebAppFactory factory)
     public async Task TS126_ClassA_UserEndpoints_Anonymous401_AnyRoleAllowed()
     {
         // given: сессии student и teacher (role=user — обе роли авторизованы).
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12ts126a.student",
             fullName: "Матрица Класс А Тестович",
             email: "b12-ts126a@t.local");
         using var anonymous = HostClients.Create(_factory);
-        using var student = HostClients.CreateStudentClient(_factory, "b12ts126a.student");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var student = await HostClients.CreateStudentClientAsync(_factory, "b12ts126a.student");
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         var operations = new[]
         {
@@ -69,21 +69,21 @@ public sealed class Ts126_RoleMatrixAccessClassTests(B12WebAppFactory factory)
     {
         // given: сессии teacher и student; известны uuid студента и группы,
         // несуществующий uuid работы.
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12ts126b.student",
             fullName: "Матрица Класс Б Тестович",
             email: "b12-ts126b@t.local");
-        var studentId = B12Seed.EnsureStudent(
+        var studentId = (await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12ts126b.target",
             fullName: "Матрица Цель Класса Б Тестович",
-            email: "b12-ts126b-target@t.local").Id;
-        var groupId = B12Seed.EnsureGroup(_factory, "Б12-ТС126-Б").Id;
+            email: "b12-ts126b-target@t.local")).Id;
+        var groupId = (await B12Seed.EnsureGroupAsync(_factory, "Б12-ТС126-Б")).Id;
         var unknownLabId = Guid.NewGuid();
         using var anonymous = HostClients.Create(_factory);
-        using var student = HostClients.CreateStudentClient(_factory, "b12ts126b.student");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var student = await HostClients.CreateStudentClientAsync(_factory, "b12ts126b.student");
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         var operations = new[]
         {
@@ -116,14 +116,14 @@ public sealed class Ts126_RoleMatrixAccessClassTests(B12WebAppFactory factory)
     public async Task TS126_ClassC_StudentOnlyEndpoints_Anonymous401_Teacher403_StudentAllowed()
     {
         // given: сессии student и teacher.
-        B12Seed.EnsureStudent(
+        await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12ts126c.student",
             fullName: "Матрица Класс В Тестович",
             email: "b12-ts126c@t.local");
         using var anonymous = HostClients.Create(_factory);
-        using var student = HostClients.CreateStudentClient(_factory, "b12ts126c.student");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var student = await HostClients.CreateStudentClientAsync(_factory, "b12ts126c.student");
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         var operations = new[]
         {

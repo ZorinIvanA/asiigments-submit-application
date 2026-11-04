@@ -59,7 +59,7 @@ public sealed class Ts038_NonStringFieldsAsEmptyTests : IClassFixture<B03HostFac
     {
         var kdf = B03Kdf.Resolve(_factory.Services);
         using var client = B03RegisterApi.CreateClient(_factory, remoteIp: "10.38.0.1");
-        var studentsBefore = B03UserSeed.CountStudents(_factory);
+        var studentsBefore = await B03UserSeed.CountStudentsAsync(_factory);
 
         // when: все обязательные поля — нестроковые JSON-значения.
         var before = kdf.Snapshot();
@@ -104,7 +104,7 @@ public sealed class Ts038_NonStringFieldsAsEmptyTests : IClassFixture<B03HostFac
             $"[{string.Join(", ", actual.Select(text => $"'{text}'"))}]; тело: {body.RootElement.GetRawText()}");
 
         // then: пользователь не создан; Δkdf=0.
-        Assert.Equal(studentsBefore, B03UserSeed.CountStudents(_factory));
+        Assert.Equal(studentsBefore, await B03UserSeed.CountStudentsAsync(_factory));
         Assert.Equal(0, B03Kdf.TotalDelta(before, after));
     }
 

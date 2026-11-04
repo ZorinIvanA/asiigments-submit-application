@@ -3,7 +3,7 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -34,8 +34,8 @@ public sealed class Ts070_MeGarbageAndExpiredAccessTests(B12FakeTimeWebAppFactor
     public async Task Me_WithGarbageString_AndWithAccessExpiredAfterT0_IsUnauthorized()
     {
         // given: access, выпущенный в T0 (DI-минт для сид-преподавателя).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
         var accessMintedAtT0 = _factory.Services.GetRequiredService<ITokenService>()
             .IssueAccessToken(teacher.Id, UserRoles.Teacher);

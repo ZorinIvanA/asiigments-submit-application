@@ -1,6 +1,6 @@
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
@@ -50,7 +50,7 @@ public sealed class Ts048_RegisterRoleIgnoredTests : IClassFixture<B07AuthWebApp
         BodyAssertions.StringPropertyIs(body, "role", UserRoles.Student);
 
         // then: в хранилище role='student' — преподаватель через регистрацию не создаётся.
-        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetByLogin(Login);
+        var stored = await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(Login);
         Assert.NotNull(stored);
         Assert.Equal(UserRoles.Student, stored.Role);
     }

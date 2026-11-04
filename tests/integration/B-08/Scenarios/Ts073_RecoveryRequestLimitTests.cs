@@ -27,7 +27,7 @@ public sealed class Ts073_RecoveryRequestLimitTests : IClassFixture<B08WebAppFac
     {
         // given: выполнено 3 запроса кода по email a@b.ru за последний час.
         using var client = B08Host.CreateClient(_factory);
-        B08Host.SeedStudent(_factory, Login, Email, FullName);
+        await B08Host.SeedStudentAsync(_factory, Login, Email, FullName);
 
         for (var attempt = 1; attempt <= 3; attempt++)
         {

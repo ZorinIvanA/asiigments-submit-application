@@ -4,9 +4,9 @@ using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
-using LabsApp.Tests.Hosting;
+using LabsApp.Infrastructure;
+using LabsApp.TestInfrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,9 +61,9 @@ public sealed class SubmissionsNullUpsertFixture : IDisposable
     /// DI-сид данных сценария: студент в группе и работа (1:1). Декоратор
     /// прозрачен для чтения — PUT упирается в нарушенный Upsert.
     /// </summary>
-    public (User Student, Lab Lab) SeedData()
+    public async Task<(User Student, Lab Lab)> SeedDataAsync()
     {
-        var student = TestSession.SeedStudent(Host, new TestUserSeed
+        var student = await TestSession.SeedStudent(Host, new TestUserSeed
         {
             Login = "submissions-nullupsert-student",
             GroupName = "ИК-НУЛЛ",
@@ -80,7 +80,7 @@ public sealed class SubmissionsNullUpsertFixture : IDisposable
             CreatedAt = time,
             UpdatedAt = time,
         };
-        Host.Services.GetRequiredService<ILabRepository>().Add(lab);
+        await Host.Services.GetRequiredService<ILabRepository>().AddAsync(lab);
         return (student, lab);
     }
 
@@ -96,32 +96,32 @@ public sealed class SubmissionsNullUpsertFixture : IDisposable
 public sealed class NullUpsertSubmissionRepository(ISubmissionRepository inner) : ISubmissionRepository
 {
     // Нарушение контракта IF-015 («всегда не null») — предмет теста.
-    public Submission? Upsert(
+    public Task<Submission?> UpsertAsync(
         Guid studentId,
         Guid labId,
         DateOnly? submitDate,
         DateOnly? defenseDate,
         Guid? updatedBy,
-        DateTime updatedAt) => null;
+        DateTime updatedAt) => Task.FromResult<Submission?>(null);
 
-    public Submission? GetByStudentAndLab(Guid studentId, Guid labId) =>
-        inner.GetByStudentAndLab(studentId, labId);
+    public async Task<Submission?> GetByStudentAndLabAsync(Guid studentId, Guid labId) =>
+        await inner.GetByStudentAndLabAsync(studentId, labId);
 
-    public IReadOnlyList<Submission> ListByLabIds(IReadOnlyCollection<Guid> labIds) =>
-        inner.ListByLabIds(labIds);
+    public async Task<IReadOnlyList<Submission>> ListByLabIdsAsync(IReadOnlyCollection<Guid> labIds) =>
+        await inner.ListByLabIdsAsync(labIds);
 
-    public IReadOnlyList<Submission> ListByStudent(Guid studentId) =>
-        inner.ListByStudent(studentId);
+    public async Task<IReadOnlyList<Submission>> ListByStudentAsync(Guid studentId) =>
+        await inner.ListByStudentAsync(studentId);
 
-    public IReadOnlyList<Submission> GetByPairs(
+    public async Task<IReadOnlyList<Submission>> GetByPairsAsync(
         IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> labIds) =>
-        inner.GetByPairs(studentIds, labIds);
+        await inner.GetByPairsAsync(studentIds, labIds);
 
-    public IReadOnlyList<Submission> ListForStudentAndSemester(
+    public async Task<IReadOnlyList<Submission>> ListForStudentAndSemesterAsync(
         Guid studentId, IReadOnlyCollection<Guid> semesterLabIds) =>
-        inner.ListForStudentAndSemester(studentId, semesterLabIds);
+        await inner.ListForStudentAndSemesterAsync(studentId, semesterLabIds);
 
-    public void DeleteByLabId(Guid labId) => inner.DeleteByLabId(labId);
+    public async Task DeleteByLabIdAsync(Guid labId) => await inner.DeleteByLabIdAsync(labId);
 }
 
 /// <summary>
@@ -138,8 +138,8 @@ public sealed class SubmissionsUpsertNullRepositoryTests(SubmissionsNullUpsertFi
     {
         // given: teacher (сид хоста) и валидное по контракту тело PUT;
         // репозиторий-декоратор возвращает null из Upsert (нарушение IF-015).
-        var (student, lab) = fixture.SeedData();
-        using var client = CreateTeacherClient(_factory);
+        var (student, lab) = await fixture.SeedDataAsync();
+        using var client = await CreateTeacherClient(_factory);
 
         // when: upsert валидной пары.
         using var response = await client.PutAsync(
@@ -161,9 +161,9 @@ public sealed class SubmissionsUpsertNullRepositoryTests(SubmissionsNullUpsertFi
             "500-конверт не содержит errors-карты (IF-001).");
     }
 
-    private static HttpClient CreateTeacherClient(WebApplicationFactory<Program> factory)
+    private static async Task<HttpClient> CreateTeacherClient(WebApplicationFactory<Program> factory)
     {
-        var user = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("teacher")
+        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher")
             ?? throw new InvalidOperationException("Учителя нет в хранилище тестового хоста.");
         var token = factory.Services
             .GetRequiredService<ITokenService>()

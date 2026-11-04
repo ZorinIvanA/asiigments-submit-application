@@ -9,10 +9,9 @@ using LabsApp.Domain.Entities;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Observability;
-using LabsApp.Storage;
-using LabsApp.Storage.InMemory;
-using LabsApp.Tests.Hosting;
-using LabsApp.Tests.Storage;
+using LabsApp.Infrastructure;
+using LabsApp.TestInfrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -138,7 +137,7 @@ internal static class AuthEndpointHarness
     }
 
     /// <summary>DI-сид пользователя с паролем, хэшированным хэшером хоста (метка seed).</summary>
-    public static User SeedUser(
+    public static async Task<User> SeedUser(
         WebApplicationFactory<Program> factory,
         string login,
         string password,
@@ -149,7 +148,7 @@ internal static class AuthEndpointHarness
     {
         var hasher = factory.Services.GetRequiredService<IPasswordHasher>();
         var repository = factory.Services.GetRequiredService<IUserRepository>();
-        repository.Add(new User
+        await repository.AddAsync(new User
         {
             Id = Guid.NewGuid(),
             Login = login,
@@ -160,26 +159,26 @@ internal static class AuthEndpointHarness
             GroupId = groupId,
             CreatedAt = DateTime.UtcNow,
         });
-        return repository.GetByLogin(login)
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Пользователь {login} не сохранился при DI-сиде.");
     }
 
-    public static Group SeedGroup(WebApplicationFactory<Program> factory, string name)
+    public static async Task<Group> SeedGroup(WebApplicationFactory<Program> factory, string name)
     {
         var repository = factory.Services.GetRequiredService<IGroupRepository>();
-        repository.Add(new Group { Id = Guid.NewGuid(), Name = name, CreatedAt = DateTime.UtcNow });
-        return repository.GetByName(name)
+        await repository.AddAsync(new Group { Id = Guid.NewGuid(), Name = name, CreatedAt = DateTime.UtcNow });
+        return (await repository.GetByNameAsync(name))
             ?? throw new InvalidOperationException($"Группа {name} не сохранилась при DI-сиде.");
     }
 
-    public static void RenameGroup(WebApplicationFactory<Program> factory, Group group, string newName)
+    public static async Task RenameGroup(WebApplicationFactory<Program> factory, Group group, string newName)
     {
         group.Name = newName;
-        factory.Services.GetRequiredService<IGroupRepository>().Update(group);
+        await factory.Services.GetRequiredService<IGroupRepository>().UpdateAsync(group);
     }
 
     /// <summary>DI-минт refresh-сессии: значение для cookie, в хранилище — только хэш.</summary>
-    public static (RefreshTokenGrant Grant, RefreshToken Record) SeedRefreshSession(
+    public static async Task<(RefreshTokenGrant Grant, RefreshToken Record)> SeedRefreshSession(
         WebApplicationFactory<Program> factory,
         Guid userId)
     {
@@ -193,7 +192,7 @@ internal static class AuthEndpointHarness
             ExpiresAt = grant.ExpiresAt,
             CreatedAt = DateTime.UtcNow,
         };
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().Add(record);
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>().AddAsync(record);
         return (grant, record);
     }
 
@@ -372,7 +371,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
             "604800");
 
         // then: пользователь создан student'ом без группы.
-        var stored = Factory.Services.GetRequiredService<IUserRepository>().GetByLogin("newuser");
+        var stored = await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("newuser");
         Assert.NotNull(stored);
         Assert.Equal(UserRoles.Student, stored.Role);
         Assert.Null(stored.GroupId);
@@ -397,7 +396,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
         Assert.Equal(UserRoles.Student, body.RootElement.GetProperty("role").GetString());
         Assert.Equal(
             UserRoles.Student,
-            Factory.Services.GetRequiredService<IUserRepository>().GetByLogin("role-hacker")!.Role);
+            (await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("role-hacker"))!.Role);
     }
 
     [Fact]
@@ -430,7 +429,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
             ["Пароль — не более 128 символов"],
             AuthEndpointHarness.ErrorOf(errors, "password"));
         Assert.Single(errors.EnumerateObject());
-        Assert.Null(Factory.Services.GetRequiredService<IUserRepository>().GetByLogin("pw-over"));
+        Assert.Null(await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("pw-over"));
         Assert.Equal(
             0,
             AuthEndpointHarness.TotalDelta(before, AuthEndpointHarness.KdfSnapshot(Factory)));
@@ -499,7 +498,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
         Assert.Equal(4, errors.EnumerateObject().Count());
 
         Assert.Equal(0, AuthEndpointHarness.TotalDelta(before, AuthEndpointHarness.KdfSnapshot(Factory)));
-        Assert.Null(Factory.Services.GetRequiredService<IUserRepository>().GetByLogin("иван"));
+        Assert.Null(await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("иван"));
     }
 
     [Fact]
@@ -507,7 +506,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
     {
         // given: существуют login 'stu' и email 'stu@example.com' (BUG-004/TS-031).
         _fixture.Clock.Advance(AuthEndpointHarness.RegisterWindowStep);
-        AuthEndpointHarness.SeedUser(Factory, "stu", AuthEndpointHarness.ValidPassword, email: "stu@example.com");
+        await AuthEndpointHarness.SeedUser(Factory, "stu", AuthEndpointHarness.ValidPassword, email: "stu@example.com");
         using var client = AuthEndpointHarness.CreateClient(Factory);
         var before = AuthEndpointHarness.KdfSnapshot(Factory);
 
@@ -530,7 +529,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
     {
         // given: email 'a@b.ru' занят другим пользователем (BUG-005/TS-032).
         _fixture.Clock.Advance(AuthEndpointHarness.RegisterWindowStep);
-        AuthEndpointHarness.SeedUser(Factory, "email-owner", AuthEndpointHarness.ValidPassword, email: "a@b.ru");
+        await AuthEndpointHarness.SeedUser(Factory, "email-owner", AuthEndpointHarness.ValidPassword, email: "a@b.ru");
         using var client = AuthEndpointHarness.CreateClient(Factory);
         var before = AuthEndpointHarness.KdfSnapshot(Factory);
 
@@ -546,7 +545,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
             "Пользователь с таким email уже существует",
             await AuthEndpointHarness.MessageAsync(response));
         Assert.Equal(0, AuthEndpointHarness.TotalDelta(before, AuthEndpointHarness.KdfSnapshot(Factory)));
-        Assert.Null(Factory.Services.GetRequiredService<IUserRepository>().GetByLogin("email-second"));
+        Assert.Null(await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("email-second"));
     }
 
     [Fact]
@@ -623,7 +622,7 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
         Assert.Equal(["Пароли не совпадают"], AuthEndpointHarness.ErrorOf(errors, "repeatPassword"));
 
         Assert.Equal(0, AuthEndpointHarness.TotalDelta(before, AuthEndpointHarness.KdfSnapshot(Factory)));
-        Assert.Null(Factory.Services.GetRequiredService<IUserRepository>().GetByLogin("ns-user"));
+        Assert.Null(await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("ns-user"));
     }
 
     [Fact]
@@ -659,8 +658,8 @@ public sealed class AuthRegisterEndpointTests(AuthApiFactory fixture)
         Assert.Single(blankErrors.EnumerateObject());
 
         var repository = Factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(repository.GetByLogin("repeat-missing"));
-        Assert.Null(repository.GetByLogin("repeat-blank"));
+        Assert.Null(await repository.GetByLoginAsync("repeat-missing"));
+        Assert.Null(await repository.GetByLoginAsync("repeat-blank"));
         Assert.Equal(0, AuthEndpointHarness.TotalDelta(before, AuthEndpointHarness.KdfSnapshot(Factory)));
     }
 
@@ -721,15 +720,15 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     private WebApplicationFactory<Program> Factory => _fixture.Factory;
 
     /// <summary>Сдвиг окна + DI-сид известной учётки (идемпотентен: хост общий).</summary>
-    private void SeedKnownUser()
+    private async Task SeedKnownUserAsync()
     {
         _fixture.Clock.Advance(AuthEndpointHarness.FailureWindowStep);
-        if (Factory.Services.GetRequiredService<IUserRepository>().GetByLogin(KnownLogin) is not null)
+        if (await Factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(KnownLogin) is not null)
         {
             return;
         }
 
-        AuthEndpointHarness.SeedUser(
+        await AuthEndpointHarness.SeedUser(
             Factory,
             KnownLogin,
             KnownPassword,
@@ -741,7 +740,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_KnownUserCorrectPassword_Returns200MeDtoCookies_SingleKdf()
     {
         // given: известная пара логин/пароль существует; меток для ключа нет.
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
         var before = AuthEndpointHarness.KdfSnapshot(Factory);
 
@@ -776,7 +775,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_WrongPassword_KnownUser_Returns401_SingleKdf()
     {
         // given: известная учётка существует; меток для ключа нет.
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
 
         // when: неверный пароль.
@@ -799,7 +798,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_UnknownUser_ReturnsSame401_ReferenceKdf()
     {
         // given: пользователя 'ghost' не существует.
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
 
         // when: вход с неизвестным логином.
@@ -822,7 +821,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     {
         // given: пять меток 'известный логин|IP' в текущем окне (5 неудачных входов);
         // IP клиента зафиксирован швом — ключ лимитера детерминирован (CR-001).
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
         TestWebAppFactory.SetClientIp(client, ClientIp);
         await AuthEndpointHarness.FailLoginsAsync(client, KnownLogin, WrongPassword, times: 5);
@@ -859,7 +858,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_BlockedUnknownUser_Returns429_AfterExactlyOneKdf()
     {
         // given: пять меток 'ghost|IP' (FR-007: равная стоимость веток 429).
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
         await AuthEndpointHarness.FailLoginsAsync(client, "ghost", "whatever1!", times: 5);
 
@@ -882,7 +881,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     {
         // given: пять меток 'известный логин|IP' — все прошлые неудачи; IP клиента
         // зафиксирован швом — ключ лимитера детерминирован (CR-001).
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
         TestWebAppFactory.SetClientIp(client, ClientIp);
         await AuthEndpointHarness.FailLoginsAsync(client, KnownLogin, WrongPassword, times: 5);
@@ -915,7 +914,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_LoginTrimmedAndCaseInsensitive_Succeeds()
     {
         // given: известная учётка существует; меток для ключа нет.
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
 
         // when: логин с пробелами и верхним регистром (пробелы снимает Trim
@@ -935,7 +934,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_MissingFields_EmptyValues_ReturnsSingle401_SingleKdf()
     {
         // given: известная учётка существует; пустые значения не проходят проверку (FR-007).
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
 
         // when: POST {} без полей.
@@ -958,7 +957,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
         // given: известная учётка существует; password отсутствует (второй вариант
         // сценария «Отсутствующие поля»: {login} без password — тот же единый 401,
         // что и {}; пустой кандидат проходит ветку проверки с полной стоимостью).
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
 
         // when: POST с логином, но без password.
@@ -981,7 +980,7 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_MalformedJson_Returns400_WithoutKdf()
     {
         // given: любое состояние хранилища (ошибка зависит только от формата).
-        SeedKnownUser();
+        await SeedKnownUserAsync();
         using var client = AuthEndpointHarness.CreateClient(Factory);
         var before = AuthEndpointHarness.KdfSnapshot(Factory);
 
@@ -1003,8 +1002,8 @@ public sealed class AuthLoginEndpointTests(AuthApiFactory fixture)
     public async Task Login_WindowSlides_FailureAfterSixtyOneSeconds_IsNotBlocked()
     {
         // given: пять меток 'slider|IP' записаны в момент t0.
-        SeedKnownUser();
-        AuthEndpointHarness.SeedUser(Factory, "slider", "slider-pass1!");
+        await SeedKnownUserAsync();
+        await AuthEndpointHarness.SeedUser(Factory, "slider", "slider-pass1!");
         using var client = AuthEndpointHarness.CreateClient(Factory);
         await AuthEndpointHarness.FailLoginsAsync(client, "slider", "wrong-pass1!", times: 4);
         using var fifth = await AuthEndpointHarness.PostJsonAsync(
@@ -1057,8 +1056,8 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     public async Task Refresh_ValidCookie_Returns204_NewAccessCookieOnly_RefreshNotRotated()
     {
         // given: валидная refresh-сессия (DI-минт, BUG-001).
-        var user = AuthEndpointHarness.SeedUser(Factory, "refresh-ok", AuthEndpointHarness.ValidPassword);
-        var (grant, record) = AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
+        var user = await AuthEndpointHarness.SeedUser(Factory, "refresh-ok", AuthEndpointHarness.ValidPassword);
+        var (grant, record) = await AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
         using var client = ClientWithRefreshCookie(grant.Value);
 
         // when: POST /auth/refresh.
@@ -1072,8 +1071,7 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
         var accessCookie = AuthEndpointHarness.SetCookieOf(setCookies, AuthCoreDefaults.AccessTokenCookieName);
         AuthEndpointHarness.AssertAuthCookieAttributes(accessCookie, "900");
         Assert.DoesNotContain(AuthCoreDefaults.RefreshTokenCookieName, setCookies[0], StringComparison.Ordinal);
-        Assert.NotNull(
-            Factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveByHash(record.TokenHash));
+        Assert.NotNull(await Factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveByHashAsync(record.TokenHash));
 
         // then: новый access работает — GET /auth/me от имени пользователя.
         client.DefaultRequestHeaders.Remove("Cookie");
@@ -1117,8 +1115,8 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     public async Task Refresh_ExpiredToken_Returns401_NoSetCookie()
     {
         // given: сессия с expiresAt через 7 дней; часы переведены за TTL.
-        var user = AuthEndpointHarness.SeedUser(Factory, "refresh-expired", AuthEndpointHarness.ValidPassword);
-        var (grant, _) = AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
+        var user = await AuthEndpointHarness.SeedUser(Factory, "refresh-expired", AuthEndpointHarness.ValidPassword);
+        var (grant, _) = await AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
         _fixture.Clock.Advance(TimeSpan.FromDays(8));
         using var client = ClientWithRefreshCookie(grant.Value);
 
@@ -1135,9 +1133,9 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     public async Task Refresh_RevokedToken_Returns401_NoSetCookie()
     {
         // given: сессия, отозванная через хранилище (модель logout).
-        var user = AuthEndpointHarness.SeedUser(Factory, "refresh-revoked", AuthEndpointHarness.ValidPassword);
-        var (grant, record) = AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
-        Factory.Services.GetRequiredService<ISecurityTokenRepository>().Revoke(record.Id);
+        var user = await AuthEndpointHarness.SeedUser(Factory, "refresh-revoked", AuthEndpointHarness.ValidPassword);
+        var (grant, record) = await AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
+        await Factory.Services.GetRequiredService<ISecurityTokenRepository>().RevokeAsync(record.Id);
         using var client = ClientWithRefreshCookie(grant.Value);
 
         // when: POST /auth/refresh с тем же токеном.
@@ -1213,8 +1211,8 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     public async Task Logout_ExpiredAccessWithLiveRefresh_Returns204_AndRevokes()
     {
         // given: access невалиден (мусор в cookie), refresh жив.
-        var user = AuthEndpointHarness.SeedUser(Factory, "logout-stale", AuthEndpointHarness.ValidPassword);
-        var (grant, _) = AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
+        var user = await AuthEndpointHarness.SeedUser(Factory, "logout-stale", AuthEndpointHarness.ValidPassword);
+        var (grant, _) = await AuthEndpointHarness.SeedRefreshSession(Factory, user.Id);
         using var client = AuthEndpointHarness.CreateClient(Factory);
         client.DefaultRequestHeaders.Add(
             "Cookie",
@@ -1237,13 +1235,13 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     public async Task Me_StudentWithGroup_ReturnsMeDtoWithCurrentGroupName()
     {
         // given: студент в группе; группа переименована ПОСЛЕ сида.
-        var group = AuthEndpointHarness.SeedGroup(Factory, "ИК-Ме");
-        var user = AuthEndpointHarness.SeedUser(
+        var group = await AuthEndpointHarness.SeedGroup(Factory, "ИК-Ме");
+        var user = await AuthEndpointHarness.SeedUser(
             Factory,
             "me-student",
             AuthEndpointHarness.ValidPassword,
             groupId: group.Id);
-        AuthEndpointHarness.RenameGroup(Factory, group, "ИК-Ме (новое)");
+        await AuthEndpointHarness.RenameGroup(Factory, group, "ИК-Ме (новое)");
         using var client = AuthEndpointHarness.CreateSessionClient(Factory, user.Id, UserRoles.Student);
 
         // when: GET /auth/me с access студента.
@@ -1262,7 +1260,7 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     public async Task Me_Teacher_ReturnsNullGroupName()
     {
         // given: аутентифицированный teacher.
-        var teacher = AuthEndpointHarness.SeedUser(
+        var teacher = await AuthEndpointHarness.SeedUser(
             Factory,
             "me-teacher",
             AuthEndpointHarness.ValidPassword,
@@ -1283,7 +1281,7 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     {
         // given: студент с groupId=null — второе из трёх состояний группы
         // (T-007/FR-011: студент с группой, студент без группы, teacher).
-        var user = AuthEndpointHarness.SeedUser(
+        var user = await AuthEndpointHarness.SeedUser(
             Factory,
             "me-no-group",
             AuthEndpointHarness.ValidPassword,
@@ -1306,7 +1304,7 @@ public sealed class AuthSessionEndpointTests(AuthApiFactory fixture)
     {
         // given: groupId указывает на несуществующую группу — имя вычисляется по
         // ТЕКУЩЕМУ состоянию групп (FR-011), исчезнувшая группа даёт null.
-        var user = AuthEndpointHarness.SeedUser(
+        var user = await AuthEndpointHarness.SeedUser(
             Factory,
             "me-dangling",
             AuthEndpointHarness.ValidPassword,
@@ -1353,37 +1351,37 @@ public sealed class AuthRegisterRaceConflictUnitTests
     /// <summary>Декоратор: только Add сигнализирует конфликт гонки, остальное — внутренний склад.</summary>
     private sealed class RaceConflictingUserRepository(IUserRepository inner) : IUserRepository
     {
-        public void Add(User user)
+        public async Task AddAsync(User user)
         {
             // Зеркало выигравшей параллельной регистрации: победитель уже в
             // складе, когда проигравший доходит до атомарной вставки.
-            inner.Add(TestEntities.User("race-login"));
+            await inner.AddAsync(TestEntities.User("race-login"));
             throw new StorageConflictException("Гонка двух регистраций на один login (стаб).");
         }
 
-        public User? GetById(Guid id) => inner.GetById(id);
+        public async Task<User?> GetByIdAsync(Guid id) => await inner.GetByIdAsync(id);
 
-        public User? GetByLogin(string login) => inner.GetByLogin(login);
+        public async Task<User?> GetByLoginAsync(string login) => await inner.GetByLoginAsync(login);
 
-        public User? GetByEmail(string email) => inner.GetByEmail(email);
+        public async Task<User?> GetByEmailAsync(string email) => await inner.GetByEmailAsync(email);
 
-        public void Update(User user) => inner.Update(user);
+        public async Task UpdateAsync(User user) => await inner.UpdateAsync(user);
 
-        public bool SetPassword(Guid userId, string passwordHash) =>
-            inner.SetPassword(userId, passwordHash);
+        public async Task<bool> SetPasswordAsync(Guid userId, string passwordHash) =>
+            await inner.SetPasswordAsync(userId, passwordHash);
 
-        public UpdateProfileResult UpdateProfile(Guid userId, string fullName, string email) =>
-            inner.UpdateProfile(userId, fullName, email);
+        public async Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email) =>
+            await inner.UpdateProfileAsync(userId, fullName, email);
 
-        public SetGroupResult SetGroup(Guid userId, Guid? groupId, Func<Guid, bool>? groupExists) =>
-            inner.SetGroup(userId, groupId, groupExists);
+        public async Task<SetGroupResult> SetGroupAsync(Guid userId, Guid? groupId, Func<Guid, Task<bool>>? groupExists) =>
+            await inner.SetGroupAsync(userId, groupId, groupExists);
 
-        public IReadOnlyList<User> ListStudents(string? search = null, string? groupIdFilter = null) =>
-            inner.ListStudents(search, groupIdFilter);
+        public async Task<IReadOnlyList<User>> ListStudentsAsync(string? search = null, string? groupIdFilter = null) =>
+            await inner.ListStudentsAsync(search, groupIdFilter);
 
-        public IReadOnlyList<User> ListByGroup(Guid groupId) => inner.ListByGroup(groupId);
+        public async Task<IReadOnlyList<User>> ListByGroupAsync(Guid groupId) => await inner.ListByGroupAsync(groupId);
 
-        public int CountByGroup(Guid groupId) => inner.CountByGroup(groupId);
+        public async Task<int> CountByGroupAsync(Guid groupId) => await inner.CountByGroupAsync(groupId);
     }
 
     /// <summary>Минимальный IHostEnvironment (Development — cookie без Secure, зеркало CookieServiceTests).</summary>

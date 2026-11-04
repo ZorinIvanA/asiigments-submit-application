@@ -30,7 +30,7 @@ public sealed class Ts063_AuthMeInvalidTokensTests(B10NoDemoWebAppFactory factor
     public async Task TS063_GetMe_WithoutCookie_ForeignKey_AndExpired_Returns401()
     {
         // given: DI-сид-студент — владелец sub в подготовленных токенах.
-        var owner = B10Seed.AddStudent(_factory, "b10ts063.owner");
+        var owner = await B10Seed.AddStudentAsync(_factory, "b10ts063.owner");
         var foreignKeyToken = B10AuthSessions.CraftAccessToken(
             owner.Id,
             UserRoles.Student,

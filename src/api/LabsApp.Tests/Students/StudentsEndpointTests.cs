@@ -4,9 +4,8 @@ using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
-using LabsApp.Tests.Hosting;
-using LabsApp.Tests.Storage;
+using LabsApp.Infrastructure;
+using LabsApp.Tests.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,16 +49,16 @@ internal static class StudentsEndpointHarness
 {
     public const string StudentsEndpoint = "/api/v1/students";
 
-    public static HttpClient CreateTeacherClient(WebApplicationFactory<Program> factory)
+    public static async Task<HttpClient> CreateTeacherClient(WebApplicationFactory<Program> factory)
     {
-        var teacher = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("teacher");
+        var teacher = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
         return CreateSessionClient(factory, teacher.Id, UserRoles.Teacher);
     }
 
-    public static HttpClient CreateStudentClient(WebApplicationFactory<Program> factory)
+    public static async Task<HttpClient> CreateStudentClient(WebApplicationFactory<Program> factory)
     {
-        var student = factory.Services.GetRequiredService<IUserRepository>().GetByLogin("student01");
+        var student = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("student01");
         Assert.NotNull(student);
         return CreateSessionClient(factory, student.Id, UserRoles.Student);
     }
@@ -77,23 +76,23 @@ internal static class StudentsEndpointHarness
     public static IUserRepository Users(WebApplicationFactory<Program> factory) =>
         factory.Services.GetRequiredService<IUserRepository>();
 
-    public static Group GroupByName(WebApplicationFactory<Program> factory, string name) =>
-        factory.Services.GetRequiredService<IGroupRepository>().GetByName(name)
+    public static async Task<Group> GroupByNameAsync(WebApplicationFactory<Program> factory, string name) =>
+        await factory.Services.GetRequiredService<IGroupRepository>().GetByNameAsync(name)
         ?? throw new InvalidOperationException($"Группы {name} нет в хранилище тестового хоста.");
 
-    public static User StudentByLogin(WebApplicationFactory<Program> factory, string login) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetByLogin(login)
+    public static async Task<User> StudentByLoginAsync(WebApplicationFactory<Program> factory, string login) =>
+        await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login)
         ?? throw new InvalidOperationException($"Студента {login} нет в хранилище тестового хоста.");
 
-    public static User SeedStudent(
+    public static async Task<User> SeedStudent(
         WebApplicationFactory<Program> factory,
         string login,
         string fullName,
         Guid? groupId)
     {
         var repository = Users(factory);
-        repository.Add(TestEntities.User(login, fullName: fullName, groupId: groupId));
-        return repository.GetByLogin(login)
+        await repository.AddAsync(TestEntities.User(login, fullName: fullName, groupId: groupId));
+        return (await repository.GetByLoginAsync(login))
             ?? throw new InvalidOperationException($"Студент {login} не сохранился при DI-сиде.");
     }
 
@@ -157,7 +156,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [Fact]
     public async Task Search_MultiWordBothTokensInFullName_ReturnsOnlyStudent01()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         // «иван» есть в FullName всех сид-студентов, «01» — только в FullName
         // student01 (суффикс); в login/email других студентов «иван» отсутствует.
@@ -173,7 +172,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [Fact]
     public async Task Search_TokensInDifferentFields_DoNotCombine()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         // «иванов» — только в FullName, email — другое поле: сложения токенов
         // из разных полей нет (IF-011).
@@ -189,7 +188,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [Fact]
     public async Task Search_TokenOrderIrrelevant_SameResult()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?search={Uri.EscapeDataString("01 иван")}");
@@ -206,7 +205,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [InlineData("student05@example.com")]
     public async Task Search_SingleToken_MatchesLoginOrEmail_CaseInsensitive(string query)
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?search={Uri.EscapeDataString(query)}");
@@ -220,7 +219,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [Fact]
     public async Task Search_TeacherFullName_MatchesNoStudent()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         // Перечень содержит ТОЛЬКО role=student: «Сидоров …» преподавателя не находится.
         using var response = await client.GetAsync(
@@ -236,7 +235,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [InlineData("   ")]
     public async Task Search_EmptyOrWhitespace_NoFilter(string query)
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?search={Uri.EscapeDataString(query)}");
@@ -249,7 +248,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [Fact]
     public async Task Search_LongerThan200AfterTrim_Returns400WithSearchFieldError()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?search={Uri.EscapeDataString(new string('х', 201))}");
@@ -265,7 +264,7 @@ public sealed class StudentsSearchEndpointTests(StudentsApiFixture fixture) : IC
     [Fact]
     public async Task Search_Exactly200Chars_IsValid()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         // Граница включительно: ровно 200 символов после трима — валидный запрос.
         using var response = await client.GetAsync(
@@ -288,7 +287,7 @@ public sealed class StudentsGroupFilterEndpointTests(StudentsApiFixture fixture)
     [Fact]
     public async Task GroupFilterNone_ReturnsOnlyUngroupedStudents()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?groupId=none");
@@ -309,8 +308,8 @@ public sealed class StudentsGroupFilterEndpointTests(StudentsApiFixture fixture)
     [Fact]
     public async Task GroupFilterGroupUuid_ReturnsOnlyThatGroup()
     {
-        var ik221 = StudentsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var ik221 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?groupId={ik221.Id}");
@@ -329,8 +328,8 @@ public sealed class StudentsGroupFilterEndpointTests(StudentsApiFixture fixture)
     [Fact]
     public async Task GroupFilterEmptyGroupUuid_ReturnsEmptyList()
     {
-        var ik223 = StudentsEndpointHarness.GroupByName(_factory, "ИК-223");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var ik223 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?groupId={ik223.Id}");
@@ -343,7 +342,7 @@ public sealed class StudentsGroupFilterEndpointTests(StudentsApiFixture fixture)
     [Fact]
     public async Task GroupFilterUnknownUuid_ReturnsEmptyListNot404()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?groupId={Guid.NewGuid()}");
@@ -357,7 +356,7 @@ public sealed class StudentsGroupFilterEndpointTests(StudentsApiFixture fixture)
     [Fact]
     public async Task GroupFilterNotUuidAndNotNone_ReturnsEmptyList()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?groupId={Uri.EscapeDataString("не-uuid")}");
@@ -370,7 +369,7 @@ public sealed class StudentsGroupFilterEndpointTests(StudentsApiFixture fixture)
     [Fact]
     public async Task GroupFilterCombinedWithSearch_AppliesBothFilters()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?groupId=none&search={Uri.EscapeDataString("иван 31")}");
@@ -394,7 +393,7 @@ public sealed class StudentsListEndpointTests(StudentsApiFixture fixture) : ICla
     [Fact]
     public async Task List_DefaultPage_FirstTenStudentsWithTotals()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
 
@@ -414,7 +413,7 @@ public sealed class StudentsListEndpointTests(StudentsApiFixture fixture) : ICla
     [Fact]
     public async Task List_LastPage_TwoRemainingStudents()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{StudentsEndpointHarness.StudentsEndpoint}?page=4");
 
@@ -432,7 +431,7 @@ public sealed class StudentsListEndpointTests(StudentsApiFixture fixture) : ICla
     [InlineData("2.5")]
     public async Task List_InvalidPage_NormalizedToOne(string rawPage)
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?page={Uri.EscapeDataString(rawPage)}");
@@ -448,7 +447,7 @@ public sealed class StudentsListEndpointTests(StudentsApiFixture fixture) : ICla
     [Fact]
     public async Task List_PageBeyondLast_EmptyItemsWithCorrectTotal()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync($"{StudentsEndpointHarness.StudentsEndpoint}?page=99");
 
@@ -469,7 +468,7 @@ public sealed class StudentsListEndpointTests(StudentsApiFixture fixture) : ICla
         // int, заворачивалось в отрицательное — Skip отдавал ПЕРВУЮ страницу вместо
         // пустой. Страница правее последней обязана быть пустой при корректном
         // total (IF-011), ответ эхом отдаёт нормализованный номер страницы.
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?page={rawPage}");
@@ -485,8 +484,8 @@ public sealed class StudentsListEndpointTests(StudentsApiFixture fixture) : ICla
     [Fact]
     public async Task List_DtoProjection_GroupedStudent_AllFieldsMapped()
     {
-        var ik221 = StudentsEndpointHarness.GroupByName(_factory, "ИК-221");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var ik221 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?search=student01");
@@ -505,7 +504,7 @@ public sealed class StudentsListEndpointTests(StudentsApiFixture fixture) : ICla
     [Fact]
     public async Task List_DtoProjection_UngroupedStudent_GroupFieldsNull()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}?search=student32");
@@ -533,14 +532,14 @@ public sealed class StudentsSortRuLocaleEndpointTests(NoDemoStudentsApiFixture f
     {
         for (var n = 1; n <= 10; n++)
         {
-            StudentsEndpointHarness.SeedStudent(
+            await StudentsEndpointHarness.SeedStudent(
                 _factory, $"sa-{n:00}", $"а{n:00}", groupId: null);
         }
 
         // Ordinal поставил бы «Б01» (U+0411) первым; ru-ci ставит его ПОСЛЕ
         // всех «а01»..«а10» — на второй странице (pageSize=10, total=11).
-        StudentsEndpointHarness.SeedStudent(_factory, "sb-01", "Б01", groupId: null);
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        await StudentsEndpointHarness.SeedStudent(_factory, "sb-01", "Б01", groupId: null);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var firstPage = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
         Assert.Equal(HttpStatusCode.OK, firstPage.StatusCode);
@@ -574,10 +573,10 @@ public sealed class StudentsSortTiebreakEndpointTests(NoDemoStudentsApiFixture f
     {
         // Сид в «неудобном» порядке: хранилище порядок не определяёт (IF-015),
         // но вставка первым «Бета-логина» исключает случайное совпадение с сортировкой.
-        StudentsEndpointHarness.SeedStudent(_factory, "g-borisov", "Борисов Борис", groupId: null);
-        StudentsEndpointHarness.SeedStudent(_factory, "Бета-логин", "антонов Арат", groupId: null);
-        StudentsEndpointHarness.SeedStudent(_factory, "альфа-логин", "антонов Арат", groupId: null);
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        await StudentsEndpointHarness.SeedStudent(_factory, "g-borisov", "Борисов Борис", groupId: null);
+        await StudentsEndpointHarness.SeedStudent(_factory, "Бета-логин", "антонов Арат", groupId: null);
+        await StudentsEndpointHarness.SeedStudent(_factory, "альфа-логин", "антонов Арат", groupId: null);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
 
@@ -612,9 +611,9 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
     [Fact]
     public async Task SetGroup_AssignThenUnassign_ThreeStatesSequence()
     {
-        var ik223 = StudentsEndpointHarness.GroupByName(_factory, "ИК-223");
-        var student31 = StudentsEndpointHarness.StudentByLogin(_factory, "student31");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var ik223 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
+        var student31 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student31");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         // (1) Kind=String — включение в группу: 204 и перевод.
         using var assign = await client.PutAsync(
@@ -660,16 +659,16 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
         Assert.Equal("Группа не найдена", await StudentsEndpointHarness.MessageAsync(missing));
 
         // Состояние записи ветками Invalid не меняется (группы по-прежнему нет).
-        Assert.Null(StudentsEndpointHarness.StudentByLogin(_factory, "student31").GroupId);
+        Assert.Null((await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student31")).GroupId);
     }
 
     [Fact]
     public async Task SetGroup_TransferBetweenGroups_CountsFollow()
     {
-        var ik221 = StudentsEndpointHarness.GroupByName(_factory, "ИК-221");
-        var ik222 = StudentsEndpointHarness.GroupByName(_factory, "ИК-222");
-        var student30 = StudentsEndpointHarness.StudentByLogin(_factory, "student30");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var ik221 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        var ik222 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-222");
+        var student30 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student30");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var transfer = await client.PutAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}/{student30.Id}/group",
@@ -694,8 +693,8 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
     [Fact]
     public async Task SetGroup_UnknownGroupUuid_Returns404GroupNotFound_KeepsStudent()
     {
-        var student32 = StudentsEndpointHarness.StudentByLogin(_factory, "student32");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var student32 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student32");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}/{student32.Id}/group",
@@ -703,14 +702,14 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("Группа не найдена", await StudentsEndpointHarness.MessageAsync(response));
-        Assert.Null(StudentsEndpointHarness.StudentByLogin(_factory, "student32").GroupId);
+        Assert.Null((await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student32")).GroupId);
     }
 
     [Fact]
     public async Task SetGroup_NonUuidGroupString_Returns404GroupNotFound()
     {
-        var student32 = StudentsEndpointHarness.StudentByLogin(_factory, "student32");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var student32 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student32");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}/{student32.Id}/group",
@@ -723,8 +722,8 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
     [Fact]
     public async Task SetGroup_BrokenJsonBody_Returns404GroupNotFound()
     {
-        var student32 = StudentsEndpointHarness.StudentByLogin(_factory, "student32");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var student32 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student32");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         // 400-ветки на groupId НЕТ: битый JSON — состояние Invalid → 404 (IF-011).
         using var response = await client.PutAsync(
@@ -738,8 +737,8 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
     [Fact]
     public async Task SetGroup_UnknownStudentId_Returns404StudentNotFound()
     {
-        var ik223 = StudentsEndpointHarness.GroupByName(_factory, "ИК-223");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var ik223 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}/{Guid.NewGuid()}/group",
@@ -752,9 +751,9 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
     [Fact]
     public async Task SetGroup_TeacherId_Returns404StudentNotFound()
     {
-        var teacher = StudentsEndpointHarness.Users(_factory).GetByLogin("teacher")
+        var teacher = await StudentsEndpointHarness.Users(_factory).GetByLoginAsync("teacher")
             ?? throw new InvalidOperationException("Сид-преподаватель не найден.");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         // Роль ≠ student приравнена к отсутствию: даже JsonNull (снятие) даёт 404.
         using var response = await client.PutAsync(
@@ -768,7 +767,7 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
     [Fact]
     public async Task SetGroup_NonUuidRouteId_Returns404StudentNotFound()
     {
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var response = await client.PutAsync(
             $"{StudentsEndpointHarness.StudentsEndpoint}/not-a-guid/group",
@@ -802,7 +801,7 @@ public sealed class StudentsRolesEndpointTests(StudentsApiFixture fixture) : ICl
     [Fact]
     public async Task List_Student_Returns403Envelope()
     {
-        using var client = StudentsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateStudentClient(_factory);
 
         using var response = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
 
@@ -813,7 +812,7 @@ public sealed class StudentsRolesEndpointTests(StudentsApiFixture fixture) : ICl
     [Fact]
     public async Task List_StudentTooLongSearch_403Before400()
     {
-        using var client = StudentsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateStudentClient(_factory);
 
         // Роль проверяется раньше валидации: слишком длинный search не даёт 400.
         using var response = await client.GetAsync(
@@ -839,7 +838,7 @@ public sealed class StudentsRolesEndpointTests(StudentsApiFixture fixture) : ICl
     [Fact]
     public async Task SetGroup_StudentUnknownIdBrokenJson_403Before400And404()
     {
-        using var client = StudentsEndpointHarness.CreateStudentClient(_factory);
+        using var client = await StudentsEndpointHarness.CreateStudentClient(_factory);
 
         // Роль раньше разбора тела (400-ветки нет) и поиска записи (404).
         using var response = await client.PutAsync(
@@ -853,9 +852,9 @@ public sealed class StudentsRolesEndpointTests(StudentsApiFixture fixture) : ICl
     [Fact]
     public async Task TeacherOwnRole_BusinessStatuses()
     {
-        var ik223 = StudentsEndpointHarness.GroupByName(_factory, "ИК-223");
-        var student31 = StudentsEndpointHarness.StudentByLogin(_factory, "student31");
-        using var client = StudentsEndpointHarness.CreateTeacherClient(_factory);
+        var ik223 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
+        var student31 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student31");
+        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
 
         using var list = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
         Assert.Equal(HttpStatusCode.OK, list.StatusCode);

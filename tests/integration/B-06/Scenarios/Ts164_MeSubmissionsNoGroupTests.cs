@@ -1,6 +1,6 @@
 using System.Text.Json;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
@@ -24,9 +24,9 @@ public sealed class Ts164_MeSubmissionsNoGroupTests : IClassFixture<B06Submissio
     public async Task GetMeSubmissionsWithoutGroup_ReturnsEmptyHasGroupFalse()
     {
         // given: student31 без группы; его сессия.
-        var student31 = B06SubmissionsSessions.RequireUser(_factory, "student31");
+        var student31 = await B06SubmissionsSessions.RequireUserAsync(_factory, "student31");
         Assert.Null(student31.GroupId);
-        using var client = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student31");
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student31");
 
         // when: GET /me/submissions?semester=1.
         using var response = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "1");

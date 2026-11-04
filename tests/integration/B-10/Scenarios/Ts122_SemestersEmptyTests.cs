@@ -16,8 +16,8 @@ public sealed class Ts122_SemestersEmptyTests(B10NoDemoWebAppFactory factory) : 
     public async Task TS122_GetSemesters_WithoutLabs_ReturnsEmptyArray()
     {
         // given: лабораторных нет; сессия student.
-        B10Seed.AddStudent(_factory, B10Seed.StudentLogin);
-        using var client = HostClients.CreateStudentClient(_factory, B10Seed.StudentLogin);
+        await B10Seed.AddStudentAsync(_factory, B10Seed.StudentLogin);
+        using var client = await HostClients.CreateStudentClient(_factory, B10Seed.StudentLogin);
 
         // when: GET /api/v1/semesters.
         using var response = await client.GetAsync("/api/v1/semesters");

@@ -17,7 +17,7 @@ public sealed class Ts161_MeSubmissionsRoleAndAuthTests(B13WebAppFactory factory
     public async Task TS161_MeSubmissions_TeacherSession_Returns403Forbidden()
     {
         // given: сессия teacher.
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /me/submissions?semester=1.
         using var response = await client.GetAsync("/api/v1/me/submissions?semester=1");

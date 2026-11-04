@@ -30,7 +30,7 @@ public sealed class Ts056_RefreshSuccessNoRotationTests : IClassFixture<B07AuthW
 
         var access1 = B07AuthClients.RequiredSetCookie(login, AuthCoreDefaults.AccessTokenCookieName);
         var refresh1 = B07AuthClients.RequiredSetCookie(login, AuthCoreDefaults.RefreshTokenCookieName);
-        var expiresAtAfterLogin = B07AuthClients.FindRefreshToken(_factory, refresh1).ExpiresAt;
+        var expiresAtAfterLogin = (await B07AuthClients.FindRefreshTokenAsync(_factory, refresh1)).ExpiresAt;
 
         // Детерминизм «exp больше прежнего»: бизнес-время сдвинуто на минуту,
         // поэтому exp нового access строго больше exp прежнего; продление TTL
@@ -64,7 +64,7 @@ public sealed class Ts056_RefreshSuccessNoRotationTests : IClassFixture<B07AuthW
         Assert.Equal(HttpStatusCode.NoContent, repeatResponse.StatusCode);
 
         // then: expiresAt записи в хранилище неизменен (TTL не продлевается).
-        var stored = B07AuthClients.FindRefreshToken(_factory, refresh1);
+        var stored = await B07AuthClients.FindRefreshTokenAsync(_factory, refresh1);
         Assert.Equal(expiresAtAfterLogin, stored.ExpiresAt);
         Assert.Null(stored.RevokedAt);
     }

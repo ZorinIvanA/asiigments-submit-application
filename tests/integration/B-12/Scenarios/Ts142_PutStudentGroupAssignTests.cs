@@ -18,13 +18,13 @@ public sealed class Ts142_PutStudentGroupAssignTests(B12WebAppFactory factory) :
     public async Task TS142_AssignToGroup_Returns204_AndGroupVisible()
     {
         // given: студент без группы; группа X существует; сессия teacher.
-        var group = B12Seed.EnsureGroup(_factory, "B12-X");
-        var student = B12Seed.EnsureStudent(
+        var group = await B12Seed.EnsureGroupAsync(_factory, "B12-X");
+        var student = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s142",
             fullName: "Включаемый Включ Включевич",
             email: "b12s142@x.ru");
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: PUT /students/{id}/group {groupId:X}.
         using var put = await teacher.PutAsync(
@@ -45,7 +45,7 @@ public sealed class Ts142_PutStudentGroupAssignTests(B12WebAppFactory factory) :
         Assert.Equal(group.Name, items[0].GetProperty("groupName").GetString());
 
         // then: GET /me/submissions (сессия студента) → hasGroup=true.
-        using var studentClient = HostClients.CreateStudentClient(_factory, "b12s142");
+        using var studentClient = await HostClients.CreateStudentClientAsync(_factory, "b12s142");
         using var my = await studentClient.GetAsync("/api/v1/me/submissions?semester=1");
         var myRoot = await ApiAssert.ReadOkJsonAsync(my);
         Assert.True(myRoot.GetProperty("hasGroup").GetBoolean());

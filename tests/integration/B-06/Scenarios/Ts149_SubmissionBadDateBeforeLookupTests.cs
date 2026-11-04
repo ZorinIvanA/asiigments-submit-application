@@ -23,7 +23,7 @@ public sealed class Ts149_SubmissionBadDateBeforeLookupTests : IClassFixture<B06
     public async Task PutSubmissionWithNonContractDate_Returns400BeforeEntityLookup()
     {
         // given: сессия teacher; обе сущности не существуют (случайные uuid).
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /submissions с неконтрактной датой и неизвестными сущностями.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

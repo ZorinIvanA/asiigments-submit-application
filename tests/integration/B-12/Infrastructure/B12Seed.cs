@@ -1,7 +1,8 @@
 using System.Globalization;
+using System.Text;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B12.Infrastructure;
@@ -20,10 +21,10 @@ public static class B12Seed
     public const string TeacherLogin = SeedOptions.DefaultTeacherLogin;
 
     /// <summary>Добавляет группу напрямую в IGroupRepository (шаг given «группа существует»).</summary>
-    public static Group EnsureGroup(B12WebAppFactory factory, string name)
+    public static async Task<Group> EnsureGroupAsync(B12WebAppFactory factory, string name)
     {
         var groups = factory.Services.GetRequiredService<IGroupRepository>();
-        var existing = groups.GetByName(name);
+        var existing = await groups.GetByNameAsync(name);
         if (existing is not null)
         {
             return existing;
@@ -35,7 +36,7 @@ public static class B12Seed
             Name = name,
             CreatedAt = DateTime.UtcNow,
         };
-        groups.Add(group);
+        await groups.AddAsync(group);
         return group;
     }
 
@@ -44,7 +45,7 @@ public static class B12Seed
     /// минтиться, ADR-022 — пароль не используется). Повторный вызов с тем же login
     /// возвращает существующую запись (идемпотентность внутри класса-фикстуры).
     /// </summary>
-    public static User EnsureStudent(
+    public static async Task<User> EnsureStudentAsync(
         B12WebAppFactory factory,
         string login,
         string fullName,
@@ -52,7 +53,7 @@ public static class B12Seed
         Guid? groupId = null)
     {
         var users = factory.Services.GetRequiredService<IUserRepository>();
-        var existing = users.GetByLogin(login);
+        var existing = await users.GetByLoginAsync(login);
         if (existing is not null)
         {
             return existing;
@@ -70,13 +71,13 @@ public static class B12Seed
             GroupId = groupId,
             CreatedAt = DateTime.UtcNow,
         };
-        users.Add(user);
+        await users.AddAsync(user);
         return user;
     }
 
     /// <summary>uuid сид-преподавателя — шаг given «uuid преподавателя» (TS-145).</summary>
-    public static Guid TeacherId(B12WebAppFactory factory) =>
-        factory.Services.GetRequiredService<IUserRepository>().GetByLogin(TeacherLogin)?.Id
+    public static async Task<Guid> TeacherIdAsync(B12WebAppFactory factory) =>
+        (await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(TeacherLogin))?.Id
         ?? throw new InvalidOperationException(
             "Сид-преподаватель не найден — шаг given неисполним.");
 

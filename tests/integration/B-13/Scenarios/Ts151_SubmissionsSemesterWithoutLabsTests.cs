@@ -23,7 +23,7 @@ public sealed class Ts151_SubmissionsSemesterWithoutLabsTests(B13WebAppFactory f
         var first = B13Seed.AddStudent(_factory, "ts151-s1", "Алексеев", group.Id);
         var second = B13Seed.AddStudent(_factory, "ts151-s2", "Борисов", group.Id);
         B13Seed.AddLab(_factory, 1, 1);
-        using var client = HostClients.CreateTeacherClient(_factory);
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: GET /submissions?groupId=X&semester=5.
         using var response = await client.GetAsync(

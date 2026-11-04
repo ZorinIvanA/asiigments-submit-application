@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B04.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B04.Scenarios;
@@ -22,8 +22,8 @@ public sealed class Ts103_LabDuplicatePair409Tests(B04LabsWebAppFactory factory)
     {
         // given: пара (1,1) существует (DI-сид, ADR-010); teacher.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        B04DomainSeed.AddLab(labs, semester: 1, number: 1);
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 1);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с занятой парой (semester=1, number=1).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

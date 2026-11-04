@@ -1,6 +1,6 @@
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B04.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B04.Scenarios;
@@ -25,12 +25,12 @@ public sealed class Ts099_DeleteLabCascadeTests(B04LabsWebAppFactory factory) : 
         var users = _factory.Services.GetRequiredService<IUserRepository>();
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        var teacher = users.GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given кейса неисполним.");
-        var student = B04DomainSeed.AddStudent(users, "b04-ts099-student");
-        var lab = B04DomainSeed.AddLab(labs, semester: 3, number: 7);
+        var student = await B04DomainSeed.AddStudentAsync(users, "b04-ts099-student");
+        var lab = await B04DomainSeed.AddLabAsync(labs, semester: 3, number: 7);
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // given: сдача по работе L создана PUT /submissions.
         using var created = await client.PutAsJsonAsync("/api/v1/submissions", new
@@ -41,12 +41,12 @@ public sealed class Ts099_DeleteLabCascadeTests(B04LabsWebAppFactory factory) : 
             defenseDate = (string?)null,
         });
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
-        Assert.Single(submissions.ListByLabIds([lab.Id]));
+        Assert.Single( await submissions.ListByLabIdsAsync([lab.Id]) );
 
         // when/then: DELETE /labs/{L.id} — 204; записей сдач с labId=L.id нет (каскад).
         using var delete = await client.DeleteAsync($"/api/v1/labs/{lab.Id}");
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
-        Assert.Empty(submissions.ListByLabIds([lab.Id]));
+        Assert.Empty( await submissions.ListByLabIdsAsync([lab.Id]) );
 
         // then: GET /labs/{L.id} — 404.
         using var get = await client.GetAsync($"/api/v1/labs/{lab.Id}");

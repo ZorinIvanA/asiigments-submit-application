@@ -9,21 +9,28 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// items упорядочены по number 3,2,1 (вторичный ключ semester asc не влияет
 /// в пределах одного семестра).
 /// </summary>
-public sealed class Ts089_LabsSemesterFilterNumberDescTests : IClassFixture<B03HostFactory>
+public sealed class Ts089_LabsSemesterFilterNumberDescTests : IClassFixture<B03HostFactory>,
+    IAsyncLifetime
 {
     private readonly B03HostFactory _factory;
 
     public Ts089_LabsSemesterFilterNumberDescTests(B03HostFactory factory)
     {
         _factory = factory;
-        B03DomainSeed.AddStandard23Labs(_factory);
     }
+
+    public async Task InitializeAsync()
+    {
+        await B03DomainSeed.AddStandard23LabsAsync(_factory);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task GetLabsSemester2NumberDesc_ReturnsThreeLabsDescending()
     {
         // given: сессия teacher.
-        var (client, _) = B03TeacherSession.Create(_factory);
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: фильтр по семестру 2, сортировка по номеру по убыванию.
         using var response = await B03LabsApi.GetLabsAsync(

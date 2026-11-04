@@ -1,6 +1,6 @@
 using System.Text.Json;
 using LabsApp.IntegrationTests.B16.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B16.Scenarios;
@@ -38,7 +38,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     public async Task PostGroup_TrimsName_ThenCiDuplicateConflicts()
     {
         // given: сессия teacher; группы ИК-224 нет.
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
 
         // when: POST /groups {name:'  ИК-224  '}.
         using var created = await B16GroupsApi.PostGroupAsync(client, "  ИК-224  ");
@@ -63,7 +63,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     {
         // given: сессия teacher; группы ИК-230 не существует; инвариант
         // lower(group.name) из FR-024 оспаривается конкуренцией (РЕВ-ISS-001).
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
 
         // when: два ПАРАЛЛЕЛЬНЫХ POST /groups {name:'ИК-230'} — барьерный старт:
         // обе задачи готовятся, отправляются одновременно после барьера.
@@ -106,11 +106,11 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
         // уникальность проверяется атомарно относительно конкурентных созданий;
         // дублей нет).
         var groups = _factory.Services.GetRequiredService<IGroupRepository>();
-        var ciMatches = B16GroupsApi.CountStoredGroupsByCiName(groups, "ик-230");
+        var ciMatches = await B16GroupsApi.CountStoredGroupsByCiNameAsync(groups, "ик-230");
         Assert.True(
             ciMatches == 1,
             $"Ожидалась ровно одна группа с lower(name)='ик-230' в хранилище, фактически {ciMatches}: " +
-            $"[{string.Join(", ", B16GroupsApi.StoredGroupNames(groups))}].");
+            $"[{string.Join(", ", await B16GroupsApi.StoredGroupNamesAsync(groups))}].");
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     {
         // given: сессия teacher; имена граничной длины без пробельных символов
         // (после трима длина сохраняется); в хранилище таких имён нет.
-        using var client = B16GroupsSession.CreateTeacher(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var name100 = new string('Г', 100);
         var name101 = new string('Г', 101);
         Assert.Equal(100, name100.Length);

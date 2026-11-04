@@ -60,7 +60,7 @@ public sealed class Ts092_PasswordWrongCurrentBeforeFieldValidationTests : IClas
         B16Assertions.ErrorsPropertyIsAbsent(root);
 
         // then: новый пароль НЕ применён — хранимый хэш не изменился.
-        var stored = B16Harness.StoredUser(_factory, user.Id);
+        var stored = await B16Harness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.PasswordHash, user.PasswordHash, StringComparison.Ordinal),
             "Ожидался неизменный хранимый хэш пароля (неверный currentPassword — до каких-либо изменений), фактически хэш изменился.");

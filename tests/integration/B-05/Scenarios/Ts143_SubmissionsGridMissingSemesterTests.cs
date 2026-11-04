@@ -21,8 +21,8 @@ public sealed class Ts143_SubmissionsGridMissingSemesterTests : IClassFixture<B0
     public async Task MissingSemester_IsRejectedWithFieldError()
     {
         // given: валидная группа; teacher авторизован.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: запрос ведомости без semester.
         using var response = await client.GetAsync(

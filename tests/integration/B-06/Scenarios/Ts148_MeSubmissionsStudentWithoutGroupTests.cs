@@ -22,9 +22,9 @@ public sealed class Ts148_MeSubmissionsStudentWithoutGroupTests : IClassFixture<
     public async Task GetMeSubmissionsWithoutGroup_ReturnsEmptyHasGroupFalse()
     {
         // given: сессия student31 (демо-сид: студент без группы).
-        using var client = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student31");
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student31");
         Assert.True(
-            B06SubmissionsSessions.RequireUser(_factory, "student31").GroupId is null,
+            (await B06SubmissionsSessions.RequireUserAsync(_factory, "student31")).GroupId is null,
             "Шаг given «student31 без группы» нарушен: в хранилище у студента есть группа.");
 
         // when: GET /me/submissions?semester=1.

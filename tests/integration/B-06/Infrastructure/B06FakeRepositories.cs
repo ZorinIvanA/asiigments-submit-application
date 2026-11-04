@@ -1,7 +1,7 @@
 using LabsApp.Auth.RateLimiting;
 using LabsApp.Domain;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B06.Infrastructure;
 
@@ -25,7 +25,7 @@ public sealed class FakeUserRepository : IUserRepository
     private readonly Dictionary<string, Guid> _byEmailCi = new(StringComparer.Ordinal);
 
     /// <inheritdoc/>
-    public void Add(User user)
+    public Task AddAsync(User user)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -48,37 +48,39 @@ public sealed class FakeUserRepository : IUserRepository
             _byLoginCi[loginKey] = stored.Id;
             _byEmailCi[emailKey] = stored.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public User? GetById(Guid id)
+    public Task<User?> GetByIdAsync(Guid id)
     {
         lock (_gate)
         {
-            return _byId.TryGetValue(id, out var found) ? Clone(found) : null;
+            return Task.FromResult(_byId.TryGetValue(id, out var found) ? Clone(found) : null);
         }
     }
 
     /// <inheritdoc/>
-    public User? GetByLogin(string login)
+    public Task<User?> GetByLoginAsync(string login)
     {
         lock (_gate)
         {
-            return _byLoginCi.TryGetValue(Collation.Key(login), out var id) ? Clone(_byId[id]) : null;
+            return Task.FromResult(_byLoginCi.TryGetValue(Collation.Key(login), out var id) ? Clone(_byId[id]) : null);
         }
     }
 
     /// <inheritdoc/>
-    public User? GetByEmail(string email)
+    public Task<User?> GetByEmailAsync(string email)
     {
         lock (_gate)
         {
-            return _byEmailCi.TryGetValue(Collation.Key(email), out var id) ? Clone(_byId[id]) : null;
+            return Task.FromResult(_byEmailCi.TryGetValue(Collation.Key(email), out var id) ? Clone(_byId[id]) : null);
         }
     }
 
     /// <inheritdoc/>
-    public void Update(User user)
+    public Task UpdateAsync(User user)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -108,10 +110,12 @@ public sealed class FakeUserRepository : IUserRepository
             _byLoginCi[loginKey] = stored.Id;
             _byEmailCi[emailKey] = stored.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public SetGroupResult SetGroup(Guid userId, Guid? groupId, Func<Guid, bool>? groupExists)
+    public Task<SetGroupResult> SetGroupAsync(Guid userId, Guid? groupId, Func<Guid, Task<bool>>? groupExists)
     {
         if (groupId is not null && groupExists is null)
         {
@@ -125,21 +129,21 @@ public sealed class FakeUserRepository : IUserRepository
             // ТОЛЬКО GroupId хранимой записи (семантика зеркальна InMemoryUserRepository).
             if (!_byId.TryGetValue(userId, out var user) || user.Role != UserRoles.Student)
             {
-                return SetGroupResult.StudentNotFound;
+                return Task.FromResult(SetGroupResult.StudentNotFound);
             }
 
-            if (groupId is { } target && !groupExists!(target))
+            if (groupId is { } target && !groupExists!(target).GetAwaiter().GetResult())
             {
-                return SetGroupResult.GroupNotFound;
+                return Task.FromResult(SetGroupResult.GroupNotFound);
             }
 
             user.GroupId = groupId;
-            return SetGroupResult.Success;
+            return Task.FromResult(SetGroupResult.Success);
         }
     }
 
     /// <inheritdoc/>
-    public bool SetPassword(Guid userId, string passwordHash)
+    public Task<bool> SetPasswordAsync(Guid userId, string passwordHash)
     {
         ArgumentNullException.ThrowIfNull(passwordHash);
         if (passwordHash.Length == 0)
@@ -154,16 +158,16 @@ public sealed class FakeUserRepository : IUserRepository
             // InMemoryUserRepository).
             if (!_byId.TryGetValue(userId, out var user))
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             user.PasswordHash = passwordHash;
-            return true;
+            return Task.FromResult(true);
         }
     }
 
     /// <inheritdoc/>
-    public UpdateProfileResult UpdateProfile(Guid userId, string fullName, string email)
+    public Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email)
     {
         ArgumentNullException.ThrowIfNull(fullName);
         ArgumentNullException.ThrowIfNull(email);
@@ -175,13 +179,13 @@ public sealed class FakeUserRepository : IUserRepository
             // (зеркально InMemoryUserRepository).
             if (!_byId.TryGetValue(userId, out var user))
             {
-                return UpdateProfileResult.UserNotFound;
+                return Task.FromResult(UpdateProfileResult.UserNotFound);
             }
 
             var newEmailKey = Collation.Key(email);
             if (_byEmailCi.TryGetValue(newEmailKey, out var owner) && owner != userId)
             {
-                return UpdateProfileResult.EmailConflict;
+                return Task.FromResult(UpdateProfileResult.EmailConflict);
             }
 
             var oldEmailKey = Collation.Key(user.Email);
@@ -193,12 +197,12 @@ public sealed class FakeUserRepository : IUserRepository
 
             user.FullName = fullName;
             user.Email = email;
-            return UpdateProfileResult.Success;
+            return Task.FromResult(UpdateProfileResult.Success);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListStudents(string? search = null, string? groupIdFilter = null)
+    public Task<IReadOnlyList<User>> ListStudentsAsync(string? search = null, string? groupIdFilter = null)
     {
         lock (_gate)
         {
@@ -219,28 +223,28 @@ public sealed class FakeUserRepository : IUserRepository
                 .Where(user => MatchesSearch(user, search))
                 .Select(Clone)
                 .ToList();
-            return result;
+            return Task.FromResult<IReadOnlyList<User>>(result);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<User> ListByGroup(Guid groupId)
+    public Task<IReadOnlyList<User>> ListByGroupAsync(Guid groupId)
     {
         lock (_gate)
         {
-            return _byId.Values
+            return Task.FromResult<IReadOnlyList<User>>(_byId.Values
                 .Where(user => user.Role == UserRoles.Student && user.GroupId == groupId)
                 .Select(Clone)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public int CountByGroup(Guid groupId)
+    public Task<int> CountByGroupAsync(Guid groupId)
     {
         lock (_gate)
         {
-            return _byId.Values.Count(user => user.Role == UserRoles.Student && user.GroupId == groupId);
+            return Task.FromResult(_byId.Values.Count(user => user.Role == UserRoles.Student && user.GroupId == groupId));
         }
     }
 
@@ -279,7 +283,7 @@ public sealed class FakeGroupRepository(IUserRepository users) : IGroupRepositor
     private readonly Dictionary<string, Guid> _byNameCi = new(StringComparer.Ordinal);
 
     /// <inheritdoc/>
-    public void Add(Group group)
+    public Task AddAsync(Group group)
     {
         ArgumentNullException.ThrowIfNull(group);
 
@@ -294,49 +298,51 @@ public sealed class FakeGroupRepository(IUserRepository users) : IGroupRepositor
             _byId[group.Id] = group;
             _byNameCi[nameKey] = group.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Group? GetById(Guid id)
+    public Task<Group?> GetByIdAsync(Guid id)
     {
         lock (_gate)
         {
-            return _byId.TryGetValue(id, out var found) ? found : null;
+            return Task.FromResult(_byId.TryGetValue(id, out var found) ? found : null);
         }
     }
 
     /// <inheritdoc/>
-    public Group? GetByName(string name)
+    public Task<Group?> GetByNameAsync(string name)
     {
         lock (_gate)
         {
-            return _byNameCi.TryGetValue(Collation.Key(name), out var id) ? _byId[id] : null;
+            return Task.FromResult(_byNameCi.TryGetValue(Collation.Key(name), out var id) ? _byId[id] : null);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Group> GetAll()
+    public Task<IReadOnlyList<Group>> GetAllAsync()
     {
         lock (_gate)
         {
-            return _byId.Values.ToList();
+            return Task.FromResult<IReadOnlyList<Group>>(_byId.Values.ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Group> List() => GetAll();
+    public Task<IReadOnlyList<Group>> ListAsync() => GetAllAsync();
 
     /// <inheritdoc/>
-    public bool ExistsNameCi(string name)
+    public Task<bool> ExistsNameCiAsync(string name)
     {
         lock (_gate)
         {
-            return _byNameCi.ContainsKey(Collation.Key(name));
+            return Task.FromResult(_byNameCi.ContainsKey(Collation.Key(name)));
         }
     }
 
     /// <inheritdoc/>
-    public void Update(Group group)
+    public Task UpdateAsync(Group group)
     {
         ArgumentNullException.ThrowIfNull(group);
 
@@ -357,6 +363,8 @@ public sealed class FakeGroupRepository(IUserRepository users) : IGroupRepositor
             _byId[group.Id] = group;
             _byNameCi[nameKey] = group.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -364,7 +372,7 @@ public sealed class FakeGroupRepository(IUserRepository users) : IGroupRepositor
     /// удаление группы и сброс GroupId её студентов через пользовательский репозиторий
     /// (без единой критической секции — сценарии каскада групп кейс TS-134 не проверяет).
     /// </summary>
-    public void Delete(Guid id)
+    public async Task DeleteAsync(Guid id)
     {
         lock (_gate)
         {
@@ -375,9 +383,9 @@ public sealed class FakeGroupRepository(IUserRepository users) : IGroupRepositor
             }
         }
 
-        foreach (var student in users.ListByGroup(id))
+        foreach (var student in await users.ListByGroupAsync(id))
         {
-            users.Update(new User
+            await users.UpdateAsync(new User
             {
                 Id = student.Id,
                 Login = student.Login,
@@ -400,7 +408,7 @@ public sealed class FakeLabRepository(ISubmissionRepository submissions) : ILabR
     private readonly Dictionary<(int Semester, int Number), Guid> _byPair = [];
 
     /// <inheritdoc/>
-    public void Add(Lab lab)
+    public Task AddAsync(Lab lab)
     {
         ArgumentNullException.ThrowIfNull(lab);
 
@@ -415,66 +423,68 @@ public sealed class FakeLabRepository(ISubmissionRepository submissions) : ILabR
             _byId[lab.Id] = lab;
             _byPair[pair] = lab.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public Lab? GetById(Guid id)
+    public Task<Lab?> GetByIdAsync(Guid id)
     {
         lock (_gate)
         {
-            return _byId.TryGetValue(id, out var found) ? found : null;
+            return Task.FromResult(_byId.TryGetValue(id, out var found) ? found : null);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Lab> GetAll()
+    public Task<IReadOnlyList<Lab>> GetAllAsync()
     {
         lock (_gate)
         {
-            return _byId.Values.ToList();
+            return Task.FromResult<IReadOnlyList<Lab>>(_byId.Values.ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Lab> ListByFilter(int? semester)
+    public Task<IReadOnlyList<Lab>> ListByFilterAsync(int? semester)
     {
         lock (_gate)
         {
-            return _byId.Values
+            return Task.FromResult<IReadOnlyList<Lab>>(_byId.Values
                 .Where(lab => semester is null || lab.Semester == semester.Value)
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<int> Semesters()
+    public Task<IReadOnlyList<int>> SemestersAsync()
     {
         lock (_gate)
         {
-            return _byId.Values.Select(lab => lab.Semester).Distinct().OrderBy(semester => semester).ToList();
+            return Task.FromResult<IReadOnlyList<int>>(_byId.Values.Select(lab => lab.Semester).Distinct().OrderBy(semester => semester).ToList());
         }
     }
 
     /// <inheritdoc/>
-    public Lab? TryGetByPair(int semester, int number)
+    public Task<Lab?> TryGetByPairAsync(int semester, int number)
     {
         lock (_gate)
         {
-            return _byPair.TryGetValue((semester, number), out var id) ? _byId[id] : null;
+            return Task.FromResult(_byPair.TryGetValue((semester, number), out var id) ? _byId[id] : null);
         }
     }
 
     /// <inheritdoc/>
-    public bool ExistsPair(int semester, int number, Guid? exceptId = null)
+    public Task<bool> ExistsPairAsync(int semester, int number, Guid? exceptId = null)
     {
         lock (_gate)
         {
-            return _byPair.TryGetValue((semester, number), out var id) && id != exceptId;
+            return Task.FromResult(_byPair.TryGetValue((semester, number), out var id) && id != exceptId);
         }
     }
 
     /// <inheritdoc/>
-    public void Update(Lab lab)
+    public Task UpdateAsync(Lab lab)
     {
         ArgumentNullException.ThrowIfNull(lab);
 
@@ -495,10 +505,12 @@ public sealed class FakeLabRepository(ISubmissionRepository submissions) : ILabR
             _byId[lab.Id] = lab;
             _byPair[pair] = lab.Id;
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void Delete(Guid id)
+    public async Task DeleteAsync(Guid id)
     {
         lock (_gate)
         {
@@ -510,7 +522,7 @@ public sealed class FakeLabRepository(ISubmissionRepository submissions) : ILabR
             _byPair.Remove((existing.Semester, existing.Number));
         }
 
-        submissions.DeleteByLabId(id);
+        await submissions.DeleteByLabIdAsync(id);
     }
 }
 
@@ -522,7 +534,7 @@ public sealed class FakeSubmissionRepository : ISubmissionRepository
     private readonly Dictionary<(Guid StudentId, Guid LabId), Guid> _byPair = [];
 
     /// <inheritdoc/>
-    public Submission? Upsert(
+    public Task<Submission?> UpsertAsync(
         Guid studentId,
         Guid labId,
         DateOnly? submitDate,
@@ -539,7 +551,7 @@ public sealed class FakeSubmissionRepository : ISubmissionRepository
                 existing.DefenseDate = defenseDate;
                 existing.UpdatedBy = updatedBy;
                 existing.UpdatedAt = updatedAt;
-                return existing;
+                return Task.FromResult<Submission?>(existing);
             }
 
             var created = new Submission
@@ -554,63 +566,63 @@ public sealed class FakeSubmissionRepository : ISubmissionRepository
             };
             _byId[created.Id] = created;
             _byPair[(studentId, labId)] = created.Id;
-            return created;
+            return Task.FromResult<Submission?>(created);
         }
     }
 
     /// <inheritdoc/>
-    public Submission? GetByStudentAndLab(Guid studentId, Guid labId)
+    public Task<Submission?> GetByStudentAndLabAsync(Guid studentId, Guid labId)
     {
         lock (_gate)
         {
-            return _byPair.TryGetValue((studentId, labId), out var id) ? _byId[id] : null;
+            return Task.FromResult(_byPair.TryGetValue((studentId, labId), out var id) ? _byId[id] : null);
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> ListByLabIds(IReadOnlyCollection<Guid> labIds)
+    public Task<IReadOnlyList<Submission>> ListByLabIdsAsync(IReadOnlyCollection<Guid> labIds)
     {
         lock (_gate)
         {
-            return _byId.Values.Where(submission => labIds.Contains(submission.LabId)).ToList();
+            return Task.FromResult<IReadOnlyList<Submission>>(_byId.Values.Where(submission => labIds.Contains(submission.LabId)).ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> ListByStudent(Guid studentId)
+    public Task<IReadOnlyList<Submission>> ListByStudentAsync(Guid studentId)
     {
         lock (_gate)
         {
-            return _byId.Values.Where(submission => submission.StudentId == studentId).ToList();
+            return Task.FromResult<IReadOnlyList<Submission>>(_byId.Values.Where(submission => submission.StudentId == studentId).ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> GetByPairs(IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> labIds)
+    public Task<IReadOnlyList<Submission>> GetByPairsAsync(IReadOnlyCollection<Guid> studentIds, IReadOnlyCollection<Guid> labIds)
     {
         lock (_gate)
         {
-            return studentIds
+            return Task.FromResult<IReadOnlyList<Submission>>(studentIds
                 .SelectMany(studentId => labIds.Select(labId => (studentId, labId)))
                 .Where(pair => _byPair.ContainsKey(pair))
                 .Select(pair => _byId[_byPair[pair]])
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<Submission> ListForStudentAndSemester(Guid studentId, IReadOnlyCollection<Guid> semesterLabIds)
+    public Task<IReadOnlyList<Submission>> ListForStudentAndSemesterAsync(Guid studentId, IReadOnlyCollection<Guid> semesterLabIds)
     {
         lock (_gate)
         {
-            return _byId.Values
+            return Task.FromResult<IReadOnlyList<Submission>>(_byId.Values
                 .Where(submission => submission.StudentId == studentId && semesterLabIds.Contains(submission.LabId))
-                .ToList();
+                .ToList());
         }
     }
 
     /// <inheritdoc/>
-    public void DeleteByLabId(Guid labId)
+    public Task DeleteByLabIdAsync(Guid labId)
     {
         lock (_gate)
         {
@@ -624,6 +636,8 @@ public sealed class FakeSubmissionRepository : ISubmissionRepository
                 _byPair.Remove((removed.StudentId, removed.LabId));
             }
         }
+
+        return Task.CompletedTask;
     }
 }
 
@@ -649,7 +663,7 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
     }
 
     /// <inheritdoc/>
-    public void Add(RefreshToken token)
+    public Task AddAsync(RefreshToken token)
     {
         ArgumentNullException.ThrowIfNull(token);
 
@@ -660,19 +674,21 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 throw new InvalidOperationException("FakeSecurityTokenRepository: повторный TokenHash.");
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public RefreshToken? FindLiveByHash(string tokenHash)
+    public Task<RefreshToken?> FindLiveByHashAsync(string tokenHash)
     {
         lock (_gate)
         {
-            return _refreshByHash.TryGetValue(tokenHash, out var found) && IsLiveRefresh(found) ? found : null;
+            return Task.FromResult(_refreshByHash.TryGetValue(tokenHash, out var found) && IsLiveRefresh(found) ? found : null);
         }
     }
 
     /// <inheritdoc/>
-    public void Revoke(Guid id)
+    public Task RevokeAsync(Guid id)
     {
         lock (_gate)
         {
@@ -682,10 +698,12 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 found.RevokedAt = Now;
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void RevokeAllForUserExcept(Guid userId, string? exceptTokenHash)
+    public Task RevokeAllForUserExceptAsync(Guid userId, string? exceptTokenHash)
     {
         lock (_gate)
         {
@@ -697,10 +715,12 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 }
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void AddLive(RecoveryCode code)
+    public Task AddLiveAsync(RecoveryCode code)
     {
         ArgumentNullException.ThrowIfNull(code);
 
@@ -716,10 +736,12 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
 
             _recoveryCodes.Add(code);
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public RecoveryCode? FindLiveForUser(Guid userId)
+    public Task<RecoveryCode?> FindLiveForUserAsync(Guid userId)
     {
         lock (_gate)
         {
@@ -732,19 +754,19 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 }
             }
 
-            return latest;
+            return Task.FromResult(latest);
         }
     }
 
     /// <inheritdoc/>
-    public void IncrementAttemptsOnLive(Guid codeId)
+    public Task IncrementAttemptsOnLiveAsync(Guid codeId)
     {
         lock (_gate)
         {
             var found = _recoveryCodes.FirstOrDefault(code => code.Id == codeId);
             if (found is null || !IsLiveCode(found))
             {
-                return;
+                return Task.CompletedTask;
             }
 
             found.Attempts++;
@@ -753,10 +775,12 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 found.UsedAt = Now;
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void MarkUsed(Guid codeId)
+    public Task MarkUsedAsync(Guid codeId)
     {
         lock (_gate)
         {
@@ -766,10 +790,12 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 found.UsedAt = Now;
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void Add(PasswordResetToken token)
+    public Task AddAsync(PasswordResetToken token)
     {
         ArgumentNullException.ThrowIfNull(token);
 
@@ -780,19 +806,21 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 throw new InvalidOperationException("FakeSecurityTokenRepository: повторный reset-TokenHash.");
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public PasswordResetToken? FindLiveResetByHash(string resetTokenHash)
+    public Task<PasswordResetToken?> FindLiveResetByHashAsync(string resetTokenHash)
     {
         lock (_gate)
         {
-            return _resetByHash.TryGetValue(resetTokenHash, out var found) && IsLiveReset(found) ? found : null;
+            return Task.FromResult(_resetByHash.TryGetValue(resetTokenHash, out var found) && IsLiveReset(found) ? found : null);
         }
     }
 
     /// <inheritdoc/>
-    public void MarkUsed(string resetTokenHash)
+    public Task MarkUsedAsync(string resetTokenHash)
     {
         lock (_gate)
         {
@@ -801,10 +829,12 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 found.UsedAt = Now;
             }
         }
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public void ConsumeAllForUser(Guid userId)
+    public Task ConsumeAllForUserAsync(Guid userId)
     {
         lock (_gate)
         {
@@ -816,6 +846,8 @@ public sealed class FakeSecurityTokenRepository(TimeProvider timeProvider) : ISe
                 }
             }
         }
+
+        return Task.CompletedTask;
     }
 
     private DateTime Now => timeProvider.GetUtcNow().UtcDateTime;

@@ -1,6 +1,6 @@
 using LabsApp.Auth.RateLimiting;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
@@ -51,12 +51,12 @@ public sealed class Ts175_RegisterLengthBoundariesTests : IClassFixture<B06Submi
     {
         // given: используемые логины и email свободны.
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(users.GetByLogin(new string('a', 100)));
-        Assert.Null(users.GetByLogin(new string('a', 101)));
-        Assert.Null(users.GetByLogin("ts175-email254"));
-        Assert.Null(users.GetByLogin("ts175-email255"));
-        Assert.Null(users.GetByLogin("ts175-full200"));
-        Assert.Null(users.GetByLogin("ts175-full201"));
+        Assert.Null(await users.GetByLoginAsync(new string('a', 100)));
+        Assert.Null(await users.GetByLoginAsync(new string('a', 101)));
+        Assert.Null(await users.GetByLoginAsync("ts175-email254"));
+        Assert.Null(await users.GetByLoginAsync("ts175-email255"));
+        Assert.Null(await users.GetByLoginAsync("ts175-full200"));
+        Assert.Null(await users.GetByLoginAsync("ts175-full201"));
 
         // when (1): POST /auth/register с login ровно 100 символов ('a'×100,
         // charset [A-Za-z0-9._-] соблюдён); прочие поля валидны.
@@ -67,7 +67,7 @@ public sealed class Ts175_RegisterLengthBoundariesTests : IClassFixture<B06Submi
 
         // then (1): 201 — значение ровно на границе валидно; пользователь создан.
         Assert.Equal(HttpStatusCode.Created, login100.StatusCode);
-        Assert.NotNull(users.GetByLogin(new string('a', 100)));
+        Assert.NotNull(await users.GetByLoginAsync(new string('a', 100)));
 
         // when (2): POST /auth/register с login 101 символ ('a'×101).
         using var login101 = await RegisterAsync(
@@ -81,8 +81,8 @@ public sealed class Ts175_RegisterLengthBoundariesTests : IClassFixture<B06Submi
         var login101Body = await BodyAssertions.ReadRootObjectAsync(login101);
         BodyAssertions.MessageIs(login101Body, "Данные заполнены неверно");
         BodyAssertions.ErrorFieldIsExactly(login101Body, "login", "Логин — от 1 до 100 символов");
-        Assert.Null(users.GetByLogin(new string('a', 101)));
-        Assert.Null(users.GetByEmail("ts175-login101@example.com"));
+        Assert.Null(await users.GetByLoginAsync(new string('a', 101)));
+        Assert.Null(await users.GetByEmailAsync("ts175-login101@example.com"));
 
         // when (3): POST /auth/register с email длиной ровно 254 символа
         // (242 + '@example.com').
@@ -95,7 +95,7 @@ public sealed class Ts175_RegisterLengthBoundariesTests : IClassFixture<B06Submi
 
         // then (3): 201 — значение ровно на границе валидно; пользователь создан.
         Assert.Equal(HttpStatusCode.Created, email254Response.StatusCode);
-        Assert.NotNull(users.GetByEmail(email254));
+        Assert.NotNull(await users.GetByEmailAsync(email254));
 
         // when (4): POST /auth/register с email длиной ровно 255 символов
         // (243 + '@example.com').
@@ -112,8 +112,8 @@ public sealed class Ts175_RegisterLengthBoundariesTests : IClassFixture<B06Submi
         var email255Body = await BodyAssertions.ReadRootObjectAsync(email255Response);
         BodyAssertions.MessageIs(email255Body, "Данные заполнены неверно");
         BodyAssertions.ErrorFieldIsExactly(email255Body, "email", "Email — не более 254 символов");
-        Assert.Null(users.GetByEmail(email255));
-        Assert.Null(users.GetByLogin("ts175-email255"));
+        Assert.Null(await users.GetByEmailAsync(email255));
+        Assert.Null(await users.GetByLoginAsync("ts175-email255"));
 
         // when (5): POST /auth/register с fullName 'А'×200.
         using var fullName200 = await RegisterAsync(
@@ -123,7 +123,7 @@ public sealed class Ts175_RegisterLengthBoundariesTests : IClassFixture<B06Submi
 
         // then (5): 201 — значение ровно на границе валидно; пользователь создан.
         Assert.Equal(HttpStatusCode.Created, fullName200.StatusCode);
-        Assert.NotNull(users.GetByLogin("ts175-full200"));
+        Assert.NotNull(await users.GetByLoginAsync("ts175-full200"));
 
         // when (6): POST /auth/register с fullName 'А'×201.
         using var fullName201 = await RegisterAsync(
@@ -137,8 +137,8 @@ public sealed class Ts175_RegisterLengthBoundariesTests : IClassFixture<B06Submi
         var fullName201Body = await BodyAssertions.ReadRootObjectAsync(fullName201);
         BodyAssertions.MessageIs(fullName201Body, "Данные заполнены неверно");
         BodyAssertions.ErrorFieldIsExactly(fullName201Body, "fullName", "ФИО — от 1 до 200 символов");
-        Assert.Null(users.GetByLogin("ts175-full201"));
-        Assert.Null(users.GetByEmail("ts175-full201@example.com"));
+        Assert.Null(await users.GetByLoginAsync("ts175-full201"));
+        Assert.Null(await users.GetByEmailAsync("ts175-full201@example.com"));
     }
 
     /// <summary>

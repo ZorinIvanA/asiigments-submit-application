@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B04.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B04.Scenarios;
@@ -20,9 +20,9 @@ public sealed class Ts098_GetLabByIdTests(B04LabsWebAppFactory factory) : IClass
     {
         // given: работа L существует (DI-сид).
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        var lab = B04DomainSeed.AddLab(labs, semester: 2, number: 8);
+        var lab = await B04DomainSeed.AddLabAsync(labs, semester: 2, number: 8);
 
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: GET /labs/{L.id}.
         using var found = await client.GetAsync($"/api/v1/labs/{lab.Id}");

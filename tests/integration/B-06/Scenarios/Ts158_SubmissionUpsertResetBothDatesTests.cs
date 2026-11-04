@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
@@ -18,31 +18,37 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// then:  200; обе даты null (сброс); updatedAt обновлён;
 ///        updatedBy=uuid преподавателя (FR-021 AC «Upsert обновляет и сбрасывает»).
 /// </summary>
-public sealed class Ts158_SubmissionUpsertResetBothDatesTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts158_SubmissionUpsertResetBothDatesTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _studentId;
-    private readonly Guid _labId;
+    private Guid _studentId;
+    private Guid _labId;
 
     public Ts158_SubmissionUpsertResetBothDatesTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _studentId = B06SubmissionsSessions.RequireUser(factory, "student01").Id;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 1).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _studentId = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student01")).Id;
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 1)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionWithNullDates_ResetsBothDatesAndUpdatesAttribution()
     {
         // given: сид-сдача student01×(1,1): submitDate '2026-09-01', defenseDate '2026-09-11'.
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        var seedRecord = submissions.GetByStudentAndLab(_studentId, _labId);
+        var seedRecord = await submissions.GetByStudentAndLabAsync(_studentId, _labId);
         Assert.NotNull(seedRecord);
         Assert.Equal(new DateOnly(2026, 9, 1), seedRecord!.SubmitDate);
         Assert.Equal(new DateOnly(2026, 9, 11), seedRecord.DefenseDate);
         var previousUpdatedAt = seedRecord.UpdatedAt;
 
-        var (client, teacherId) = B06SubmissionsSessions.CreateTeacherSession(_factory);
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
         using var _client = client;
 
         // when: PUT /submissions {studentId, labId, submitDate:null, defenseDate:null}.

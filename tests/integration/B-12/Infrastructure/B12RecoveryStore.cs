@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -83,7 +83,7 @@ public static class B12RecoveryStore
             UsedAt = null,
             CreatedAt = now,
         };
-        services.GetRequiredService<ISecurityTokenRepository>().AddLive(record);
+        services.GetRequiredService<ISecurityTokenRepository>().AddLiveAsync(record);
         return record;
     }
 

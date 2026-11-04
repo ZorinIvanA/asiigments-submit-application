@@ -18,8 +18,8 @@ public sealed class Ts114_PutLabKeepOwnPairTests(B10NoDemoWebAppFactory factory)
     public async Task TS114_PutOwnPair_Returns200LabDtoWithSameIdAndContent()
     {
         // given: DI-сид лабы (1,1); id=X — из сида (ADR-010); сессия teacher (минт, ADR-022).
-        var labX = B10Seed.AddLab(_factory, semester: 1, number: 1).Id;
-        using var client = HostClients.CreateTeacherClient(_factory);
+        var labX = (await B10Seed.AddLabAsync(_factory, semester: 1, number: 1)).Id;
+        using var client = await HostClients.CreateTeacherClient(_factory);
 
         // when: изменение с сохранением собственной пары (1,1).
         using var response = await client.PutAsJsonAsync(

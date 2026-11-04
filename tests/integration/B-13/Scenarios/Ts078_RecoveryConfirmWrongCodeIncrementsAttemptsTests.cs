@@ -1,6 +1,6 @@
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B13.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B13.Scenarios;
@@ -38,7 +38,7 @@ public sealed class Ts078_RecoveryConfirmWrongCodeIncrementsAttemptsTests(B13Rec
             confirm, HttpStatusCode.BadRequest, ErrorTexts.RecoveryCodeRejected);
 
         // then: attempts=1; код остался живым (usedAt=null).
-        var live = securityTokens.FindLiveForUser(user.Id);
+        var live = await securityTokens.FindLiveForUserAsync(user.Id);
         Assert.NotNull(live);
         Assert.Equal(codeRecord.Id, live.Id);
         Assert.Equal(1, live.Attempts);

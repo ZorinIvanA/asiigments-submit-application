@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
@@ -47,7 +47,7 @@ public sealed class Ts193_ProfileInvalidEmailFormatTests : IClassFixture<B07WebA
         BodyAssertions.ErrorFieldEquals(root, "email", "Введите корректный email");
 
         // then: email в хранилище не изменился — остался old@x.ru.
-        var stored = _factory.Services.GetRequiredService<IUserRepository>().GetById(userId);
+        var stored = await _factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(userId);
         Assert.NotNull(stored);
         Assert.Equal(Email, stored.Email);
     }

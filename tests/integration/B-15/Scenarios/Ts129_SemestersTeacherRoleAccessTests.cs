@@ -1,7 +1,7 @@
 using System.Text.Json;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B15.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B15.Scenarios;
@@ -83,7 +83,7 @@ public sealed class Ts129_SemestersTeacherRoleAccessTests : IClassFixture<B15Web
             CreatedAt = DateTime.UtcNow,
         };
 
-        _factory.Services.GetRequiredService<IUserRepository>().Add(user);
+        _factory.Services.GetRequiredService<IUserRepository>().AddAsync(user);
         return user;
     }
 }

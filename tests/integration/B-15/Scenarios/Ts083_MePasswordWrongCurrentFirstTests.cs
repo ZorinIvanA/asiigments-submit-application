@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B15.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B15.Scenarios;
@@ -37,7 +37,7 @@ public sealed class Ts083_MePasswordWrongCurrentFirstTests : IClassFixture<B15Pa
         var user = B15PasswordSessions.SeedUserWithPassword(
             _factory, Login, Email, FullName, RealPassword);
         using var client = B15PasswordSessions.CreateSessionClient(_factory, user.Id);
-        var storedHashBefore = B15Harness.UserById(_factory, user.Id).PasswordHash;
+        var storedHashBefore = (await B15Harness.UserByIdAsync(_factory, user.Id)).PasswordHash;
 
         var before = B15KdfProbe.Snapshot(_factory.Services);
 
@@ -65,7 +65,7 @@ public sealed class Ts083_MePasswordWrongCurrentFirstTests : IClassFixture<B15Pa
 
         // Новый пароль не применён: хэш в хранилище не изменился.
         Assert.True(
-            string.Equals(storedHashBefore, B15Harness.UserById(_factory, user.Id).PasswordHash, StringComparison.Ordinal),
+            string.Equals(storedHashBefore, (await B15Harness.UserByIdAsync(_factory, user.Id)).PasswordHash, StringComparison.Ordinal),
             "passwordHash пользователя изменился — новый пароль был применён вопреки отказу (FR-016).");
     }
 }

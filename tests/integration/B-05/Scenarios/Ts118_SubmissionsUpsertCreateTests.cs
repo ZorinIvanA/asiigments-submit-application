@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -32,15 +32,15 @@ public sealed class Ts118_SubmissionsUpsertCreateTests : IClassFixture<B05WebApp
     public async Task UpsertNewPair_CreatesRecordWithSessionTeacherAndDateIsVisibleInGrid()
     {
         // given: пары (student05, работа семестра 1 №1) нет; uuid сид-работы.
-        var student05 = B05SeedLookup.StudentByLogin(_factory, "student05");
-        var lab = _factory.Services.GetRequiredService<ILabRepository>().TryGetByPair(1, 1)
+        var student05 = await B05SeedLookup.StudentByLoginAsync(_factory, "student05");
+        var lab = await _factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(1, 1)
             ?? throw new InvalidOperationException(
                 "Работа 1:1 не найдена в демо-сиде — given кейса неисполним.");
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
-        Assert.Null(submissions.GetByStudentAndLab(student05.Id, lab.Id));
+        Assert.Null( await submissions.GetByStudentAndLabAsync(student05.Id, lab.Id) );
 
-        var teacher = B05SeedLookup.Teacher(_factory);
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        var teacher = await B05SeedLookup.TeacherAsync(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT /submissions с датой сдачи '2026-09-20' (защита null).
         using var response = await client.PutAsync(
@@ -77,7 +77,7 @@ public sealed class Ts118_SubmissionsUpsertCreateTests : IClassFixture<B05WebApp
         for (var page = 1; page <= 5 && foundOnPage == 0; page++)
         {
             using var grid = await client.GetAsync(
-                $"{GridEndpoint}?groupId={B05SeedLookup.GroupByName(_factory, "ИК-221").Id}&semester=1&page={page}");
+                $"{GridEndpoint}?groupId={(await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221")).Id}&semester=1&page={page}");
             Assert.Equal(HttpStatusCode.OK, grid.StatusCode);
             var gridRoot = await BodyAssertions.ReadRootObjectAsync(grid);
             foreach (var row in gridRoot.GetProperty("submissions").EnumerateArray())

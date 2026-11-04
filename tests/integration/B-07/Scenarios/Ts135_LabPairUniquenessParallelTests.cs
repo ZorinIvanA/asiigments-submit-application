@@ -1,6 +1,6 @@
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
@@ -30,11 +30,11 @@ public sealed class Ts135_LabPairUniquenessParallelTests : IClassFixture<B07WebA
     {
         // given: сессия teacher (сид-преподаватель фикстуры, ADR-015); пара (7,1) свободна.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        Assert.Empty(labs.GetAll());
-        Assert.Null(labs.TryGetByPair(Semester, Number));
+        Assert.Empty( await labs.GetAllAsync() );
+        Assert.Null( await labs.TryGetByPairAsync(Semester, Number) );
 
-        using var firstClient = B07MintedSessions.CreateTeacherClient(_factory);
-        using var secondClient = B07MintedSessions.CreateTeacherClient(_factory);
+        using var firstClient = await B07MintedSessions.CreateTeacherClient(_factory);
+        using var secondClient = await B07MintedSessions.CreateTeacherClient(_factory);
 
         // when: два параллельных POST /labs с одной парой (стартовый барьер —
         // реальное столкновение конкурентных созданий, а не случайный рассинхрон).
@@ -69,9 +69,9 @@ public sealed class Ts135_LabPairUniquenessParallelTests : IClassFixture<B07WebA
         BodyAssertions.MessageIs(conflict, ErrorTexts.DuplicateLab);
 
         // then: дублей пары нет — в хранилище ровно одна работа (7,1), id совпадает с 201.
-        var stored = labs.TryGetByPair(Semester, Number);
+        var stored = await labs.TryGetByPairAsync(Semester, Number);
         Assert.NotNull(stored);
-        Assert.Single(labs.GetAll());
+        Assert.Single( await labs.GetAllAsync() );
         Assert.Equal(createdId, stored!.Id.ToString());
         Assert.Equal(Number, stored.Number);
         Assert.Equal(Semester, stored.Semester);

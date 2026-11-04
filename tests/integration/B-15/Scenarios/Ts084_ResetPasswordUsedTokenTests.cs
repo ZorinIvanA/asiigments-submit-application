@@ -81,8 +81,8 @@ public sealed class Ts084_ResetPasswordUsedTokenTests : IClassFixture<B15Recover
     private string StoredPasswordHash()
     {
         var user = _factory.Services
-            .GetRequiredService<LabsApp.Storage.IUserRepository>()
-            .GetByEmail(Email);
+            .GetRequiredService<LabsApp.Infrastructure.IUserRepository>()
+            .GetByEmailAsync(Email);
         Assert.True(
             user is not null,
             "Пользователь кейса обязан присутствовать в хранилище тестового хоста.");

@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B05.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -33,11 +33,11 @@ public sealed class Ts168_SubmissionsPageNormalizationTests : IClassFixture<B05W
     public async Task Zero_And_NonNumeric_Page_AreNormalizedToOne_WithFirstStudentPage()
     {
         // given: ИК-221 с 25 студентами; 20 работ семестра 1; teacher.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
-        Assert.Equal(25, _factory.Services.GetRequiredService<IUserRepository>().ListByGroup(ik221.Id).Count);
-        Assert.Equal(20, _factory.Services.GetRequiredService<ILabRepository>().ListByFilter(1).Count);
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
+        Assert.Equal(25, (await _factory.Services.GetRequiredService<IUserRepository>().ListByGroupAsync(ik221.Id)).Count);
+        Assert.Equal(20, (await _factory.Services.GetRequiredService<ILabRepository>().ListByFilterAsync(1)).Count);
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: page=0 и page=abc (некорректные значения страницы).
         using var zero = await client.GetAsync(
@@ -63,10 +63,10 @@ public sealed class Ts168_SubmissionsPageNormalizationTests : IClassFixture<B05W
     public async Task PageBeyondLast_ReturnsEmptyStudentsAndSubmissions_WithSemesterLabsAndCorrectTotal()
     {
         // given: ИК-221 с 25 студентами (полных страниц 5 по 5); teacher.
-        var ik221 = B05SeedLookup.GroupByName(_factory, "ИК-221");
-        Assert.Equal(25, _factory.Services.GetRequiredService<IUserRepository>().ListByGroup(ik221.Id).Count);
+        var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
+        Assert.Equal(25, (await _factory.Services.GetRequiredService<IUserRepository>().ListByGroupAsync(ik221.Id)).Count);
 
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: страница 99 — правее последней (6-й при pageSize=5).
         using var response = await client.GetAsync(

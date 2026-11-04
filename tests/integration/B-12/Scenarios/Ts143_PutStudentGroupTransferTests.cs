@@ -16,15 +16,15 @@ public sealed class Ts143_PutStudentGroupTransferTests(B12WebAppFactory factory)
     public async Task TS143_TransferBetweenGroups_Returns204_AndStudentInY()
     {
         // given: студент в группе X (DI-сид); группа Y существует; сессия teacher.
-        var groupX = B12Seed.EnsureGroup(_factory, "B12-X");
-        var groupY = B12Seed.EnsureGroup(_factory, "B12-Y");
-        var student = B12Seed.EnsureStudent(
+        var groupX = await B12Seed.EnsureGroupAsync(_factory, "B12-X");
+        var groupY = await B12Seed.EnsureGroupAsync(_factory, "B12-Y");
+        var student = await B12Seed.EnsureStudentAsync(
             _factory,
             login: "b12s143",
             fullName: "Переводимый Перевод Переводович",
             email: "b12s143@x.ru",
             groupId: groupX.Id);
-        using var teacher = HostClients.CreateTeacherClient(_factory);
+        using var teacher = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: PUT /students/{id}/group {groupId:Y}.
         using var put = await teacher.PutAsync(

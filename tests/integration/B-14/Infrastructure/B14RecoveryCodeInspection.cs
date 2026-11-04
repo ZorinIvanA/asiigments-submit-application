@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace LabsApp.IntegrationTests.B14.Infrastructure;
 
@@ -18,7 +19,8 @@ public sealed record B14RecoveryCodeState(int Attempts, DateTime? UsedAt, DateTi
 /// </summary>
 public static class B14RecoveryCodeInspection
 {
-    private static readonly string[] LiveLookupMethodNames = ["GetLiveForUser", "FindLiveForUser"];
+    private static readonly string[] LiveLookupMethodNames =
+        ["GetLiveForUser", "FindLiveForUser", "GetLiveForUserAsync", "FindLiveForUserAsync"];
 
     /// <summary>
     /// Живой код пользователя (usedAt=null и expiresAt&gt;now) либо null.
@@ -48,6 +50,15 @@ public static class B14RecoveryCodeInspection
                 .GetMethods()
                 .First(IsLiveLookup);
             var live = method.Invoke(service, new object[] { userId });
+
+            // Контракты хранилищ асинхронны: разворачиваем Task<RecoveryCode?>
+            // в результат (in-memory-задачи завершаются синхронно).
+            if (live is Task task)
+            {
+                task.GetAwaiter().GetResult();
+                live = task.GetType().GetProperty("Result")?.GetValue(task);
+            }
+
             if (live is null)
             {
                 return null;
@@ -77,7 +88,7 @@ public static class B14RecoveryCodeInspection
 
     private static List<Type> FindCandidateInterfaces()
     {
-        var labsAssembly = typeof(LabsApp.Storage.IUserRepository).Assembly;
+        var labsAssembly = typeof(LabsApp.Infrastructure.IUserRepository).Assembly;
         Type[] interfaceTypes;
         try
         {

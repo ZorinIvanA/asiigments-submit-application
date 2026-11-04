@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
@@ -13,26 +13,32 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// then:  400 errors.submitDate=['Дата должна быть строкой в формате ГГГГ-ММ-ДД']
 ///        (формат строго 'YYYY-MM-DD').
 /// </summary>
-public sealed class Ts161_SubmissionNonPaddedDateTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts161_SubmissionNonPaddedDateTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _studentId;
-    private readonly Guid _labId;
+    private Guid _studentId;
+    private Guid _labId;
 
     public Ts161_SubmissionNonPaddedDateTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _studentId = B06SubmissionsSessions.RequireUser(factory, "student05").Id;
-        _labId = B06SubmissionsSessions.RequireLab(factory, semester: 1, number: 4).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _studentId = (await B06SubmissionsSessions.RequireUserAsync(_factory, "student05")).Id;
+        _labId = (await B06SubmissionsSessions.RequireLabAsync(_factory, semester: 1, number: 4)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task PutSubmissionWithNonPaddedDate_Returns400WithDateError()
     {
         // given: teacher-сессия; пара student05×1.4 свободна (валидные studentId/labId).
-        Assert.Null(_factory.Services.GetRequiredService<ISubmissionRepository>()
-            .GetByStudentAndLab(_studentId, _labId));
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        Assert.Null(await _factory.Services.GetRequiredService<ISubmissionRepository>()
+            .GetByStudentAndLabAsync(_studentId, _labId));
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /submissions с непаддированной датой '2026-9-5'.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

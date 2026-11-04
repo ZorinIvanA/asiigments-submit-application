@@ -87,7 +87,7 @@ public static class B14KdfProbe
 
     private static Type? FindKdfCounterInterface()
     {
-        var labsAssembly = typeof(LabsApp.Storage.IUserRepository).Assembly;
+        var labsAssembly = typeof(LabsApp.Infrastructure.IUserRepository).Assembly;
         try
         {
             return labsAssembly.GetTypes()

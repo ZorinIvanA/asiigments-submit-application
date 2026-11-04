@@ -2,7 +2,7 @@ using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B02.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -76,12 +76,12 @@ public sealed class Ts137_ProductionOwnPasswordTeacherOnlyTests
 
         // then: создан только преподаватель — студентов нет; группы/работы/сдачи
         // отсутствуют (списки пусты; демо-данных нет).
-        Assert.NotNull(users.GetByLogin(SeedOptions.DefaultTeacherLogin));
-        Assert.Empty(users.ListStudents());
-        Assert.Empty(groups.GetAll());
-        var storedLabs = labs.GetAll();
+        Assert.NotNull( await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin) );
+        Assert.Empty( await users.ListStudentsAsync() );
+        Assert.Empty( await groups.GetAllAsync() );
+        var storedLabs = await labs.GetAllAsync();
         Assert.Empty(storedLabs);
-        Assert.Empty(submissions.ListByLabIds(storedLabs.Select(lab => lab.Id).ToList()));
+        Assert.Empty( await submissions.ListByLabIdsAsync(storedLabs.Select(lab => lab.Id).ToList()) );
 
         // then (контрольный срез через API teacher): списки групп и работ пусты.
         using var groupsResponse = await SendUnderTeacherAsync(client, accessToken!, "/api/v1/groups");

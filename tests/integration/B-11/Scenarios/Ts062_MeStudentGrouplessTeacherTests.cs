@@ -29,7 +29,7 @@ public sealed class Ts062_MeStudentGrouplessTeacherTests(B11WebAppFactory factor
         // given: student01 состоит в ИК-221; валидная access-сессия студента.
         B11AuthSessions.SeedStudent(
             _factory, "student01", "Иванов Иван Иванович 01", groupName: "ИК-221");
-        using var client = B11AuthSessions.CreateSessionClient(_factory, "student01");
+        using var client = await B11AuthSessions.CreateSessionClientAsync(_factory, "student01");
 
         // when: GET /api/v1/auth/me с access-cookie student01.
         using var response = await client.GetAsync("/api/v1/auth/me");
@@ -48,7 +48,7 @@ public sealed class Ts062_MeStudentGrouplessTeacherTests(B11WebAppFactory factor
     {
         // given: student31 без группы (groupId=null); валидная access-сессия.
         B11AuthSessions.SeedStudent(_factory, "student31", "Сидоров Сидор Сидорович");
-        using var client = B11AuthSessions.CreateSessionClient(_factory, "student31");
+        using var client = await B11AuthSessions.CreateSessionClientAsync(_factory, "student31");
 
         // when: GET /api/v1/auth/me с access-cookie student31.
         using var response = await client.GetAsync("/api/v1/auth/me");
@@ -66,7 +66,7 @@ public sealed class Ts062_MeStudentGrouplessTeacherTests(B11WebAppFactory factor
     public async Task TS062_Me_Teacher_GroupNameIsNull()
     {
         // given: валидная сессия сид-преподавателя (учётка Seed__TeacherLogin).
-        using var client = B11AuthSessions.CreateSessionClient(
+        using var client = await B11AuthSessions.CreateSessionClientAsync(
             _factory, SeedOptions.DefaultTeacherLogin);
 
         // when: GET /api/v1/auth/me с access-cookie teacher.

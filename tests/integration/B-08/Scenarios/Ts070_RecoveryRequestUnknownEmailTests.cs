@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B08.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B08.Scenarios;
@@ -30,7 +30,7 @@ public sealed class Ts070_RecoveryRequestUnknownEmailTests : IClassFixture<B08We
     {
         // given: email x@y.zz нет в хранилище; число записей RecoveryCode зафиксировано.
         using var client = B08Host.CreateClient(_factory);
-        Assert.Null(_factory.Services.GetRequiredService<IUserRepository>().GetByEmail(UnknownEmail));
+        Assert.Null(await _factory.Services.GetRequiredService<IUserRepository>().GetByEmailAsync(UnknownEmail));
         var recordsBefore = B08Host.CountRecoveryCodeRecords(_factory);
 
         // when: POST /auth/recovery/request {email:'x@y.zz'}.

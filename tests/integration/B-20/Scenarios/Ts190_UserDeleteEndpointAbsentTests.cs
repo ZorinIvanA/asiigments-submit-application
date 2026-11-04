@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using LabsApp.IntegrationTests.B20.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B20.Scenarios;
@@ -30,8 +30,8 @@ public sealed class Ts190_UserDeleteEndpointAbsentTests : IClassFixture<B20ApiFa
     {
         // given: приложение запущено; uuid существующего студента (DI-сид);
         // сессия teacher.
-        var student = B20DomainSeed.AddStudent(_factory, "ts190-scope-student");
-        var (teacherClient, _) = B20AuthSessions.CreateTeacherSession(_factory);
+        var student = await B20DomainSeed.AddStudentAsync(_factory, "ts190-scope-student");
+        var (teacherClient, _) = await B20AuthSessions.CreateTeacherSessionAsync(_factory);
         using var client = teacherClient;
 
         // when: DELETE /api/v1/users/{uuid}.
@@ -56,6 +56,6 @@ public sealed class Ts190_UserDeleteEndpointAbsentTests : IClassFixture<B20ApiFa
         Assert.Equal("Не найдено", properties[0].Value.GetString());
 
         // then (контроль эффекта): учётная запись не удалена и не анонимизирована.
-        Assert.NotNull(_factory.Services.GetRequiredService<IUserRepository>().GetById(student.Id));
+        Assert.NotNull(await _factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(student.Id));
     }
 }

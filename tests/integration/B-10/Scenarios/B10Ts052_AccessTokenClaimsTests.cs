@@ -2,7 +2,7 @@ using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B10.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 using System.Text.Json;
@@ -49,8 +49,8 @@ public sealed class B10Ts052_AccessTokenClaimsTests : IClassFixture<B10NoDemoWeb
         var claims = DecodePayload(accessToken);
 
         // then: sub = uuid пользователя (сеяный учитель).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException(
                 "Сеяный учитель не найден в IUserRepository — шаг then «sub = uuid " +
                 "пользователя» неисполним.");

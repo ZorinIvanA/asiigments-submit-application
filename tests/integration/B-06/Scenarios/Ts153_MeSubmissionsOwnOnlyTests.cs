@@ -14,26 +14,32 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///        без чужих строк}; элементы submissions не содержат studentId
 ///        (FR-021 AC «Свои сдачи в группе»).
 /// </summary>
-public sealed class Ts153_MeSubmissionsOwnOnlyTests : IClassFixture<B06SubmissionsWebAppFactory>
+public sealed class Ts153_MeSubmissionsOwnOnlyTests : IClassFixture<B06SubmissionsWebAppFactory>,
+    IAsyncLifetime
 {
     private readonly B06SubmissionsWebAppFactory _factory;
-    private readonly Guid _lab11;
-    private readonly Guid _lab12;
-    private readonly Guid _lab13;
+    private Guid _lab11;
+    private Guid _lab12;
+    private Guid _lab13;
 
     public Ts153_MeSubmissionsOwnOnlyTests(B06SubmissionsWebAppFactory factory)
     {
         _factory = factory;
-        _lab11 = B06SubmissionsSessions.RequireLab(factory, 1, 1).Id;
-        _lab12 = B06SubmissionsSessions.RequireLab(factory, 1, 2).Id;
-        _lab13 = B06SubmissionsSessions.RequireLab(factory, 1, 3).Id;
     }
 
+    public async Task InitializeAsync()
+    {
+        _lab11 = (await B06SubmissionsSessions.RequireLabAsync(_factory, 1, 1)).Id;
+        _lab12 = (await B06SubmissionsSessions.RequireLabAsync(_factory, 1, 2)).Id;
+        _lab13 = (await B06SubmissionsSessions.RequireLabAsync(_factory, 1, 3)).Id;
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
     [Fact]
     public async Task GetMeSubmissionsInGroup_ReturnsOnlyOwnSubmissionsWithoutStudentId()
     {
         // given: сессия student01, состоящего в ИК-221 (демо-сид).
-        using var client = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
 
         // when: GET /me/submissions?semester=1.
         using var response = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "1");

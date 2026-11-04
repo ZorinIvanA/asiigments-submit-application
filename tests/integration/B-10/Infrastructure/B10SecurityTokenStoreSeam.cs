@@ -1,6 +1,8 @@
 using LabsApp.Domain.Entities;
 using System.Reflection;
 
+using System.Threading.Tasks;
+
 namespace LabsApp.IntegrationTests.B10.Infrastructure;
 
 /// <summary>
@@ -21,12 +23,13 @@ public sealed class B10SecurityTokenStoreSeam
 {
     private static readonly (string InterfaceName, string LookupMethodName)[] CandidateInterfaces =
     {
-        ("LabsApp.Storage.ISecurityTokenRepository", "FindLiveByHash"),
-        ("LabsApp.Storage.IRefreshTokenRepository", "FindByHash"),
+        ("LabsApp.Infrastructure.ISecurityTokenRepository", "FindLiveByHashAsync"),
+        ("LabsApp.Infrastructure.IRefreshTokenRepository", "FindByHash"),
     };
 
     /// <summary>Все допустимые имена поиска записи по хэшу (порядок приоритета).</summary>
-    private static readonly string[] LookupMethodNames = { "FindLiveByHash", "FindByHash" };
+    private static readonly string[] LookupMethodNames =
+        { "FindLiveByHashAsync", "FindLiveByHash", "FindByHash", "FindByHashAsync" };
 
     private readonly object _repository;
     private readonly MethodInfo _findByHash;
@@ -75,9 +78,20 @@ public sealed class B10SecurityTokenStoreSeam
         _findByHash = findByHash!;
     }
 
-    /// <summary>Запись хранилища по хэшу токена (точное сравнение) либо null.</summary>
-    public object? FindByHash(string tokenHash) =>
-        _findByHash.Invoke(_repository, [tokenHash]);
+    /// <summary>Запись хранилища по хэшу токена (точное сравнение) либо null.
+    /// Контракт хранилища асинхронен — Task разворачивается в результат
+    /// (in-memory-задачи завершаются синхронно).</summary>
+    public object? FindByHash(string tokenHash)
+    {
+        var record = _findByHash.Invoke(_repository, [tokenHash]);
+        if (record is Task task)
+        {
+            task.GetAwaiter().GetResult();
+            record = task.GetType().GetProperty("Result")?.GetValue(task);
+        }
+
+        return record;
+    }
 
     /// <summary>Чтение строкового свойства записи (TokenHash и т.п.).</summary>
     public static string StringProperty(object record, string propertyName) =>

@@ -54,7 +54,7 @@ public sealed class Ts096_ProfileReadonlyFieldsTests : IClassFixture<B15WebAppFa
         BodyAssertions.StringPropertyIs(root, "groupName", GroupName);
 
         // then: и в хранилище login='st01', role='student', groupId=X.
-        var stored = B15Harness.UserById(_factory, seeded.Id);
+        var stored = await B15Harness.UserByIdAsync(_factory, seeded.Id);
         Assert.Equal(Login, stored.Login);
         Assert.Equal("student", stored.Role);
         Assert.Equal(group.Id, stored.GroupId);

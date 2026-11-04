@@ -71,7 +71,7 @@ public sealed class Ts080_ProfilePutKeepsLoginRecalcsGroupTests : IClassFixture<
 
         // given (продолжение кейса): ПОСЛЕ обновления группа пользователя
         // переименована в 'ИК-999' (DI-правка текущего состояния групп).
-        B17ProfileHost.RenameGroup(_factory, group, RenamedGroupName);
+        await B17ProfileHost.RenameGroupAsync(_factory, group, RenamedGroupName);
 
         // when (продолжение): GET /me/profile.
         using var getResponse = await client.GetAsync(B17ProfileHost.ProfileEndpoint);
@@ -90,7 +90,7 @@ public sealed class Ts080_ProfilePutKeepsLoginRecalcsGroupTests : IClassFixture<
 
         // then: в хранилище обновлены только fullName/email — login/роль/группа
         // прежние, поле login:'hacker' проигнорировано.
-        var stored = B17ProfileHost.StoredUser(_factory, user.Id);
+        var stored = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}».");

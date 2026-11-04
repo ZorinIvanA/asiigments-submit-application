@@ -24,7 +24,7 @@ public sealed class Ts150_MeSubmissionsSemesterRequiredStrictTests : IClassFixtu
     public async Task GetMeSubmissionsWithoutOutOfRangeAndNonNumericSemester_Returns400()
     {
         // given: сессия student01.
-        using var client = B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
 
         // when/then: semester отсутствует — 400 со строгой ошибкой semester.
         using var missing = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: null);

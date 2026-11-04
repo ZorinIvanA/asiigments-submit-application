@@ -23,7 +23,7 @@ public sealed class Ts128_AuthErrorEnvelopeUniformTests(B11WebAppFactory factory
         // given: 401 — анонимный запрос /auth/me; 403 — student → teacher-only /labs.
         B11AuthSessions.SeedStudent(_factory, "b11ts128.student", "Конверт Ошибок");
         using var anonymous = HostClients.Create(_factory);
-        using var student = B11AuthSessions.CreateSessionClient(_factory, "b11ts128.student");
+        using var student = await B11AuthSessions.CreateSessionClientAsync(_factory, "b11ts128.student");
 
         // when: инспекция тел ответов 401 и 403.
         using var unauthorized = await anonymous.GetAsync("/api/v1/auth/me");

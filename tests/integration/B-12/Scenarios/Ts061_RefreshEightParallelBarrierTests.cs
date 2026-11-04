@@ -2,7 +2,7 @@ using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B12.Scenarios;
@@ -34,10 +34,10 @@ public sealed class Ts061_RefreshEightParallelBarrierTests(B12WebAppFactory fact
     public async Task EightParallelRefreshes_ThenFinalRefreshWithSameToken_AllNoContent_NoRotation()
     {
         // given: валидная refresh-cookie (DI-минт, ADR-015: без POST /auth/login).
-        var teacher = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var teacher = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
-        var refreshTokenValue = B12AuthSessions.CreateLiveRefreshToken(_factory, teacher.Id);
+        var refreshTokenValue = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, teacher.Id);
 
         using var client = CreateBarrieredClient(Parties);
 

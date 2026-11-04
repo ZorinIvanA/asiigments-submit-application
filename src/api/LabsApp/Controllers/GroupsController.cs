@@ -5,7 +5,7 @@ using LabsApp.Domain.Dtos;
 using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
@@ -50,7 +50,7 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
 
     /// <summary>GET /api/v1/groups — весь перечень GroupDto[], name↑ ru (FR-019).</summary>
     [HttpGet]
-    public IActionResult List()
+    public async Task<IActionResult> List()
     {
         if (DenyIfNotTeacher() is { } denial)
         {
@@ -59,11 +59,12 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
 
         // Сортировка по русской локали без учёта регистра (AR-005) — сервисная
         // обязанность контроллера: репозиторий порядок не определяёт (IF-015).
-        var items = _groups
-            .List()
-            .OrderBy(group => group.Name, Collation.SortComparer)
-            .Select(ToDto)
-            .ToArray();
+        var groups = await _groups.ListAsync();
+        var items = new List<GroupDto>(groups.Count);
+        foreach (var group in groups.OrderBy(group => group.Name, Collation.SortComparer))
+        {
+            items.Add(await ToDtoAsync(group));
+        }
 
         return Ok(items);
     }
@@ -99,7 +100,7 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
         try
         {
             // Атомарная ci-проверка имени + вставка (IF-015): дубликат → 409.
-            _groups.Add(group);
+            await _groups.AddAsync(group);
         }
         catch (StorageConflictException)
         {
@@ -107,8 +108,8 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
         }
 
         // studentCount вычисляется по текущему состоянию (не хранится, data_design);
-        // у новой группы студентов нет — CountByGroup возвращает 0 (IF-010).
-        return StatusCode(StatusCodes.Status201Created, ToDto(group));
+        // у новой группы студентов нет — CountByGroupAsync возвращает 0 (IF-010).
+        return StatusCode(StatusCodes.Status201Created, await ToDtoAsync(group));
     }
 
     /// <summary>PUT /api/v1/groups/{id} — переименование: 400 → 404 → 409 → 200 (FR-019).</summary>
@@ -134,14 +135,14 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
             return ValidationFailed(errors);
         }
 
-        if (_groups.GetById(ParseGroupId(id)) is not { } existing)
+        if (await _groups.GetByIdAsync(ParseGroupId(id)) is not { } existing)
         {
             return GroupNotFound();
         }
 
         // Дубликат lower(name) КРОМЕ самой группы (IF-010 CONFLICT_GROUP):
         // ci-поиск репозитория = Collation.Key, совпадение с самим собой — не конфликт.
-        if (_groups.GetByName(name) is { } nameOwner && nameOwner.Id != existing.Id)
+        if (await _groups.GetByNameAsync(name) is { } nameOwner && nameOwner.Id != existing.Id)
         {
             return DuplicateGroup();
         }
@@ -156,56 +157,55 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
 
         try
         {
-            // Атомарная замена с перепривязкой ci-индекса под StorageLock (IF-015):
-            // гонка двух PUT на одно имя → 409 по исключению репозитория.
-            _groups.Update(updated);
+            // Атомарная замена с перепривязкой ci-индекса (IF-015): гонка двух PUT
+            // на одно имя → 409 по исключению репозитория.
+            await _groups.UpdateAsync(updated);
         }
         catch (StorageConflictException)
         {
             return DuplicateGroup();
         }
 
-        return Ok(ToDto(updated));
+        return Ok(await ToDtoAsync(updated));
     }
 
     /// <summary>DELETE /api/v1/groups/{id} — 204; студентам группы groupId=null (FR-019).</summary>
     [HttpDelete("{id}")]
-    public IActionResult Delete(string id)
+    public async Task<IActionResult> Delete(string id)
     {
         if (DenyIfNotTeacher() is { } denial)
         {
             return denial;
         }
 
-        if (_groups.GetById(ParseGroupId(id)) is null)
+        if (await _groups.GetByIdAsync(ParseGroupId(id)) is null)
         {
             return GroupNotFound();
         }
 
-        // Каскад «запись группы → сброс GroupId её студентов» в критической секции
+        // Каскад «запись группы → сброс GroupId её студентов» — атомарная операция
         // репозитория (IF-015): учётные записи сохраняются со «свободным» статусом.
-        _groups.Delete(ParseGroupId(id));
+        await _groups.DeleteAsync(ParseGroupId(id));
         return NoContent();
     }
 
     /// <summary>GET /api/v1/groups/{id}/students?page= — страница состава (FR-019).</summary>
     [HttpGet("{id}/students")]
-    public IActionResult Students(string id, [FromQuery(Name = "page")] string? page)
+    public async Task<IActionResult> Students(string id, [FromQuery(Name = "page")] string? page)
     {
         if (DenyIfNotTeacher() is { } denial)
         {
             return denial;
         }
 
-        if (_groups.GetById(ParseGroupId(id)) is not { } group)
+        if (await _groups.GetByIdAsync(ParseGroupId(id)) is not { } group)
         {
             return GroupNotFound();
         }
 
         // Двухколоночная сортировка fullName↑ затем login↑ по правилам русской
         // локали без учёта регистра (AR-005, Collation.SortComparer).
-        var students = _users
-            .ListByGroup(group.Id)
+        var students = (await _users.ListByGroupAsync(group.Id))
             .OrderBy(student => student.FullName, Collation.SortComparer)
             .ThenBy(student => student.Login, Collation.SortComparer)
             .ToList();
@@ -335,11 +335,11 @@ public sealed class GroupsController(IGroupRepository groups, IUserRepository us
         Guid.TryParse(raw, out var id) ? id : Guid.Empty;
 
     /// <summary>GroupDto: studentCount вычисляется по текущему состоянию (data_design).</summary>
-    private GroupDto ToDto(Group group) => new()
+    private async Task<GroupDto> ToDtoAsync(Group group) => new()
     {
         Id = group.Id.ToString(),
         Name = group.Name,
-        StudentCount = _users.CountByGroup(group.Id),
+        StudentCount = await _users.CountByGroupAsync(group.Id),
     };
 
     /// <summary>

@@ -1,7 +1,7 @@
 using LabsApp.Auth;
 using LabsApp.Auth.RateLimiting;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
@@ -65,12 +65,12 @@ public sealed class Ts178_PasswordCompositionAtMinLengthTests : IClassFixture<B0
         // given: логины cmp01..cmp03 и email cmp01@example.com..cmp03@example.com
         // свободны; счётчик KDF — только шов снимков (Δ между снимками).
         var users = _factory.Services.GetRequiredService<IUserRepository>();
-        Assert.Null(users.GetByLogin("cmp01"));
-        Assert.Null(users.GetByLogin("cmp02"));
-        Assert.Null(users.GetByLogin("cmp03"));
-        Assert.Null(users.GetByEmail("cmp01@example.com"));
-        Assert.Null(users.GetByEmail("cmp02@example.com"));
-        Assert.Null(users.GetByEmail("cmp03@example.com"));
+        Assert.Null(await users.GetByLoginAsync("cmp01"));
+        Assert.Null(await users.GetByLoginAsync("cmp02"));
+        Assert.Null(await users.GetByLoginAsync("cmp03"));
+        Assert.Null(await users.GetByEmailAsync("cmp01@example.com"));
+        Assert.Null(await users.GetByEmailAsync("cmp02@example.com"));
+        Assert.Null(await users.GetByEmailAsync("cmp03@example.com"));
 
         // when (1): password 'Abcdefg!' — длина ровно 8, есть буквы и спецзнак
         // '!', НЕТ цифры; repeatPassword дословно равен; прочие поля валидны.
@@ -86,8 +86,8 @@ public sealed class Ts178_PasswordCompositionAtMinLengthTests : IClassFixture<B0
         // Δkdf=0; пользователь не создан.
         await AssertRejectedWithSinglePasswordErrorAsync(noDigit, ExpectedDigitText);
         AssertKdfUnchanged();
-        Assert.Null(users.GetByLogin("cmp01"));
-        Assert.Null(users.GetByEmail("cmp01@example.com"));
+        Assert.Null(await users.GetByLoginAsync("cmp01"));
+        Assert.Null(await users.GetByEmailAsync("cmp01@example.com"));
 
         // when (2): password '1234567!' — длина ровно 8, есть цифры и '!',
         // НЕТ буквы.
@@ -102,8 +102,8 @@ public sealed class Ts178_PasswordCompositionAtMinLengthTests : IClassFixture<B0
         // одну букву']; Δkdf=0; пользователь не создан.
         await AssertRejectedWithSinglePasswordErrorAsync(noLetter, ExpectedLetterText);
         AssertKdfUnchanged();
-        Assert.Null(users.GetByLogin("cmp02"));
-        Assert.Null(users.GetByEmail("cmp02@example.com"));
+        Assert.Null(await users.GetByLoginAsync("cmp02"));
+        Assert.Null(await users.GetByEmailAsync("cmp02@example.com"));
 
         // when (3): password 'Abcdefg1' — длина ровно 8, есть буквы и цифра,
         // НЕТ спецзнака.
@@ -118,8 +118,8 @@ public sealed class Ts178_PasswordCompositionAtMinLengthTests : IClassFixture<B0
         // один специальный знак']; Δkdf=0; пользователь не создан.
         await AssertRejectedWithSinglePasswordErrorAsync(noSpecial, ExpectedSpecialText);
         AssertKdfUnchanged();
-        Assert.Null(users.GetByLogin("cmp03"));
-        Assert.Null(users.GetByEmail("cmp03@example.com"));
+        Assert.Null(await users.GetByLoginAsync("cmp03"));
+        Assert.Null(await users.GetByEmailAsync("cmp03@example.com"));
     }
 
     /// <summary>

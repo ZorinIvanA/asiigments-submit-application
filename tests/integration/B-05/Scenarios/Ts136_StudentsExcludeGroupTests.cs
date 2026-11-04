@@ -21,9 +21,9 @@ public sealed class Ts136_StudentsExcludeGroupTests : IClassFixture<B05WebAppFac
     public async Task PutGroupNull_RemovesStudentFromGroup()
     {
         // given: student01 состоит в группе (ИК-221 демо-сида); teacher авторизован.
-        var student01 = B05SeedLookup.StudentByLogin(_factory, "student01");
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
         Assert.NotNull(student01.GroupId);
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: исключение из группы (groupId:null).
         using var put = await client.PutAsJsonAsync(

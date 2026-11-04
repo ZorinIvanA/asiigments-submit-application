@@ -21,7 +21,7 @@ public sealed class Ts132_StudentsSearchTooLongTests : IClassFixture<B05WebAppFa
     public async Task SearchOf201Chars_IsRejectedWithFieldError()
     {
         // given: teacher авторизован.
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search из 201 символа.
         var search = Uri.EscapeDataString(new string('и', 201));

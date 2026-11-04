@@ -19,7 +19,7 @@ public sealed class Ts143_StudentsSearchExactly200ValidTests : IClassFixture<B05
     public async Task SearchOfExactly200Chars_IsAcceptedNot400()
     {
         // given: teacher авторизован.
-        using var client = B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search ровно 200 символов.
         var search = Uri.EscapeDataString(new string('x', 200));

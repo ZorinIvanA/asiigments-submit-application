@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -78,13 +78,13 @@ public static class B12AuthSessions
     /// (значение + SHA-256-хэш + expiresAt по TimeProvider) и запись в
     /// ISecurityTokenRepository. Возвращает ОТКРЫТОЕ значение для cookie.
     /// </summary>
-    public static string CreateLiveRefreshToken(WebApplicationFactory<Program> factory, Guid userId)
+    public static async Task<string> CreateLiveRefreshTokenAsync(WebApplicationFactory<Program> factory, Guid userId)
     {
         var tokens = factory.Services.GetRequiredService<ITokenService>();
         var repository = factory.Services.GetRequiredService<ISecurityTokenRepository>();
         var now = factory.Services.GetRequiredService<TimeProvider>().GetUtcNow().UtcDateTime;
         var grant = tokens.CreateRefreshToken(userId);
-        repository.Add(new RefreshToken
+        await repository.AddAsync(new RefreshToken
         {
             Id = Guid.NewGuid(),
             UserId = userId,
@@ -104,12 +104,15 @@ public static class B12AuthSessions
     /// через контракт консолидированного хранилища ISecurityTokenRepository);
     /// отозванная/истёкшая/отсутствующая запись контракт живым не считает — null.
     /// </summary>
-    public static RefreshToken? FindStoredToken(WebApplicationFactory<Program> factory, string refreshTokenValue) =>
-        factory.Services.GetRequiredService<ISecurityTokenRepository>().FindLiveByHash(RefreshTokenHash(refreshTokenValue));
+    public static async Task<RefreshToken?> FindStoredTokenAsync(
+        WebApplicationFactory<Program> factory, string refreshTokenValue) =>
+        await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveByHashAsync(RefreshTokenHash(refreshTokenValue));
 
     /// <summary>Запись обязательна живой (иначе инспекция given невозможна) — снимок сущности.</summary>
-    public static RefreshToken RequireStoredToken(WebApplicationFactory<Program> factory, string refreshTokenValue) =>
-        FindStoredToken(factory, refreshTokenValue)
+    public static async Task<RefreshToken> RequireStoredTokenAsync(
+        WebApplicationFactory<Program> factory, string refreshTokenValue) =>
+        await FindStoredTokenAsync(factory, refreshTokenValue)
         ?? throw new InvalidOperationException(
             "Запись refresh-токена не найдена в хранилище — шаг given/then неисполним.");
 

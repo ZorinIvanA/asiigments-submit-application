@@ -19,7 +19,7 @@ public sealed class Ts127_ForbiddenBeforeValidationNotFoundTests(B11WebAppFactor
     {
         // given: сессия student; несуществующий uuid работы.
         B11AuthSessions.SeedStudent(_factory, "b11ts127.student", "Порядок Отказов");
-        using var client = B11AuthSessions.CreateSessionClient(_factory, "b11ts127.student");
+        using var client = await B11AuthSessions.CreateSessionClientAsync(_factory, "b11ts127.student");
         var unknownLabId = Guid.NewGuid();
 
         // when: PUT /api/v1/labs/<несуществующий-id> с невалидным телом (semester=0).

@@ -1,5 +1,5 @@
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,10 +17,10 @@ public static class B03DomainSeed
     /// Работа заданной пары (semester, number): добавляется в ILabRepository, если пара
     /// свободна; иначе возвращается существующая запись (идемпотентность сида).
     /// </summary>
-    public static Lab AddLab(WebApplicationFactory<Program> factory, int semester, int number)
+    public static async Task<Lab> AddLabAsync(WebApplicationFactory<Program> factory, int semester, int number)
     {
         var labs = factory.Services.GetRequiredService<ILabRepository>();
-        if (labs.TryGetByPair(semester, number) is { } existing)
+        if (await labs.TryGetByPairAsync(semester, number) is { } existing)
         {
             return existing;
         }
@@ -36,16 +36,16 @@ public static class B03DomainSeed
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };
-        labs.Add(lab);
+        await labs.AddAsync(lab);
         return lab;
     }
 
     /// <summary>Набор работ заданных пар (semester, number) — данные given кейсов списков.</summary>
-    public static void AddLabs(WebApplicationFactory<Program> factory, params (int Semester, int Number)[] pairs)
+    public static async Task AddLabsAsync(WebApplicationFactory<Program> factory, params (int Semester, int Number)[] pairs)
     {
         foreach (var (semester, number) in pairs)
         {
-            AddLab(factory, semester, number);
+            await AddLabAsync(factory, semester, number);
         }
     }
 
@@ -53,11 +53,11 @@ public static class B03DomainSeed
     /// Состав given TS-088..TS-091: 20 работ семестра 1 (номера 1..20)
     /// и 3 работы семестра 2 (номера 1..3) — итого 23 записи.
     /// </summary>
-    public static void AddStandard23Labs(WebApplicationFactory<Program> factory)
+    public static async Task AddStandard23LabsAsync(WebApplicationFactory<Program> factory)
     {
         var pairs = new List<(int Semester, int Number)>(23);
         pairs.AddRange(Enumerable.Range(1, 20).Select(number => (1, number)));
         pairs.AddRange(Enumerable.Range(1, 3).Select(number => (2, number)));
-        AddLabs(factory, [.. pairs]);
+        await AddLabsAsync(factory, [.. pairs]);
     }
 }

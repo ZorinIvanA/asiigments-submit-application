@@ -20,7 +20,7 @@ public sealed class Ts114_LabNumberValidationTests(B04LabsWebAppFactory factory)
     [InlineData("abc")]
     public async Task TS114_PostLabWithInvalidNumber_Returns400WithNumberError(string number)
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с невалидным number (прочие поля валидны).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

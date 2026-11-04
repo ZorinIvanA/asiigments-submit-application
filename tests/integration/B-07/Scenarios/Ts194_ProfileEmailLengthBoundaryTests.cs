@@ -1,5 +1,5 @@
 using LabsApp.IntegrationTests.B07.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B07.Scenarios;
 
@@ -45,7 +45,7 @@ public sealed class Ts194_ProfileEmailLengthBoundaryTests : IClassFixture<B07Web
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         var root = await BodyAssertions.ReadRootObjectAsync(accepted);
         BodyAssertions.StringPropertyIs(root, "email", email254);
-        var stored = HostClients.ResolveUserByEmail(_factory, email254);
+        var stored = await HostClients.ResolveUserByEmailAsync(_factory, email254);
         Assert.Equal(email254, stored.Email);
 
         // when: email ровно 255 символов.

@@ -16,7 +16,7 @@ public sealed class Ts118_LabUrlPrefixTests(B04LabsWebAppFactory factory) : ICla
     [Fact]
     public async Task TS118_PostLabWithNonHttpUrl_Returns400WithPrefixError()
     {
-        using var client = MintedSessions.CreateTeacherClient(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs со ссылкой без http(s)-префикса.
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

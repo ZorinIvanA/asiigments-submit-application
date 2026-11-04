@@ -4,7 +4,7 @@ using System.Text.Json;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -109,10 +109,10 @@ public static class B07AuthClients
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshTokenValue))).ToLowerInvariant();
 
     /// <summary>Запись refresh-токена в хранилище по значению cookie (инспекция IF-015).</summary>
-    public static RefreshToken FindRefreshToken(B07WebAppFactory factory, string refreshTokenValue)
+    public static async Task<RefreshToken> FindRefreshTokenAsync(B07WebAppFactory factory, string refreshTokenValue)
     {
-        var token = factory.Services.GetRequiredService<ISecurityTokenRepository>()
-            .FindLiveByHash(RefreshTokenHash(refreshTokenValue));
+        var token = await factory.Services.GetRequiredService<ISecurityTokenRepository>()
+            .FindLiveByHashAsync(RefreshTokenHash(refreshTokenValue));
         Assert.NotNull(token);
         return token;
     }

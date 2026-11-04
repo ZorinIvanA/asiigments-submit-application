@@ -21,7 +21,7 @@ public sealed class Ts155_SubmissionsGridMissingGroupIdTests : IClassFixture<B06
     public async Task GetGridWithoutGroupId_Returns400WithRequiredGroupIdError()
     {
         // given: сессия teacher.
-        using var client = B06SubmissionsSessions.CreateTeacherSession(_factory).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: GET /submissions?semester=1&page=1 — без groupId.
         using var response = await B06SubmissionsApi.GetGridAsync(

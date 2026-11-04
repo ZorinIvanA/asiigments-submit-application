@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
@@ -64,8 +64,8 @@ public static class B08AuthHost
     public static B08AuthClient CreateClient(B08AuthWebAppFactory factory) => new(factory);
 
     /// <summary>DI-сид пользователя с реальным PBKDF2-хэшем пароля (IF-002, метка seed).</summary>
-    public static User SeedUser(
-        B08AuthWebAppFactory factory,
+    public static async Task<User> SeedUserAsync(
+    B08AuthWebAppFactory factory,
         string login,
         string email,
         string fullName,
@@ -87,18 +87,18 @@ public static class B08AuthHost
             GroupId = null,
             CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        await users.AddAsync(user);
         return user;
     }
 
     /// <summary>DI-сид преподавателя (роль teacher).</summary>
-    public static User SeedTeacher(
+    public static Task<User> SeedTeacher(
         B08AuthWebAppFactory factory,
         string login,
         string email,
         string fullName,
         string? password = null) =>
-        SeedUser(factory, login, email, fullName, UserRoles.Teacher, password);
+        SeedUserAsync(factory, login, email, fullName, UserRoles.Teacher, password);
 
     /// <summary>
     /// Разность снимков IKdfCounter (Δkdf): приращения по меткам вызывателя

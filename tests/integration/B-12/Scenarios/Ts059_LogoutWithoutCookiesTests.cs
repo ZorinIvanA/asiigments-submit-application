@@ -1,7 +1,7 @@
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B12.Infrastructure;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B12.Scenarios;
@@ -24,11 +24,11 @@ public sealed class Ts059_LogoutWithoutCookiesTests(B12WebAppFactory factory)
     {
         // given: чужой живой refresh-токен (пользователя B — сид-преподаватель);
         // запрос без cookie access_token и refresh_token.
-        var userB = _factory.Services.GetRequiredService<IUserRepository>()
-                .GetByLogin(SeedOptions.DefaultTeacherLogin)
+        var userB = await _factory.Services.GetRequiredService<IUserRepository>()
+                .GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
             ?? throw new InvalidOperationException("Сид-преподаватель не найден — given неисполним.");
-        var refreshTokenB = B12AuthSessions.CreateLiveRefreshToken(_factory, userB.Id);
-        var storedHashB = B12AuthSessions.RequireStoredToken(_factory, refreshTokenB).TokenHash;
+        var refreshTokenB = await B12AuthSessions.CreateLiveRefreshTokenAsync(_factory, userB.Id);
+        var storedHashB = (await B12AuthSessions.RequireStoredTokenAsync(_factory, refreshTokenB)).TokenHash;
 
         using var client = B12AuthSessions.CreateClient(_factory);
 
@@ -40,7 +40,7 @@ public sealed class Ts059_LogoutWithoutCookiesTests(B12WebAppFactory factory)
 
         // then: чужие/несуществующие токены не отозваны — запись B активна,
         // и refresh с cookie B по-прежнему обслуживается (204).
-        var storedB = B12AuthSessions.RequireStoredToken(_factory, refreshTokenB);
+        var storedB = await B12AuthSessions.RequireStoredTokenAsync(_factory, refreshTokenB);
         Assert.Equal(storedHashB, storedB.TokenHash);
         Assert.Null(storedB.RevokedAt);
 

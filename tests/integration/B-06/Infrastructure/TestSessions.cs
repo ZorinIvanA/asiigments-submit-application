@@ -1,6 +1,6 @@
 using LabsApp.Auth;
 using LabsApp.Domain.Entities;
-using LabsApp.Storage;
+using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -49,7 +49,7 @@ public static class TestSessions
             GroupId = null,
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
         };
-        users.Add(user);
+        users.AddAsync(user);
         return user;
     }
 

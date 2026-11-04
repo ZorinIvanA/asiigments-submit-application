@@ -63,7 +63,7 @@ public sealed class Ts104_PasswordCurrentVerbatimNoTrimTests : IClassFixture<B17
         B17BodyAssertions.MessageIs(root, ErrorTexts.WrongCurrentPassword);
 
         // then: пароль НЕ применён — хранимый хэш прежний.
-        var stored = B17ProfileHost.StoredUser(_factory, user.Id);
+        var stored = await B17ProfileHost.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.PasswordHash, user.PasswordHash, StringComparison.Ordinal),
             "Ожидался неизменный хранимый хэш пароля (отклонённая смена), фактически хэш изменился.");
