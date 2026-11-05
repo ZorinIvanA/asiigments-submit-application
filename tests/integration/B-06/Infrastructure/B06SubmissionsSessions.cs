@@ -1,3 +1,4 @@
+using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
@@ -7,23 +8,37 @@ using Microsoft.Extensions.DependencyInjection;
 namespace LabsApp.IntegrationTests.B06.Infrastructure;
 
 /// <summary>
-/// Клиенты и данные сида кейсов волны сдач B-06. Аутентификации в приложении
-/// нет: все эндпоинты анонимны, «текущий пользователь» — засеянный преподаватель
-/// (Seed__TeacherLogin), поэтому клиент создаётся фабрикой без всяких cookie/токенов.
-/// Сущности сида (преподаватель, студенты демо-набора, группа ИК-221, работы пар)
-/// читаются из DI-репозиториев тестового хоста.
+/// Сессии и данные сида кейсов волны сдач B-06 (ADR-015): пользователи демо-набора
+/// (student01/05/31, сид-преподаватель «teacher») берутся из IUserRepository
+/// тестового хоста, access-JWT минтится ITokenService хоста и передаётся заголовком
+/// Cookie с именем-константой AuthCoreDefaults (единый источник с ICookieService).
+/// POST /auth/login не используется (ADR-015: доменные кейсы волны не зависят от
+/// auth-эндпоинтов). Сущности сида (группа ИК-221, работы пар) читаются из DI-репозиториев.
 /// </summary>
 public static class B06SubmissionsSessions
 {
     /// <summary>
-    /// Анонимный клиент хоста + uuid текущего пользователя — сид-преподавателя
-    /// (TS-143/TS-147/TS-148/TS-155/TS-157/TS-158: атрибуция updatedBy).
+    /// given «сессия teacher; uuid преподавателя известен» (TS-147/TS-148/TS-155):
+    /// клиент с access-cookie сид-преподавателя и его uuid.
     /// </summary>
-    public static async Task<(HttpClient Client, Guid TeacherId)> CreateTeacherClientAsync(
+    public static async Task<(HttpClient Client, Guid TeacherId)> CreateTeacherSession(
         WebApplicationFactory<Program> factory)
     {
         var teacher = await RequireUserAsync(factory, SeedOptions.DefaultTeacherLogin);
-        return (HostClients.Create(factory), teacher.Id);
+        return (CreateSessionClient(factory, teacher), teacher.Id);
+    }
+
+    /// <summary>
+    /// given «сессия студента <paramref name="login"/>» демо-набора
+    /// (TS-152: student31; TS-153/TS-154: student01; TS-155: student-сессия).
+    /// </summary>
+    public static async Task<HttpClient> CreateStudentSessionByLogin(
+        WebApplicationFactory<Program> factory,
+        string login)
+    {
+        var student = await RequireUserAsync(factory, login);
+        Assert.Equal(UserRoles.Student, student.Role);
+        return CreateSessionClient(factory, student);
     }
 
     /// <summary>Учётная запись демо-набора по логину либо падение шага given.</summary>
@@ -43,4 +58,12 @@ public static class B06SubmissionsSessions
         await factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(semester, number)
         ?? throw new InvalidOperationException(
             $"Работа {semester}:{number} не найдена в DI-хранилище тестового хоста (демо-набор сида не развёрнут; шаг given неисполним).");
+
+    private static HttpClient CreateSessionClient(WebApplicationFactory<Program> factory, User user)
+    {
+        var accessToken = factory.Services.GetRequiredService<ITokenService>()
+            .IssueAccessToken(user.Id, user.Role);
+        return HostClients.CreateWithCookie(
+            factory, AuthCoreDefaults.AccessTokenCookieName, accessToken);
+    }
 }

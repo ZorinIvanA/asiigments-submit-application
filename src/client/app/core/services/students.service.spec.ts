@@ -2,9 +2,8 @@
  * Юнит-тесты StudentsService (C-014, FR-091) — все вызовы через
  * HttpTestingController (конвенция URL — ADR-014: ожидаемые URL строятся из
  * TestBed.inject(API_BASE_URL), литералы префикса запрещены).
- * Производственная цепочка — реальный HttpClient (без интерцептора:
- * приложение анонимно, все эндпоинты публичны; отказы нормализует сам
- * сервис — http-errors.ts):
+ * Производственная цепочка — реальный authInterceptor (withCredentials,
+ * нормализация отказов в ApiError, дедуплицированный refresh):
  *  - getList → GET /students с query в порядке search, groupId, page;
  *    отсутствующие значения (search пустой/пробельный, groupId null) в
  *    query не попадают; многословный search уходит URL-кодированным;
@@ -13,12 +12,15 @@
  *  - возвращаемые типы идентичны прежним (сигнатуры сервиса не менялись);
  *  - отказы 403/400+errors/404 — реджект ApiError той же формы (баннеры
  *    body.message и полевые errors работают без изменений);
+ *  - 401 (истекшая сессия) — после безуспешного refresh реджект ApiError
+ *    {status: 401, body: {message}}.
  */
-import { HttpParams, provideHttpClient } from '@angular/common/http';
+import { HttpParams, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 
+import { authInterceptor } from '../auth-interceptor';
 import { API_BASE_URL } from '../api-base-url';
 import {
   ApiError,
@@ -54,7 +56,7 @@ describe('StudentsService — домен студентов поверх HttpCli
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
       ],
@@ -82,6 +84,9 @@ describe('StudentsService — домен студентов поверх HttpCli
       const request = httpMock.expectOne(`${apiBase}/students?groupId=none&page=2`);
       expect(request.request.method).toBe('GET');
       expect(request.request.body).withContext('у GET тела нет').toBeNull();
+      expect(request.request.withCredentials)
+        .withContext('cookie-аутентификация — withCredentials (FR-091)')
+        .toBeTrue();
       request.flush(page);
 
       await expectAsync(pending).toBeResolvedTo(page);
@@ -230,6 +235,26 @@ describe('StudentsService — домен студентов поверх HttpCli
       } satisfies ApiError);
     });
 
+    it('getList: 401 (сессия истекла) — refresh безуспешен, реджект ApiError 401 «Не авторизован»', async () => {
+      // Интерцептор в фазе инициализации не навигирует; spy страхует цепочку
+      // Router от необработанных отказов (навигация — не зона сервиса).
+      spyOn(TestBed.inject(Router), 'navigate');
+
+      const pending = service.getList({ page: 1 });
+      httpMock.expectOne(`${apiBase}/students?page=1`).flush(
+        { message: 'Не авторизован' },
+        status(401, 'Unauthorized'),
+      );
+      httpMock.expectOne(`${apiBase}/auth/refresh`).flush(
+        { message: 'Не авторизован' },
+        status(401, 'Unauthorized'),
+      );
+
+      await expectAsync(pending).toBeRejectedWith({
+        status: 401,
+        body: { message: 'Не авторизован' },
+      } satisfies ApiError);
+    });
   });
 });
 

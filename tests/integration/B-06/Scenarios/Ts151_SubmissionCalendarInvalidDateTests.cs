@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-151 «Upsert сдачи: календарно некорректная дата — 400» (boundary, P1, FR-021).
 ///
-/// given: анонимный клиент; сущности существуют (student05, работа 1.1 демо-набора).
+/// given: сессия teacher; сущности существуют (student05, работа 1.1 демо-набора).
 /// when:  PUT /api/v1/submissions {…, submitDate:'2026-02-30', defenseDate:null}
 ///        — 30 февраля не существует.
 /// then:  400; errors.submitDate=['Дата должна быть строкой в формате ГГГГ-ММ-ДД']
@@ -33,8 +33,8 @@ public sealed class Ts151_SubmissionCalendarInvalidDateTests : IClassFixture<B06
     [Fact]
     public async Task PutSubmissionWithCalendarImpossibleDate_Returns400WithDateError()
     {
-        // given: анонимный клиент; сущности существуют.
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        // given: сессия teacher; сущности существуют.
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /submissions с датой '2026-02-30'.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

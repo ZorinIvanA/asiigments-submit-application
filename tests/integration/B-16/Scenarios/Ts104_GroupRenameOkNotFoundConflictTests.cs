@@ -42,7 +42,7 @@ public sealed class Ts104_GroupRenameOkNotFoundConflictTests : IClassFixture<B16
     public async Task PutGroup_OwnNameOk_NewNameOk_Unknown404_Foreign409_InvalidName400()
     {
         // given: сессия teacher; G1 = «ИК-221» демо-сида; «ИК-222» существует.
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var g1Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
         var ik222Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 

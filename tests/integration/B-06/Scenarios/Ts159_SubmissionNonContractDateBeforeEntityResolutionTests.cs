@@ -23,8 +23,8 @@ public sealed class Ts159_SubmissionNonContractDateBeforeEntityResolutionTests :
     [Fact]
     public async Task PutSubmissionWithNonContractDate_Returns400BeforeEntityResolution()
     {
-        // given: анонимный клиент; studentId/labId — неизвестные (случайные) uuid.
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        // given: teacher-сессия; studentId/labId — неизвестные (случайные) uuid.
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
         var unknownStudentId = Guid.NewGuid();
         var unknownLabId = Guid.NewGuid();
 

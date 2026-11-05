@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// <summary>
 /// TS-109 «Лабораторные: нечисловой semester — фильтр не применяется (мягкая
 /// нормализация)» (boundary, FR-017 AC «Нечисловой semester»; P0): given —
-/// демо-сид: 23 работы; клиент анонимный; when — GET /labs?semester=abc и GET
+/// демо-сид: 23 работы; сессия teacher; when — GET /labs?semester=abc и GET
 /// /labs?semester=2.5; then — оба — 200 с total=23 и page=1 (поведение
 /// совпадает с запросом без параметра semester; НЕ 400).
 /// </summary>
@@ -29,8 +29,8 @@ public sealed class Ts109_LabsNonNumericSemesterTests : IClassFixture<B03HostFac
     [Fact]
     public async Task GetLabsWithNonNumericSemester_AppliesNoFilter()
     {
-        // given: анонимный клиент (аутентификации нет).
-        var client = B03LabsApi.CreateClient(_factory);
+        // given: сессия teacher.
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: обе попытки мягкой нормализации и эталонный запрос без semester.
         using var alpha = await B03LabsApi.GetLabsAsync(client, "semester=abc");
@@ -43,7 +43,7 @@ public sealed class Ts109_LabsNonNumericSemesterTests : IClassFixture<B03HostFac
 
         // then: оба — 200 с total=23 и page=1 (НЕ 400).
         using (var body = await ResponseAssert.ParseWithStatusAsync(
-            alpha, HttpStatusCode.OK, "GET /api/v1/labs?semester=abc (анонимно)"))
+            alpha, HttpStatusCode.OK, "GET /api/v1/labs?semester=abc (teacher)"))
         {
             Assert.Equal(23, B03LabsApi.ReadInt(body.RootElement, "total"));
             Assert.Equal(1, B03LabsApi.ReadInt(body.RootElement, "page"));
@@ -51,7 +51,7 @@ public sealed class Ts109_LabsNonNumericSemesterTests : IClassFixture<B03HostFac
         }
 
         using (var body = await ResponseAssert.ParseWithStatusAsync(
-            fractional, HttpStatusCode.OK, "GET /api/v1/labs?semester=2.5 (анонимно)"))
+            fractional, HttpStatusCode.OK, "GET /api/v1/labs?semester=2.5 (teacher)"))
         {
             Assert.Equal(23, B03LabsApi.ReadInt(body.RootElement, "total"));
             Assert.Equal(1, B03LabsApi.ReadInt(body.RootElement, "page"));
@@ -60,7 +60,7 @@ public sealed class Ts109_LabsNonNumericSemesterTests : IClassFixture<B03HostFac
 
         // then: поведение совпадает с запросом без параметра semester (выдача та же).
         using (var body = await ResponseAssert.ParseWithStatusAsync(
-            noFilter, HttpStatusCode.OK, "GET /api/v1/labs без semester (анонимно)"))
+            noFilter, HttpStatusCode.OK, "GET /api/v1/labs без semester (teacher)"))
         {
             noFilterPairs = B03LabsApi.ReadItemPairs(body.RootElement);
         }

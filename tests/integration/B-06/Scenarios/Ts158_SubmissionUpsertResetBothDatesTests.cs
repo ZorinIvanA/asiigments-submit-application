@@ -13,7 +13,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// given: запись с submitDate='2026-09-01', defenseDate='2026-09-11'
 ///        (сид-сдача student01 1.1 демо-набора; прежняя метка updatedAt —
 ///        фиксированная метка сида 2026-09-11 12:00 UTC, часы хоста закреплены
-///        позже — 2026-09-20 10:00 UTC); анонимный клиент.
+///        позже — 2026-09-20 10:00 UTC); сессия teacher.
 /// when:  PUT /api/v1/submissions {studentId, labId, submitDate:null, defenseDate:null}.
 /// then:  200; обе даты null (сброс); updatedAt обновлён;
 ///        updatedBy=uuid преподавателя (FR-021 AC «Upsert обновляет и сбрасывает»).
@@ -48,7 +48,7 @@ public sealed class Ts158_SubmissionUpsertResetBothDatesTests : IClassFixture<B0
         Assert.Equal(new DateOnly(2026, 9, 11), seedRecord.DefenseDate);
         var previousUpdatedAt = seedRecord.UpdatedAt;
 
-        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherClientAsync(_factory);
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
         using var _client = client;
 
         // when: PUT /submissions {studentId, labId, submitDate:null, defenseDate:null}.

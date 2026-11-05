@@ -1,8 +1,8 @@
 /**
  * Интеграционные спеки маршрутизации раздела «Группы» (батч 3, FR-4.5):
- * полное дерево маршрутов приложения (app.routes.ts) с реальной оболочкой
- * и core-сервисами на реальном HTTP-ядре (HttpClient, без интерцептора)
- * поверх программируемого
+ * полное дерево маршрутов приложения (app.routes.ts) с реальной оболочкой,
+ * настоящими guards и core-сервисами на реальном HTTP-ядре
+ * (HttpClient + authInterceptor) поверх программируемого
  * HttpTestingController-бэкенда GridBackendStub с сидом зоны —
  * RouterTestingHarness с реальными таймерами (макротаски pump()).
  *
@@ -39,7 +39,8 @@ describe('Groups — маршрутизация на реальном дерев
     ik221 = env.backend.groupIdByName('ИК-221');
     ik222 = env.backend.groupIdByName('ИК-222');
 
-    // Харнес создаётся на корне: '' редиректит на /works (без HTTP).
+    // Харнес создаётся гостем (начальный '/' → homeGuard → /login, без HTTP);
+    // сессия поднимается в спеках настоящей загрузкой /auth/me.
     await env.attachRoutingHarness();
   });
 
@@ -71,6 +72,7 @@ describe('Groups — маршрутизация на реальном дерев
   }
 
   it('TS-330: список групп — колонки Название/Студентов/Действия, порядок name↑ (25/5/0), название — ссылка, клик ведёт на карточку /groups/:id', async () => {
+    await env.loginAsync('teacher');
     await env.routingHarness!.navigateByUrl('/groups');
     await settle();
 
@@ -100,6 +102,7 @@ describe('Groups — маршрутизация на реальном дерев
   }, SPEC_TIMEOUT_MS);
 
   it('TS-338: карточка несуществующей группы — баннер «Группа не найдена», редирект на /groups', async () => {
+    await env.loginAsync('teacher');
     await env.routingHarness!.navigateByUrl('/groups/00000000-0000-4000-8000-ffffffffffff');
     await waitFor(() => router().url === '/groups', 'редирект на /groups');
 
@@ -117,6 +120,7 @@ describe('Groups — маршрутизация на реальном дерев
   }, SPEC_TIMEOUT_MS);
 
   it('TS-339: гонки навигации между карточками — показан состав последнего клика (ИК-222), данные ИК-221 не мелькают', async () => {
+    await env.loginAsync('teacher');
     await env.routingHarness!.navigateByUrl('/groups');
     await settle();
 

@@ -2,10 +2,9 @@
  * Интеграционная спека границ скоупа (батч 3, TS-390): на экранах батча
  * (/groups, /groups/:id, /access, /submissions, /my-submissions) не
  * реализовано ничего из out_of_scope v1 — реальные страницы и core-сервисы
- * на реальном HTTP-ядре (HttpClient, без интерцептора) поверх
+ * на реальном HTTP-ядре (HttpClient + authInterceptor) поверх
  * программируемого HttpTestingController-бэкенда GridBackendStub с сидом
- * зоны (fakeAsync, волны settle); аутентификации нет — бэкенд всегда
- * отвечает от имени сид-преподавателя.
+ * зоны (fakeAsync, волны settle).
  *
  * Проверки по then сценария:
  *  - нет массового импорта пользователей и восстановления удалённых групп;
@@ -51,6 +50,7 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
     studentsService = env.inject(StudentsService);
     submissionsService = env.inject(SubmissionsService);
     ik221 = env.backend.groupIdByName('ИК-221');
+    env.serverSession('teacher');
   });
 
   afterEach(() => {
@@ -90,8 +90,8 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
     fixture.destroy();
 
     // /my-submissions: только чтение — update не вызывается, редактирующих
-    // контролов нет (клики по ячейкам ничего не открывают); в консоли
-    // преподавателя экран показывает состояние «без группы».
+    // контролов нет (клики по ячейкам ничего не открывают).
+    env.loginAs('student01');
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2);
     const updateSpy = spyOn(submissionsService, 'update').and.callThrough();
@@ -105,6 +105,7 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
     fixture.destroy();
 
     // /access: включение student31 — БЕЗ success-уведомлений (аменда 6).
+    env.loginAs('teacher');
     fixture = env.mount(AccessPage);
     env.settle(fixture, 2);
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();

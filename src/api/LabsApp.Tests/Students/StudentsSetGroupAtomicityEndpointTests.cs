@@ -118,6 +118,10 @@ public sealed class GatedUserRepository(InMemoryUserRepository inner) : IUserRep
     public async Task UpdateAsync(User user) => await inner.UpdateAsync(user);
 
     /// <inheritdoc/>
+    public async Task<bool> SetPasswordAsync(Guid userId, string passwordHash) =>
+        await inner.SetPasswordAsync(userId, passwordHash);
+
+    /// <inheritdoc/>
     public async Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email) =>
         await inner.UpdateProfileAsync(userId, fullName, email);
 

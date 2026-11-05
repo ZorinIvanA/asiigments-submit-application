@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-148 (P0, negative; FR-020) «Студенты: несуществующая группа в назначении —
 /// 404 'Группа не найдена'».
-/// given: student31 существует; groupId — случайный uuid; анонимный доступ (текущий пользователь — сид-преподаватель).
+/// given: student31 существует; groupId — случайный uuid; сессия teacher.
 /// when:  PUT /students/{id31}/group {groupId:&lt;uuid&gt;}
 /// then:  404 'Группа не найдена'.
 /// </summary>
@@ -18,9 +18,9 @@ public sealed class Ts148_StudentPutGroupUnknownGroupTests : IClassFixture<B05We
     [Fact]
     public async Task PutUnknownGroupForStudent_Returns404GroupNotFound()
     {
-        // given: student31 существует; группы с указанным uuid нет; анонимный запрос (текущий пользователь — сид-преподаватель).
+        // given: student31 существует; группы с указанным uuid нет; teacher авторизован.
         var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: назначение student31 в несуществующую группу.
         using var put = await client.PutAsJsonAsync(

@@ -11,7 +11,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-119 «submissions: upsert обновляет и сбрасывает даты» (happy_path, FR-021).
 ///
 /// given: запись с submitDate='2026-09-01', defenseDate='2026-09-11' (сид-сдача
-///        student01 по работе семестра 1 №1); анонимный доступ (текущий пользователь — сид-преподаватель).
+///        student01 по работе семестра 1 №1); сессия teacher.
 /// when:  PUT /api/v1/submissions {studentId, labId, submitDate:null,
 ///        defenseDate:null}
 /// then:  200; обе даты null (сброс); updatedAt обновлён; id записи прежний
@@ -40,7 +40,7 @@ public sealed class Ts119_SubmissionsUpsertResetDatesTests : IClassFixture<B05We
         Assert.Equal(new DateOnly(2026, 9, 1), seeded.SubmitDate);
         Assert.Equal(new DateOnly(2026, 9, 11), seeded.DefenseDate);
 
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // Снимок времени того же TimeProvider, что использует приложение,
         // непосредственно перед PUT (CR-002: без привязки к абсолютной метке сида

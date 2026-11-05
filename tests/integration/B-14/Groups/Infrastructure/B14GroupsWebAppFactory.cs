@@ -6,9 +6,10 @@ namespace LabsApp.IntegrationTests.B14.Groups.Infrastructure;
 
 /// <summary>
 /// Тестовый хост сценариев групп батча B-14 (зона tests/integration/B-14/Groups).
-/// Окружение — Development; Seed__DemoData задаётся ЯВНО производной фикстурой.
-/// Аутентификации в приложении нет — Auth__*-секреты и пароль сид-учётки
-/// (Seed__TeacherPassword) упразднены.
+/// Окружение — Development; секреты Auth__JwtKey/Seed__TeacherPassword
+/// зафиксированы, Auth__Pbkdf2Iterations=1000 — тестовое умолчание спеки
+/// (FR-027: малые итерации KDF в тестовом хосте); Seed__DemoData задаётся ЯВНО
+/// производной фикстурой.
 ///
 /// Данные given кейсов — демо-сид спеки (Seed__DemoData=true воспроизводит
 /// src/client/app/mock/seed.ts: группы ИК-221 (25 студентов), ИК-222 (5),
@@ -29,6 +30,12 @@ namespace LabsApp.IntegrationTests.B14.Groups.Infrastructure;
 /// </summary>
 public class B14GroupsWebAppFactory : WebApplicationFactory<Program>
 {
+    /// <summary>Ключ подписи JWT тестового хоста (FR-008: ≥32 символа).</summary>
+    public const string TestJwtKey = "b14-groups-integration-test-jwt-signing-key-0123456789abcdef";
+
+    /// <summary>Пароль сид-преподавателя фикстуры (значение непусто для хэширования сида).</summary>
+    public const string TestTeacherPassword = "b14-groups-teacher-password1!";
+
     /// <summary>Демо-набор включён (true: ИК-221/222/223 + student01..32) или пустое хранилище.</summary>
     protected virtual bool SeedDemoData => false;
 
@@ -54,6 +61,9 @@ public class B14GroupsWebAppFactory : WebApplicationFactory<Program>
         // фабрики попадают в аргументы точки входа до запуска Program, поэтому
         // ключи передаются с разделителем ':' ('__'-иерархию создаёт только
         // провайдер переменных окружения).
+        builder.UseSetting("Auth:JwtKey", TestJwtKey);
+        builder.UseSetting("Auth:Pbkdf2Iterations", "1000");
+        builder.UseSetting("Seed:TeacherPassword", TestTeacherPassword);
         builder.UseSetting("Seed:DemoData", SeedDemoData ? "true" : "false");
     }
 }

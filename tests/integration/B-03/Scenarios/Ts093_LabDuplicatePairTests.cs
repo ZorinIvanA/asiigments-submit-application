@@ -4,7 +4,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 
 /// <summary>
 /// TS-093 «labs: дубликат пары (semester, number) — 409» (FR-017 AC «Дубликат
-/// пары»; P0): given — пара (1,1) существует (DI-сид); клиент анонимный; when —
+/// пары»; P0): given — пара (1,1) существует (DI-сид); сессия teacher; when —
 /// POST /labs {number:1, semester:1, content:'X', assignmentUrl:null,
 /// defenseRequired:false}; then — 409 'Лабораторная с таким номером уже есть
 /// в семестре'.
@@ -29,8 +29,8 @@ public sealed class Ts093_LabDuplicatePairTests : IClassFixture<B03HostFactory>,
     [Fact]
     public async Task CreateLab_DuplicatePair_ReturnsConflict()
     {
-        // given: анонимный клиент (аутентификации нет).
-        var client = B03LabsApi.CreateClient(_factory);
+        // given: сессия teacher.
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: POST с существующей парой (1,1).
         using var response = await B03LabInputApi.PostAsync(

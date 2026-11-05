@@ -12,7 +12,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// (happy_path, FR-021).
 ///
 /// given: пары (student05, работа семестра 1 №1) нет (проверено по шву
-///        хранилища); анонимный доступ (uuid сид-преподавателя известен).
+///        хранилища); сессия teacher (uuid преподавателя известен).
 /// when:  PUT /api/v1/submissions {studentId:&lt;student05&gt;, labId:&lt;работа&gt;,
 ///        submitDate:'2026-09-20', defenseDate:null}
 /// then:  200 Submission {id≠null, studentId, labId, submitDate:'2026-09-20',
@@ -40,7 +40,7 @@ public sealed class Ts118_SubmissionsUpsertCreateTests : IClassFixture<B05WebApp
         Assert.Null( await submissions.GetByStudentAndLabAsync(student05.Id, lab.Id) );
 
         var teacher = await B05SeedLookup.TeacherAsync(_factory);
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: PUT /submissions с датой сдачи '2026-09-20' (защита null).
         using var response = await client.PutAsync(

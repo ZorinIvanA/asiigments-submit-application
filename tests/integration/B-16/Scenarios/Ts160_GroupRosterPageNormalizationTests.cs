@@ -27,7 +27,7 @@ public sealed class Ts160_GroupRosterPageNormalizationTests : IClassFixture<B16G
     public async Task GetRosterWithPage0_NormalizesToPage1()
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=0.
@@ -45,7 +45,7 @@ public sealed class Ts160_GroupRosterPageNormalizationTests : IClassFixture<B16G
     public async Task GetRosterWithNonNumericPage_NormalizesToPage1()
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=abc.
@@ -63,7 +63,7 @@ public sealed class Ts160_GroupRosterPageNormalizationTests : IClassFixture<B16G
     public async Task GetRosterWithPageBeyondLast_ReturnsEmptyItemsWithCorrectTotal()
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B16GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=99.

@@ -1,22 +1,26 @@
 /**
- * Юнит-тесты ProfileService (C-014, IF-013) — все вызовы через
+ * Юнит-тесты ProfileService (C-014, IF-013, FR-091) — все вызовы через
  * HttpTestingController (конвенция URL — ADR-014: ожидаемые URL строятся из
  * TestBed.inject(API_BASE_URL), литералы префикса запрещены).
- * Производственная цепочка — реальный HttpClient (без интерцептора:
- * приложение анонимно, от имени сид-преподавателя):
+ * Производственная цепочка — реальный authInterceptor (нормализация отказов
+ * в ApiError, withCredentials):
  *  - get() → GET /me/profile → ProfileDto;
  *  - update() → PUT /me/profile {fullName, email} → обновлённый ProfileDto;
- *  - отказы 400 {message, errors} / 409 {message} — реджект ApiError той же
- *    формы (баннеры body.message и полевые errors работают без изменений).
+ *  - changePassword() → PUT /me/password {currentPassword, password,
+ *    confirmPassword} → 204, void;
+ *  - возвращаемые типы идентичны прежним; отказы 400 {message, errors} /
+ *    409 {message} — реджект ApiError той же формы (баннеры body.message и
+ *    полевые errors работают без изменений).
  */
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
+import { authInterceptor } from '../auth-interceptor';
 import { API_BASE_URL } from '../api-base-url';
 import { ProfileDto } from '../../shared/models';
-import { ProfileService, ProfileUpdateInput } from './profile.service';
+import { ProfileChangePasswordInput, ProfileService, ProfileUpdateInput } from './profile.service';
 
 const STUDENT_PROFILE: ProfileDto = {
   login: 'student01',
@@ -26,7 +30,7 @@ const STUDENT_PROFILE: ProfileDto = {
   groupName: 'ИК-221',
 };
 
-describe('ProfileService — профиль поверх HttpClient (IF-013)', () => {
+describe('ProfileService — профиль поверх HttpClient (IF-013, FR-091)', () => {
   let httpMock: HttpTestingController;
   let apiBase: string;
   let service: ProfileService;
@@ -34,7 +38,7 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
       ],
@@ -55,6 +59,9 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
     const request = httpMock.expectOne(`${apiBase}/me/profile`);
     expect(request.request.method).toBe('GET');
     expect(request.request.body).withContext('у GET тела нет').toBeNull();
+    expect(request.request.withCredentials)
+      .withContext('cookie-аутентификация — withCredentials (FR-091)')
+      .toBeTrue();
     request.flush(STUDENT_PROFILE);
 
     await expectAsync(pending).toBeResolvedTo(STUDENT_PROFILE);
@@ -79,6 +86,22 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
     await expectAsync(pending).toBeResolvedTo(updated);
   });
 
+  it('changePassword(): PUT /me/password с телом {currentPassword, password, confirmPassword} → void (204)', async () => {
+    const input: ProfileChangePasswordInput = {
+      currentPassword: 'Student#2026',
+      password: 'NewPass#2027',
+      confirmPassword: 'NewPass#2027',
+    };
+    const pending = service.changePassword(input);
+
+    const request = httpMock.expectOne(`${apiBase}/me/password`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(input);
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    await expectAsync(pending).toBeResolved();
+  });
+
   it('отказ 409 {message} → реджект ApiError {status: 409, body: {message}} (AC)', async () => {
     const pending = service.update({ fullName: 'Иванов Иван Иванович 01', email: 'TEACHER@example.com' });
     httpMock.expectOne(`${apiBase}/me/profile`).flush(
@@ -92,13 +115,35 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
     });
   });
 
+  it('отказ 400 «Неверный текущий пароль» (без errors) → ApiError с дословным message', async () => {
+    const pending = service.changePassword({
+      currentPassword: 'не-текущий',
+      password: 'NewPass#2027',
+      confirmPassword: 'NewPass#2027',
+    });
+    httpMock.expectOne(`${apiBase}/me/password`).flush(
+      { message: 'Неверный текущий пароль' },
+      { status: 400, statusText: 'Bad Request' },
+    );
+
+    await expectAsync(pending).toBeRejectedWith({
+      status: 400,
+      body: { message: 'Неверный текущий пароль' },
+    });
+  });
+
   it('отказ 400 «Данные заполнены неверно» с errors → ApiError переносит errors по полям', async () => {
-    const pending = service.update({ fullName: 'Иванов Иван Иванович 01', email: 'битовый' });
-    httpMock.expectOne(`${apiBase}/me/profile`).flush(
+    const pending = service.changePassword({
+      currentPassword: 'Student#2026',
+      password: 'abcdefgh',
+      confirmPassword: 'другой',
+    });
+    httpMock.expectOne(`${apiBase}/me/password`).flush(
       {
         message: 'Данные заполнены неверно',
         errors: {
-          email: ['Введите корректный email'],
+          password: ['Пароль должен содержать хотя бы одну цифру'],
+          confirmPassword: ['Пароли не совпадают'],
         },
       },
       { status: 400, statusText: 'Bad Request' },
@@ -109,7 +154,8 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
       body: {
         message: 'Данные заполнены неверно',
         errors: {
-          email: ['Введите корректный email'],
+          password: ['Пароль должен содержать хотя бы одну цифру'],
+          confirmPassword: ['Пароли не совпадают'],
         },
       },
     });

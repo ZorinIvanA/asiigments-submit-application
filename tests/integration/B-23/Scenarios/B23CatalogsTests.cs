@@ -7,47 +7,59 @@ using LabsApp.IntegrationTests.B23.Infrastructure;
 namespace LabsApp.IntegrationTests.B23.Scenarios;
 
 /// <summary>
-/// Справочники и анонимный доступ «текущего пользователя» против реального
-/// PostgreSQL: /me/profile от засеянного преподавателя (SQL-сид teacher),
-/// /me/submissions без группы, перечень групп с вычисляемым studentCount,
+/// Аутентификация и справочники против реального PostgreSQL: вход по SQL-сиду
+/// (хэши из 03_seed_demo.sql), перечень групп с вычисляемым studentCount,
 /// CRUD групп/работ с уникальными именами (идемпотентность зоны).
-/// Аутентификации в приложении нет (POST /api/v1/auth/* удалён) — клиенты
-/// анонимные.
 /// </summary>
 public sealed class B23CatalogsTests
 {
+    private static string JsonOf(HttpResponseMessage response) =>
+        response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+
     [Fact]
-    public async Task MeProfile_Anonymous_ReturnsSeededTeacherFromSqlSeed()
+    public async Task Login_TeacherFromSqlSeed_ReturnsTeacherMe()
     {
         using var factory = new B23WebAppFactory();
-        using var client = factory.CreateClient();
+        var client = factory.CreateCookieClient();
 
-        var profile = await client.GetFromJsonAsync<JsonElement>("/api/v1/me/profile");
+        var me = await B23Http.LoginAsync(client, B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
 
-        Assert.Equal("teacher", profile.GetProperty("login").GetString());
-        Assert.Equal("teacher", profile.GetProperty("role").GetString());
-        Assert.Null(profile.TryGetProperty("groupName", out var group) ? group.GetString() : null);
+        Assert.Equal("teacher", me.GetProperty("login").GetString());
+        Assert.Equal("teacher", me.GetProperty("role").GetString());
+        Assert.Null(me.TryGetProperty("groupName", out var group) ? group.GetString() : null);
     }
 
     [Fact]
-    public async Task MeSubmissions_Anonymous_ReturnsEmptyShape()
+    public async Task Login_StudentFromSqlSeed_ReturnsStudentWithSeedGroup()
     {
         using var factory = new B23WebAppFactory();
-        using var client = factory.CreateClient();
+        var client = factory.CreateCookieClient();
 
-        var mine = await client.GetFromJsonAsync<JsonElement>("/api/v1/me/submissions?semester=1");
+        var me = await B23Http.LoginAsync(client, B23WebAppFactory.StudentLogin, B23WebAppFactory.StudentPassword);
 
-        // Анонимный контракт /me/submissions: без группы, без сдач.
-        Assert.False(mine.GetProperty("hasGroup").GetBoolean());
-        Assert.Equal(0, mine.GetProperty("labs").GetArrayLength());
-        Assert.Equal(0, mine.GetProperty("submissions").GetArrayLength());
+        Assert.Equal("student", me.GetProperty("role").GetString());
+        Assert.Equal("ИК-221", me.GetProperty("groupName").GetString());
+    }
+
+    [Fact]
+    public async Task Login_WrongPassword_Returns401()
+    {
+        using var factory = new B23WebAppFactory();
+        var client = factory.CreateCookieClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/auth/login",
+            new { login = B23WebAppFactory.TeacherLogin, password = "wrong-password!" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
     public async Task Groups_List_SeedCountsComputed()
     {
         using var factory = new B23WebAppFactory();
-        using var client = factory.CreateClient();
+        using var client = await factory.LoginClientAsync(
+            B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
 
         var groups = await client.GetFromJsonAsync<JsonElement[]>("/api/v1/groups")
             ?? throw new InvalidOperationException("Перечень групп недоступен.");
@@ -62,7 +74,8 @@ public sealed class B23CatalogsTests
     public async Task Group_CreateRenameDelete_Lifecycle()
     {
         using var factory = new B23WebAppFactory();
-        using var client = factory.CreateClient();
+        using var client = await factory.LoginClientAsync(
+            B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
 
         var name = $"Группа-B23-{Guid.NewGuid():N}";
         var renamed = $"{name}-renamed";
@@ -99,7 +112,8 @@ public sealed class B23CatalogsTests
     public async Task Group_Delete_DetachesItsStudents()
     {
         using var factory = new B23WebAppFactory();
-        using var client = factory.CreateClient();
+        using var client = await factory.LoginClientAsync(
+            B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
 
         // Группа + перевод в неё студента 32 (изначально без группы).
         var name = $"Группа-B23-detach-{Guid.NewGuid():N}";
@@ -133,7 +147,8 @@ public sealed class B23CatalogsTests
     public async Task Labs_CreateDuplicateConflictDelete_Lifecycle()
     {
         using var factory = new B23WebAppFactory();
-        using var client = factory.CreateClient();
+        using var client = await factory.LoginClientAsync(
+            B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
 
         // Пара вне сида (семестр 9): создание → 201, дубль пары → 409, удаление → 204.
         var body = $$"""
@@ -167,7 +182,8 @@ public sealed class B23CatalogsTests
     public async Task Labs_SemesterFilter_SeedTwentyLabsFirstSemester()
     {
         using var factory = new B23WebAppFactory();
-        using var client = factory.CreateClient();
+        using var client = await factory.LoginClientAsync(
+            B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
 
         var page = await client.GetFromJsonAsync<JsonElement>("/api/v1/labs?semester=1");
 
