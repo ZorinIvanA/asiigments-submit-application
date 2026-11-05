@@ -22,7 +22,7 @@ public static class ApiShapes
         payload.ValueKind == JsonValueKind.Array ? payload : payload.GetProperty("items");
 
     /// <summary>
-    /// Сдача «реальна»: есть хотя бы одна дата (инвариант хранилища FR-025/FR-022 —
+    /// Сдача «реальна»: есть хотя бы одна дата (инвариант хранилища FR-025 —
     /// обе null означают отсутствие записи; ведомость может отдавать и пустые пары).
     /// </summary>
     public static bool IsRealSubmission(JsonElement submission) =>

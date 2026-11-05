@@ -5,7 +5,8 @@ namespace LabsApp.IntegrationTests.B13.Scenarios;
 /// <summary>
 /// TS-162 (P1, boundary; FR-021/IF-001, v2.2 ASM-018) «GET /me/submissions:
 /// отсутствующий/нецелочисленный semester — строгий 400 с errors.semester».
-/// given: Студент в группе с работами и сдачами.
+/// given: Анонимный клиент (аутентификации нет; текущий пользователь —
+///        сид-преподаватель); в хранилище есть студент с работой и сдачей.
 /// when: GET /api/v1/me/submissions?semester=abc; отдельно без параметра semester.
 /// then: Оба → 400 «Данные заполнены неверно» c errors.semester «Семестр — число
 ///       от 1 до 10» (асимметрия ASM-018: /me/submissions — строгая валидация
@@ -18,10 +19,10 @@ public sealed class Ts162_MeSubmissionsBadSemesterTests(B13WebAppFactory factory
     [Fact]
     public async Task TS162_MeSubmissions_NonIntegerSemester_ReturnsEmptyLabsAndSubmissions()
     {
-        // given: студент в группе с работой и своей сдачей в семестре 1; сессия студента.
+        // given: анонимный клиент; в хранилище студент с работой и сдачей семестра 1.
         var login = "ts162-abc";
         await SeedStudentWithGroupWorkAndSubmissionAsync(login, semester: 1, number: 1);
-        using var client = await HostClients.CreateStudentClientAsync(_factory, login);
+        using var client = HostClients.Create(_factory);
 
         // when: GET /me/submissions?semester=abc.
         using var response = await client.GetAsync("/api/v1/me/submissions?semester=abc");
@@ -34,10 +35,10 @@ public sealed class Ts162_MeSubmissionsBadSemesterTests(B13WebAppFactory factory
     [Fact]
     public async Task TS162_MeSubmissions_MissingSemester_Returns400WithSemesterFieldError()
     {
-        // given: студент в группе с работой и своей сдачей в семестре 1; сессия студента.
+        // given: анонимный клиент; в хранилище студент с работой и сдачей семестра 1.
         var login = "ts162-missing";
         await SeedStudentWithGroupWorkAndSubmissionAsync(login, semester: 1, number: 2);
-        using var client = await HostClients.CreateStudentClientAsync(_factory, login);
+        using var client = HostClients.Create(_factory);
 
         // when: GET /me/submissions (без параметра semester).
         using var response = await client.GetAsync("/api/v1/me/submissions");

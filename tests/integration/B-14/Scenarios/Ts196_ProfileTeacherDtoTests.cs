@@ -3,14 +3,14 @@ using LabsApp.IntegrationTests.B14.Infrastructure;
 namespace LabsApp.IntegrationTests.B14.Scenarios;
 
 /// <summary>
-/// TS-196 «GET /me/profile преподавателя: ProfileDto с groupName=null»
+/// TS-196 «GET /me/profile: ProfileDto сид-преподавателя с groupName=null»
 /// (happy_path, FR-020, P1).
 ///
-/// given: сессия teacher — сид-учётка FR-004 (login/email/fullName известны из
-///        сида: Seed__TeacherLogin по умолчанию 'teacher', email 'teacher@example.com',
-///        ФИО сида 'Сидоров Семён Семёнович'; сидится всегда и идемпотентно,
-///        независимо от Seed__DemoData); GroupId=null (у teacher всегда null);
-///        access-cookie минтится харнесом с role='teacher' (ADR-022).
+/// given: анонимный клиент; текущий пользователь — сид-учётка FR-004
+///        (login/email/fullName известны из сида: Seed__TeacherLogin по умолчанию
+///        'teacher', email 'teacher@example.com', ФИО сида 'Сидоров Семён
+///        Семёнович'; сидится всегда и идемпотентно, независимо от Seed__DemoData);
+///        GroupId=null (у преподавателя всегда null).
 /// when:  GET /api/v1/me/profile.
 /// then:  200 ProfileDto {login, email, fullName, role:'teacher', groupName:null}.
 ///        FR-020: «ProfileDto … текущего пользователя (groupName вычисляется по
@@ -31,9 +31,10 @@ public sealed class Ts196_ProfileTeacherDtoTests : IClassFixture<B14WebAppFactor
     [Fact]
     public async Task ProfileOfSeedTeacher_ReturnsProfileDtoWithNullGroupName()
     {
-        // given: сид-преподаватель (role=teacher, GroupId=null); сессия teacher.
-        var teacher = await B14Harness.ResolveSeedTeacherAsync(_factory);
-        using var client = B14Harness.CreateSessionClient(_factory, teacher.Id, "teacher");
+        // given: текущий пользователь — сид-преподаватель (role=teacher, GroupId=null);
+        // анонимный клиент.
+        await B14Harness.ResolveSeedTeacherAsync(_factory);
+        using var client = B14Harness.Create(_factory);
 
         // when: GET /api/v1/me/profile.
         using var response = await client.GetAsync(B14Harness.ProfileEndpoint);

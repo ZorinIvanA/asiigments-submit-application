@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-112 (P0, happy_path; FR-020 AC «Исключение из группы») «Студенты:
 /// исключение из группы (groupId=null)».
-/// given: студент состоит в группе (student01 в ИК-221 демо-сида); сессия teacher.
+/// given: студент состоит в группе (student01 в ИК-221 демо-сида); анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  PUT /students/{id}/group {groupId:null}
 /// then:  204; groupId=null (студент виден в /students?groupId=none).
 /// </summary>
@@ -19,10 +19,10 @@ public sealed class Ts112_StudentExcludeGroupTests : IClassFixture<B05WebAppFact
     [Fact]
     public async Task PutGroupNull_RemovesStudentFromGroup()
     {
-        // given: student01 состоит в группе (ИК-221 демо-сида); teacher авторизован.
+        // given: student01 состоит в группе (ИК-221 демо-сида); анонимный запрос (текущий пользователь — сид-преподаватель).
         var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
         Assert.NotNull(student01.GroupId);
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: исключение из группы (groupId:null).
         using var put = await client.PutAsJsonAsync(

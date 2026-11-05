@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-146 «Ведомость: нечисловой semester — 400» (негативный, P1, FR-021).
 ///
-/// given: сессия teacher; groupId валиден (демо-группа ИК-221).
+/// given: анонимный клиент; groupId валиден (демо-группа ИК-221).
 /// when:  GET /api/v1/submissions?groupId=&lt;валидный&gt;&amp;semester=abc
 /// then:  400 'Данные заполнены неверно' с
 ///        errors.semester=['Семестр — число от 1 до 10']
@@ -21,8 +21,8 @@ public sealed class Ts146_SubmissionsGridNonNumericSemesterTests : IClassFixture
     [Fact]
     public async Task GetGridWithNonNumericSemester_Returns400WithSemesterError()
     {
-        // given: сессия teacher; валидный groupId демо-группы ИК-221.
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; валидный groupId демо-группы ИК-221.
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
         var groupId = (await B06SubmissionsSessions.RequireGroupAsync(_factory, "ИК-221")).Id.ToString();
 
         // when: GET /submissions?groupId=<валидный>&semester=abc.

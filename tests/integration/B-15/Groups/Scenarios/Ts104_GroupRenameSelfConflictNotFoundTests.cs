@@ -40,7 +40,7 @@ public sealed class Ts104_GroupRenameSelfConflictNotFoundTests : IClassFixture<B
     {
         // given: сессия teacher; G1 = существующая группа с именем 'ИК-221'
         // (демо-сид); 'ИК-222' — другая существующая группа.
-        using var client = B15GroupsSession.CreateTeacher(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
         var g1Id = await B15GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: PUT /groups/{G1.id} {name:'ик-221'} — собственное текущее имя

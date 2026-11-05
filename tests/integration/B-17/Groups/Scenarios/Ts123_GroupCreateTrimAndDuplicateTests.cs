@@ -23,7 +23,7 @@ public sealed class Ts123_GroupCreateTrimAndDuplicateTests : IClassFixture<B17Gr
     public async Task PostGroupTrimsName_ThenCiDuplicateReturns409()
     {
         // given: сессия teacher.
-        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B17GroupsSession.CreateClient(_factory);
 
         // when: POST /groups {name:'  ИК-224  '}.
         using var created = await B17GroupsApi.PostGroupAsync(client, "  ИК-224  ");

@@ -1,21 +1,15 @@
 /**
- * Страница «Профиль» (/profile) — C-116, макет SCR-014, FR-4.7/US-18, FR-4.10.
+ * Страница «Профиль» (/profile) — C-116, макет SCR-014, FR-4.7/US-18.
  *
- * Две независимые карточки-формы (AR-017), у каждой — свой якорь мобильных
- * уведомлений (IF-109):
- *  - «Основные данные»: логин (только чтение), роль по-русски, группа
- *    (только у студента), редактируемые Email и ФИО с подсказкой макета;
- *    «Сохранить» → ProfileService.update, успех «Сохранено»;
- *  - «Смена пароля»: блок «Требования к новому паролю», поля Текущий/Новый/
- *    Повторите пароль; «Сменить пароль» → ProfileService.changePassword,
- *    успех «Пароль изменён», поля формы сбрасываются (при отказе — нет).
+ * Одна карточка-форма «Основные данные» (логин (только чтение), роль
+ * по-русски, группа (если есть), редактируемые Email и ФИО с подсказкой
+ * макета; «Сохранить» → ProfileService.update, успех «Сохранено»). Карточка
+ * «Смена пароля» и PUT /me/password удалены вместе с аутентификацией.
  *
  * Клиентская валидация (IF-010): баннер «Данные заполнены неверно» +
- * тексты полей из словаря ERROR_TEXTS; ошибка одной формы не трогает
- * другую — уведомление уходит под якорь formId инициировавшей формы
- * ('profile-form' / 'password-form'), ошибки мока (409 «Пользователь
- * с таким email уже существует», 400 «Неверный текущий пароль») —
- * дословно под той же формой.
+ * тексты полей из словаря ERROR_TEXTS; якорь мобильных уведомлений формы —
+ * 'profile-form', ошибки бэкенда (409 «Пользователь с таким email уже
+ * существует») — дословно под той же формой.
  *
  * Мобильная вёрстка (<768px, FR-022) — миксин breakpoint: сетка полей
  * в одну колонку.
@@ -33,7 +27,6 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 
 import {
-  ProfileChangePasswordInput,
   ProfileService,
   ProfileUpdateInput,
 } from '../../../../core/services/profile.service';
@@ -42,13 +35,10 @@ import { submitting } from '../../../../shared/loading/submitting';
 import { ProfileDto } from '../../../../shared/models';
 import { NotificationAnchor } from '../../../../shared/notifications/notification-anchor';
 import { NotificationService } from '../../../../shared/notifications/notification-service';
-import { ERROR_TEXTS } from '../../../../shared/validation/error-texts';
 import {
   emailFormat,
   firstErrorText,
   fullName as fullNameRule,
-  passwordMatch,
-  passwordRules,
   requiredTrim,
   trimFormValues,
 } from '../../../../shared/validation/validators';
@@ -67,7 +57,7 @@ export class ProfilePage implements OnInit {
   private readonly profileService = inject(ProfileService);
   private readonly notifications = inject(NotificationService);
 
-  /** Профиль пользователя сессии; null — ещё загружается (profile.get). */
+  /** Профиль пользователя; null — ещё загружается (profile.get). */
   readonly profile = signal<ProfileDto | null>(null);
 
   /** true, пока идёт первичная загрузка профиля. */
@@ -78,15 +68,11 @@ export class ProfilePage implements OnInit {
     this.profile()?.role === 'teacher' ? 'Преподаватель' : 'Студент',
   );
 
-  /** Идентификаторы якорей уведомлений форм (IF-109/AR-017). */
+  /** Идентификатор якоря уведомлений формы (IF-109). */
   readonly profileFormId = 'profile-form';
-  readonly passwordFormId = 'password-form';
 
-  /** Тексты макета SCR-014 (дословно). */
+  /** Текст макета SCR-014 (дословно). */
   readonly fullNameHint = 'От 1 до 200 символов';
-  readonly passwordRequirementsTitle = 'Требования к новому паролю';
-  readonly passwordRequirements =
-    'не менее 8 символов; минимум одна цифра; минимум одна буква; минимум один спецзнак; пароли должны совпадать';
 
   /** Форма «Основные данные»: редактируются только email и fullName (§4.7). */
   readonly profileForm = new FormGroup({
@@ -97,21 +83,7 @@ export class ProfilePage implements OnInit {
     }),
   });
 
-  /** Форма «Смена пароля»: текущий обязателен (§4.7), новый — по FR-023. */
-  readonly passwordForm = new FormGroup(
-    {
-      currentPassword: new FormControl('', { nonNullable: true, validators: [requiredTrim()] }),
-      password: new FormControl('', {
-        nonNullable: true,
-        validators: [requiredTrim(), passwordRules()],
-      }),
-      confirmPassword: new FormControl('', { nonNullable: true, validators: [requiredTrim()] }),
-    },
-    { validators: passwordMatch('password', 'confirmPassword') },
-  );
-
   protected readonly saveProfileState = submitting();
-  protected readonly changePasswordState = submitting();
 
   async ngOnInit(): Promise<void> {
     try {
@@ -152,58 +124,12 @@ export class ProfilePage implements OnInit {
     });
   }
 
-  /**
-   * «Сменить пароль»: валидация → trimFormValues → changePassword →
-   * «Пароль изменён» и сброс полей. При отказе («Неверный текущий
-   * пароль» 400) поля формы не сбрасываются.
-   */
-  protected async changePassword(): Promise<void> {
-    if (this.passwordForm.invalid) {
-      this.passwordForm.markAllAsTouched();
-      this.notifications.notifyError(INVALID_FORM_MESSAGE, { formId: this.passwordFormId });
-      return;
-    }
-    trimFormValues(this.passwordForm);
-    const input: ProfileChangePasswordInput = this.passwordForm.getRawValue();
-    await this.changePasswordState.run(async () => {
-      try {
-        await this.profileService.changePassword(input);
-        this.passwordForm.reset();
-        this.notifications.notifySuccess('Пароль изменён');
-      } catch (error) {
-        this.notifications.notifyError(toApiError(error).body.message, {
-          formId: this.passwordFormId,
-        });
-      }
-    });
-  }
-
   protected emailError(): string | null {
     return this.fieldError(this.profileForm.controls.email);
   }
 
   protected fullNameError(): string | null {
     return this.fieldError(this.profileForm.controls.fullName);
-  }
-
-  protected currentPasswordError(): string | null {
-    return this.fieldError(this.passwordForm.controls.currentPassword);
-  }
-
-  protected newPasswordError(): string | null {
-    return this.fieldError(this.passwordForm.controls.password);
-  }
-
-  /** У повтора — своя ошибка либо групповая «Пароли не совпадают» (passwordMatch). */
-  protected repeatPasswordError(): string | null {
-    const own = this.fieldError(this.passwordForm.controls.confirmPassword);
-    if (own !== null) {
-      return own;
-    }
-    const mismatchVisible =
-      this.passwordForm.hasError('password.mismatch') &&
-      this.passwordForm.controls.confirmPassword.touched;
-    return mismatchVisible ? ERROR_TEXTS['password.mismatch'] : null;
   }
 
   /** Текст ошибки поля после взаимодействия (touched) — только словарь IF-010. */

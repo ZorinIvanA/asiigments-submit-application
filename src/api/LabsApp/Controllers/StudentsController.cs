@@ -4,7 +4,6 @@ using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
 using LabsApp.Infrastructure;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
 
@@ -13,11 +12,7 @@ namespace LabsApp.Controllers;
 /// <summary>
 /// Контроллер студентов (C-009, IF-011, FR-020): постраничный перечень с
 /// многословным одно-полевым поиском и фильтром группы, назначение/перевод/
-/// снятие группы. Доступ — только teacher (FR-022); порядок отказов фиксирован
-/// 401 → 403 → 400 → 404:
-///  - 401 отдаёт схема аутентификации (Challenge с телом «Не авторизован», ADR-003);
-///  - 403 — первая проверка внутри каждого действия (раньше валидации параметров,
-///    разбора тела и поиска записей) с телом конверта «Доступ запрещён»;
+/// снятие группы. Порядок отказов фиксирован 400 → 404:
 ///  - 400 — единственная полевая ветка перечня: search длиннее 200 символов после
 ///    трима → errors.search=['Поиск — не более 200 символов']; 400-ветки на
 ///    groupId НЕТ (IF-011);
@@ -38,7 +33,6 @@ namespace LabsApp.Controllers;
 /// выборке до нарезки страницы; page нормализуется <see cref="PageParam"/>.
 /// </summary>
 [ApiController]
-[Authorize]
 [Route("api/v1/students")]
 public sealed class StudentsController(IGroupRepository groups, IUserRepository users) : ControllerBase
 {
@@ -58,11 +52,6 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
         [FromQuery(Name = "groupId")] string? groupId,
         [FromQuery(Name = "page")] string? page)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         // Единственная полевая валидация (IF-011 SEARCH_TOO_LONG): длина ПОСЛЕ
         // трима; пустой/отсутствующий search валиден и фильтра не задаёт.
         if (FieldValidators.Search(search) is { Count: > 0 } searchErrors)
@@ -109,11 +98,6 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
     [HttpPut("{id}/group")]
     public async Task<IActionResult> SetGroup(string id, CancellationToken cancellationToken)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         // Сущность маршрута раньше тела (IF-001): id не существует ИЛИ роль ≠
         // student (включая uuid преподавателя) → единый 404 «Студент не найден».
         var userId = ParseUserId(id);
@@ -151,19 +135,6 @@ public sealed class StudentsController(IGroupRepository groups, IUserRepository 
     // ------------------------------------------------------------------
     // Роль и конверт отказов
     // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Проверка роли teacher (FR-022) — ПЕРВАЯ операция действия: 403 отдаётся
-    /// раньше валидации (400), разбора тела и поиска записи (404). null — доступ разрешён.
-    /// </summary>
-    private IActionResult? DenyIfNotTeacher() =>
-        User.IsInRole(UserRoles.Teacher)
-            ? null
-            : new ObjectResult(new ErrorEnvelope { Message = ValidationTexts.Forbidden })
-            {
-                StatusCode = StatusCodes.Status403Forbidden,
-                ContentTypes = { "application/json" },
-            };
 
     private static IActionResult StudentNotFound() =>
         new NotFoundObjectResult(new ErrorEnvelope { Message = ValidationTexts.StudentNotFound })

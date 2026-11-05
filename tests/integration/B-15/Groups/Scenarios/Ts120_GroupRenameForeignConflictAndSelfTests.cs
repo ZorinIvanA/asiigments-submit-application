@@ -31,7 +31,7 @@ public sealed class Ts120_GroupRenameForeignConflictAndSelfTests : IClassFixture
     public async Task PutGroup_NewNameRenames_ForeignNameConflicts_OwnNameCaseInsensitiveOk()
     {
         // given: сессия teacher; группы G1 ('А-1') и G2 ('Б-2') существуют.
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
         var g1Id = await CreateGroupAsync(client, "А-1");
         var g2Id = await CreateGroupAsync(client, "Б-2");
 

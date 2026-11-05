@@ -28,7 +28,7 @@ public sealed class Ts117_GroupListStudentCountRuSortTests : IClassFixture<B15Gr
     public async Task GetGroups_ReturnsThreeGroupsWithCountsInRuNameOrder()
     {
         // given: сессия teacher (демо-сид: ИК-221/25, ИК-222/5, ИК-223/0).
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
 
         // when: GET /api/v1/groups.
         using var response = await B15GroupsApi.GetGroupsAsync(client);

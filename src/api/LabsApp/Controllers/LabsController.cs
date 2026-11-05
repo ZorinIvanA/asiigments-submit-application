@@ -8,7 +8,6 @@ using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
@@ -19,11 +18,7 @@ namespace LabsApp.Controllers;
 /// Контроллер лабораторных работ (C-007, IF-009, FR-017): список с мягким
 /// фильтром semester (ASM-018), двухколоночной сортировкой и пагинацией,
 /// чтение одной записи, создание/правка/удаление с каскадом сдач.
-/// Доступ — только teacher (FR-022); порядок отказов фиксирован
-/// 401 → 403 → 400 → 404 → 409:
-///  - 401 отдаёт схема аутентификации (Challenge с телом «Не авторизован», ADR-003);
-///  - 403 — первая проверка внутри каждого действия (раньше разбора тела,
-///    валидации и поиска записи) с телом конверта «Доступ запрещён»;
+/// Порядок отказов фиксирован 400 → 404 → 409:
 ///  - тело запроса разбирается вручную (без [FromBody]): синтаксически
 ///    некорректный JSON → 400 «Данные заполнены неверно» без errors (IF-001),
 ///    полевая валидация возвращает ВСЕ ошибки сразу (errors {number, semester,
@@ -36,7 +31,6 @@ namespace LabsApp.Controllers;
 ///    (IF-015); при update собственная запись конфликтом не считается.
 /// </summary>
 [ApiController]
-[Authorize]
 [Route("api/v1/labs")]
 public sealed class LabsController(ILabRepository labs, TimeProvider timeProvider, IOptions<LabsOptions> labsOptions) : ControllerBase
 {
@@ -70,11 +64,6 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
         [FromQuery(Name = "sortField")] string? sortField,
         [FromQuery(Name = "sortDir")] string? sortDir)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         // Мягкая нормализация semester (FR-017/ASM-018): параметр отсутствует или
         // не парсится в целое (нечисловое, дробное) → фильтр НЕ применяется;
         // целое (в том числе вне 1..MaxSemester) → фильтр точного равенства,
@@ -131,11 +120,6 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         return await _labs.GetByIdAsync(ParseLabId(id)) is { } lab ? Ok(ToDto(lab)) : LabNotFound();
     }
 
@@ -143,11 +127,6 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
     [HttpPost]
     public async Task<IActionResult> Create(CancellationToken cancellationToken)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         using var document = await TryParseJsonBodyAsync(cancellationToken);
         if (document is null)
         {
@@ -190,11 +169,6 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, CancellationToken cancellationToken)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         // Порядок 400 → 404 → 409: валидация тела раньше поиска записи,
         // поиск раньше проверки уникальности пары.
         using var document = await TryParseJsonBodyAsync(cancellationToken);
@@ -245,11 +219,6 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        if (DenyIfNotTeacher() is { } denial)
-        {
-            return denial;
-        }
-
         var labId = ParseLabId(id);
         if (await _labs.GetByIdAsync(labId) is null)
         {
@@ -264,19 +233,6 @@ public sealed class LabsController(ILabRepository labs, TimeProvider timeProvide
     // ------------------------------------------------------------------
     // Роль и конверт отказов
     // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Проверка роли teacher (FR-022) — ПЕРВАЯ операция действия: 403 отдаётся
-    /// раньше валидации тела (400) и поиска записи (404). null — доступ разрешён.
-    /// </summary>
-    private IActionResult? DenyIfNotTeacher() =>
-        User.IsInRole(UserRoles.Teacher)
-            ? null
-            : new ObjectResult(new ErrorEnvelope { Message = ValidationTexts.Forbidden })
-            {
-                StatusCode = StatusCodes.Status403Forbidden,
-                ContentTypes = { "application/json" },
-            };
 
     private static IActionResult LabNotFound() =>
         new NotFoundObjectResult(new ErrorEnvelope { Message = ValidationTexts.LabNotFound })

@@ -35,10 +35,10 @@ public sealed class Ts160_SubmissionCalendarIncorrectDateTests : IClassFixture<B
     [Fact]
     public async Task PutSubmissionWithFebruary30_Returns400WithDateError()
     {
-        // given: teacher-сессия; пара student05×1.4 свободна (валидные studentId/labId).
+        // given: анонимный клиент; пара student05×1.4 свободна (валидные studentId/labId).
         Assert.Null(await _factory.Services.GetRequiredService<ISubmissionRepository>()
             .GetByStudentAndLabAsync(_studentId, _labId));
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: PUT /submissions с несуществующей календарной датой '2026-02-30'.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

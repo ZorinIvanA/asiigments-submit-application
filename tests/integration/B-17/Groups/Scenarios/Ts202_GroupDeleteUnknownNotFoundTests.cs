@@ -21,7 +21,7 @@ public sealed class Ts202_GroupDeleteUnknownNotFoundTests : IClassFixture<B17Gro
     public async Task DeleteUnknownGroup_Returns404()
     {
         // given: сессия teacher; произвольный uuid несуществующей группы.
-        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B17GroupsSession.CreateClient(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: DELETE /groups/<uuid>.

@@ -25,7 +25,7 @@ VALUES (
     '00000000-0000-0000-0000-000000000101',
     'teacher',
     'teacher@example.com',
-    'pbkdf2-sha256$210000$bT7JSBHmICLxTfULoOKy3Q==$bEVPkzxnLoNg/DyjNf8iHgBdG2zx4N9/Vg8GYRW1CWA=',
+    '!',
     'Сидоров Семён Семёнович',
     'teacher',
     NULL,
@@ -40,14 +40,14 @@ VALUES
     ('00000000-0000-0000-0000-000000000203', 'ИК-223', '2026-09-01T08:00:00Z')
 ON CONFLICT DO NOTHING;
 
--- Студенты student01..student32, пароль student123!:
+-- Студенты student01..student32:
 -- 01–25 → ИК-221, 26–30 → ИК-222, 31–32 — без группы.
 INSERT INTO users (id, login, email, password_hash, full_name, role, group_id, created_at)
 SELECT
     ('00000000-0000-0000-0000-00000000' || lpad(nn::text, 4, '0'))::uuid,
     'student' || lpad(nn::text, 2, '0'),
     'student' || lpad(nn::text, 2, '0') || '@example.com',
-    'pbkdf2-sha256$210000$9bmIv+UWplSZVxlvUh4x1g==$7OQI6KQXg62LgyTm8wWoCOd5OB7NheAnf1uOhLikHoQ=',
+    '!',
     'Иванов Иван Иванович ' || lpad(nn::text, 2, '0'),
     'student',
     CASE

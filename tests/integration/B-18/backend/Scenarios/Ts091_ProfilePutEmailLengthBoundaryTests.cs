@@ -1,4 +1,3 @@
-using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B18Profile.Infrastructure;
 
@@ -7,7 +6,8 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 /// <summary>
 /// TS-091 «Профиль: границы длины email 254/255» (boundary, FR-015, P2).
 ///
-/// given: пользователь авторизован; fullName валиден.
+/// given: текущий пользователь приложения — засеянный преподаватель; клиент
+///        анонимный (аутентификации в приложении нет); fullName валиден.
 /// when:  PUT с email длиной ровно 254 (валидный формат); затем с email длиной 255.
 /// then:  первый — 200; второй — 400, errors.email=['Email — не более 254 символов']
 ///        (доменная модель User.email: 1–254 после трима; текст словаря email.length).
@@ -17,8 +17,6 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 [Collection(B18ProfileSerialCollection.Name)]
 public sealed class Ts091_ProfilePutEmailLengthBoundaryTests : IClassFixture<B18ProfileWebAppFactory>
 {
-    private const string Login = "ts091";
-    private const string Email = "ts091@x.ru";
     private const string ValidFullName = "Студент ТС-091";
 
     private readonly B18ProfileWebAppFactory _factory;
@@ -28,16 +26,9 @@ public sealed class Ts091_ProfilePutEmailLengthBoundaryTests : IClassFixture<B18
     [Fact]
     public async Task PutProfile_Email254Accepted_Email255RejectedWithLengthError()
     {
-        // given: пользователь авторизован; fullName валиден.
-        var user = B18ProfileHarness.SeedUser(
-            _factory,
-            login: Login,
-            email: Email,
-            fullName: ValidFullName,
-            role: UserRoles.Student,
-            groupId: null,
-            password: B18ProfileHarness.TestUserPassword);
-        using var client = B18ProfileHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий пользователь — засеянный преподаватель; клиент анонимный.
+        _ = await B18ProfileHarness.CurrentUserAsync(_factory);
+        using var client = B18ProfileHarness.Create(_factory);
 
         // email валидного формата: локальная часть из «a» + «@example.com».
         var email254 = new string('a', 242) + "@example.com";

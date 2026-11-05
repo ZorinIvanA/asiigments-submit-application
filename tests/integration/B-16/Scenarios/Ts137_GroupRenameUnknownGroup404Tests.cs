@@ -23,7 +23,7 @@ public sealed class Ts137_GroupRenameUnknownGroup404Tests : IClassFixture<B16Gro
     public async Task PutGroupOfUnknownId_Returns404WithExactMessage()
     {
         // given: сессия teacher; случайный uuid.
-        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B16GroupsSession.CreateClient(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: PUT /groups/<uuid> {name:'X'}.

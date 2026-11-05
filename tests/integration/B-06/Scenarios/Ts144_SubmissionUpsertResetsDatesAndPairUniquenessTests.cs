@@ -52,7 +52,7 @@ public sealed class Ts144_SubmissionUpsertResetsDatesAndPairUniquenessTests :
         var previousUpdatedAt = given.UpdatedAt;
         var givenId = given.Id;
 
-        var (client, _) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
+        var (client, _) = await B06SubmissionsSessions.CreateTeacherClientAsync(_factory);
         using var _client = client;
 
         // when: PUT /submissions {та же пара, submitDate:null, defenseDate:null}.

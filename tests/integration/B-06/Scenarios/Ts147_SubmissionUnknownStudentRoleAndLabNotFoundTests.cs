@@ -34,8 +34,8 @@ public sealed class Ts147_SubmissionUnknownStudentRoleAndLabNotFoundTests :
     [Fact]
     public async Task PutSubmissionWithTeacherUuidAsStudent_Returns404StudentNotFound()
     {
-        // given: teacher-сессия; uuid преподавателя известен тесту; даты валидны (null).
-        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
+        // given: анонимный клиент; uuid преподавателя известен тесту; даты валидны (null).
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherClientAsync(_factory);
         using var _client = client;
         Assert.Equal(UserRoles.Teacher, (await B06SubmissionsSessions.RequireUserAsync(_factory, "teacher")).Role);
 
@@ -56,8 +56,8 @@ public sealed class Ts147_SubmissionUnknownStudentRoleAndLabNotFoundTests :
     [Fact]
     public async Task PutSubmissionWithUnknownLab_Returns404LabNotFound()
     {
-        // given: teacher-сессия; studentId валиден; labId не существует; даты валидны (null).
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; studentId валиден; labId не существует; даты валидны (null).
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: PUT /submissions {валидный studentId, несуществующий labId, null, null}.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

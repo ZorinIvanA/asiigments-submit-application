@@ -17,7 +17,7 @@ public sealed class Ts010_MissingIndexHtmlTests
     public async Task GetWorksWithoutWwwroot_ReturnsNotFoundEnvelopeNotServerError()
     {
         // given: стенд с отсутствующим каталогом wwwroot (content root — пустой
-        // временный каталог; конфигурация Development валидна без секретов).
+        // временный каталог; конфигурация Development валидна без доп. настроек).
         using var factory = new NoWwwrootWebAppFactory();
         using var client = HostClients.Create(factory);
 

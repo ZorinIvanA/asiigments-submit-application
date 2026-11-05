@@ -1,24 +1,19 @@
-using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B17.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B17.Scenarios;
 
 /// <summary>
-/// TS-096 «Профиль: PUT некорректный формат email — 400» (negative, FR-015,
-/// P1).
+/// TS-096 «Профиль: PUT некорректный формат email — 400» (negative, FR-015, P1).
 ///
-/// given: пользователь авторизован (сессия — минтованный access-cookie,
-///        ADR-015); fullName валиден.
+/// given: текущий пользователь приложения — засеянный преподаватель; клиент
+///        анонимный (аутентификации в приложении нет); fullName валиден.
 /// when:  PUT /me/profile {fullName:'Ф', email:'abc'}.
 /// then:  400 'Данные заполнены неверно', errors.email=['Введите корректный
 ///        email'] (валидация email как во FR-006).
 /// </summary>
 public sealed class Ts096_ProfilePutInvalidEmailFormatTests : IClassFixture<B17WebAppFactory>
 {
-    private const string Login = "ts096";
-    private const string Email = "ts096@x.ru";
-
     private readonly B17WebAppFactory _factory;
 
     public Ts096_ProfilePutInvalidEmailFormatTests(B17WebAppFactory factory) => _factory = factory;
@@ -26,16 +21,9 @@ public sealed class Ts096_ProfilePutInvalidEmailFormatTests : IClassFixture<B17W
     [Fact]
     public async Task PutProfile_WithMalformedEmail_Returns400WithFormatError()
     {
-        // given: пользователь авторизован.
-        var user = B17ProfileHost.SeedUser(
-            _factory,
-            login: Login,
-            email: Email,
-            fullName: "Студент ТС-096",
-            role: UserRoles.Student,
-            groupId: null,
-            password: B17ProfileHost.TestUserPassword);
-        using var client = B17ProfileHost.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий пользователь — засеянный преподаватель; клиент анонимный.
+        _ = await B17ProfileHost.CurrentUserAsync(_factory);
+        using var client = B17ProfileHost.Create(_factory);
 
         // when: PUT {fullName:'Ф', email:'abc'} — fullName валиден, email нет.
         using var response = await client.PutAsJsonAsync(B17ProfileHost.ProfileEndpoint, new

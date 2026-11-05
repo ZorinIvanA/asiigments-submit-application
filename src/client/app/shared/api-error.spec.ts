@@ -15,7 +15,7 @@ function apiError(status: number, message: string, errors?: Record<string, strin
 describe('shared/api-error — isApiError/toApiError (IF-001)', () => {
   describe('isApiError', () => {
     it('распознаёт транспортную форму ошибки с message', () => {
-      expect(isApiError(apiError(401, 'Неверный логин или пароль'))).toBeTrue();
+      expect(isApiError(apiError(500, 'Ошибка сервера'))).toBeTrue();
     });
 
     it('распознаёт форму с errors по полям', () => {
@@ -25,7 +25,7 @@ describe('shared/api-error — isApiError/toApiError (IF-001)', () => {
     });
 
     it('распознаёт все статусы набора IF-001', () => {
-      for (const status of [400, 401, 403, 404, 409, 429]) {
+      for (const status of [400, 403, 404, 409, 500]) {
         expect(isApiError(apiError(status, `Отказ ${status}`))).withContext(`статус ${status}`).toBeTrue();
       }
     });

@@ -8,14 +8,12 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-114 (P0, happy_path; FR-021 AC «Ведомость первой страницы») «Ведомость:
 /// первая страница — полная форма ответа (ru-порядок, дискриминирующие ФИО)».
-/// given: ИК-221 (25 сид-студентов); включённые сессией teacher два студента с ФИО,
-///        дающими РАЗНЫЙ порядок при ru-культуре и ординальном сравнении —
-///        'Авроров Иван' (login avrorov) и 'Ёлкин Пётр' (login elkin), созданы
-///        POST /auth/register (пароль 'Passw0rd!') и PUT /students/{id}/group
-///        {groupId:ИК-221}; итого 27 студентов (регистрационный лимит не исчерпан:
-///        2 запроса при лимите 5/час — счётчики лимитера в памяти свежего экземпляра
-///        приложения класса); семестр 1 — 20 работ; 4 сид-сдачи у student01/02;
-///        у новых студентов сдач нет; сессия teacher.
+/// given: ИК-221 (25 сид-студентов); два DI-сид-студента с ФИО, дающими РАЗНЫЙ
+///        порядок при ru-культуре и ординальном сравнении — 'Авроров Иван'
+///        (login avrorov) и 'Ёлкин Пётр' (login elkin), включены в ИК-221 через
+///        PUT /students/{id}/group {groupId:ИК-221}; итого 27 студентов;
+///        семестр 1 — 20 работ; 4 сид-сдачи у student01/02; у новых студентов
+///        сдач нет; анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  GET /api/v1/submissions?groupId=&lt;ИК-221&gt;&amp;semester=1&amp;page=1
 /// then:  200: students — 5 элементов {id, fullName} — в точности
 ///        ['Авроров Иван','Ёлкин Пётр','Иванов Иван Иванович 01',
@@ -34,16 +32,16 @@ public sealed class Ts114_SubmissionsGridFirstPageRuOrderTests : IClassFixture<B
     [Fact]
     public async Task FirstPage_ReturnsRuOrderedStudentsSemesterLabsAndSeedSubmissions()
     {
-        // given: ИК-221; 20 работ семестра 1; teacher.
+        // given: ИК-221; 20 работ семестра 1; анонимный доступ.
         var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
         var users = _factory.Services.GetRequiredService<IUserRepository>();
         var labsRepo = _factory.Services.GetRequiredService<ILabRepository>();
 
-        // given: два студента с дискриминирующими ФИО созданы POST /auth/register
+        // given: два студента с дискриминирующими ФИО созданы DI-сидом
         // и включены в ИК-221 (PUT /students/{id}/group); итого в группе 27 студентов.
-        var avrorov = await RegisterStudentAsync("Авроров Иван", "avrorov", "avrorov@example.com");
-        var elkin = await RegisterStudentAsync("Ёлкин Пётр", "elkin", "elkin@example.com");
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        var avrorov = await SeedStudentAsync("Авроров Иван", "avrorov", "avrorov@example.com");
+        var elkin = await SeedStudentAsync("Ёлкин Пётр", "elkin", "elkin@example.com");
+        using var client = HostClients.Create(_factory);
         foreach (var student in new[] { avrorov, elkin })
         {
             using var put = await client.PutAsJsonAsync(
@@ -143,21 +141,25 @@ expectedSubmissions.Add((student02.Id.ToString(), await LabId(1)));
             $"Ожидались ровно сид-сдачи student01/02, фактически: [{string.Join("; ", actualSubmissions)}].");
     }
 
-    /// <summary>POST /auth/register (201) + uuid созданной учётки из IUserRepository.</summary>
-    private async Task<User> RegisterStudentAsync(string fullName, string login, string email)
+    /// <summary>
+    /// DI-сид студента (role=student, без группы): пароль по passwordHash не
+    /// проверяется никогда (аутентификации в приложении нет), хэш — плейсхолдер сида.
+    /// </summary>
+    private async Task<User> SeedStudentAsync(string fullName, string login, string email)
     {
-        using var client = B05MintedSessions.Create(_factory);
-        using var response = await client.PostAsJsonAsync("/api/v1/auth/register", new
+        var user = new User
         {
-            fullName,
-            login,
-            email,
-            password = "Passw0rd!",
-            repeatPassword = "Passw0rd!",
-        });
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        return await _factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync(login)
-            ?? throw new InvalidOperationException(
-                $"POST /auth/register вернул 201, но учётка {login} не найдена в хранилище.");
+            Id = Guid.NewGuid(),
+            Login = login,
+            Email = email,
+            PasswordHash = "!",
+            FullName = fullName,
+            Role = UserRoles.Student,
+            GroupId = null,
+            CreatedAt = DateTime.UtcNow,
+        };
+        var users = _factory.Services.GetRequiredService<IUserRepository>();
+        await users.AddAsync(user);
+        return user;
     }
 }

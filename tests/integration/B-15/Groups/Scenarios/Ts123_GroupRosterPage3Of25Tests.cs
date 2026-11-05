@@ -30,7 +30,7 @@ public sealed class Ts123_GroupRosterPage3Of25Tests : IClassFixture<B15GroupsDem
     public async Task GetRosterPage3_ReturnsLastFiveStudentsOf25()
     {
         // given: сессия teacher; id группы ИК-221 (в ней 25 студентов — демо-сид).
-        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B15GroupsSession.CreateClient(_factory);
         var ik221Id = await B15GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id ИК-221}/students?page=3.

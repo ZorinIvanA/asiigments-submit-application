@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-149 «Upsert сдачи: неконтрактная дата — 400 раньше 404» (негативный, P0, FR-021/FR-022).
 ///
-/// given: сессия teacher; studentId и labId указывают на несуществующие сущности;
+/// given: анонимный клиент; studentId и labId указывают на несуществующие сущности;
 ///        submitDate='20.09.2026' (не строка формата ГГГГ-ММ-ДД).
 /// when:  PUT /api/v1/submissions {studentId:&lt;неизвестный&gt;, labId:&lt;неизвестный&gt;,
 ///        submitDate:'20.09.2026', defenseDate:null}.
@@ -22,8 +22,8 @@ public sealed class Ts149_SubmissionBadDateBeforeLookupTests : IClassFixture<B06
     [Fact]
     public async Task PutSubmissionWithNonContractDate_Returns400BeforeEntityLookup()
     {
-        // given: сессия teacher; обе сущности не существуют (случайные uuid).
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; обе сущности не существуют (случайные uuid).
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: PUT /submissions с неконтрактной датой и неизвестными сущностями.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

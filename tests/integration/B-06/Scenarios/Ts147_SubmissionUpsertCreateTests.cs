@@ -10,7 +10,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// TS-147 «Upsert сдачи: создание записи» (happy_path, P0, FR-021).
 ///
 /// given: пара (student05, работа 1.1) отсутствует (демо-сид: сид-сдачи — только
-///        student01×(1.1..1.3) и student02×1.1); сессия teacher; uuid преподавателя известен.
+///        student01×(1.1..1.3) и student02×1.1); анонимный клиент; uuid преподавателя известен.
 /// when:  PUT /api/v1/submissions {studentId:&lt;student05&gt;, labId:&lt;1.1&gt;,
 ///        submitDate:'2026-09-20', defenseDate:null}; затем GET ведомости той
 ///        группы/семестра (ИК-221, семестр 1).
@@ -46,10 +46,10 @@ public sealed class Ts147_SubmissionUpsertCreateTests : IClassFixture<B06Submiss
     [Fact]
     public async Task PutSubmissionWithFreePair_CreatesRecordAndGridReflectsDate()
     {
-        // given: пара (student05, работа 1.1) в хранилище отсутствует; сессия teacher.
+        // given: пара (student05, работа 1.1) в хранилище отсутствует; анонимный клиент.
         Assert.Null(await _factory.Services.GetRequiredService<ISubmissionRepository>()
             .GetByStudentAndLabAsync(_studentId, _labId));
-        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherClientAsync(_factory);
         using var _client = client;
 
         // when: PUT /submissions {studentId, labId, submitDate:'2026-09-20', defenseDate:null}.

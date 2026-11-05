@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B14.Groups.Scenarios;
 /// (happy_path, FR-019, P0).
 ///
 /// given: в группе 25 студентов (демо-сид: ИК-221, student01..student25);
-///        сессия teacher.
+///        анонимный клиент (текущий пользователь — сид-преподаватель).
 /// when:  GET /groups/{id}/students?page=3;
 ///        GET /groups/<несуществующий-uuid>/students.
 /// then:  первый — 200 {items:5, total:25, page:3, pageSize:10}; все items —
@@ -33,7 +33,7 @@ public sealed class Ts106_GroupRosterPaginationAndUnknownTests : IClassFixture<B
     [Fact]
     public async Task GetRosterPage3_ReturnsLastFiveStudentsOf25()
     {
-        // given: сессия teacher; id группы с 25 студентами (ИК-221).
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); id группы с 25 студентами (ИК-221).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
@@ -75,7 +75,7 @@ public sealed class Ts106_GroupRosterPaginationAndUnknownTests : IClassFixture<B
     [Fact]
     public async Task GetRosterOfUnknownGroup_ReturnsNotFound()
     {
-        // given: сессия teacher; группы с указанным uuid не существует.
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); группы с указанным uuid не существует.
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var unknownId = Guid.NewGuid();
 

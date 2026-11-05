@@ -6,11 +6,6 @@
     "resolveJsonModule": true
   },
   "include": [
-    "helpers/**/*.ts",
-    "*.spec.ts",
-    "../../../src/client/**/*.ts"
-  ],
-  "exclude": [
-    "../../../src/client/**/*.spec.ts"
+    "*.spec.ts"
   ]
 }

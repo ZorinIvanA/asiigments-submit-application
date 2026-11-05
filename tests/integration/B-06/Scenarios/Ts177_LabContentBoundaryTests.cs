@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-177 «labs: граница длины content 500/501» (boundary, P1, FR-017/FR-023).
 ///
-/// given: сессия teacher (сид-преподаватель демо-набора); пары (semester=1,
+/// given: анонимный клиент (сид-преподаватель демо-набора); пары (semester=1,
 ///        number=211) и (semester=1, number=212) свободны (демо-сид создаёт
 ///        работы семестра 1 №1–20 и семестра 2 №1–3); тестируемый content без
 ///        пробельного обрамления ('x'×N) — граница проверяется на длине после
@@ -36,12 +36,12 @@ public sealed class Ts177_LabContentBoundaryTests : IClassFixture<B06Submissions
     [Fact]
     public async Task CreateLab_Content500Created_Content501RejectedWithDictionaryText()
     {
-        // given: сессия teacher; пары (semester=1, number=211) и (semester=1,
+        // given: анонимный клиент; пары (semester=1, number=211) и (semester=1,
         // number=212) свободны.
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         Assert.Null(await labs.TryGetByPairAsync(semester: 1, number: 211));
         Assert.Null(await labs.TryGetByPairAsync(semester: 1, number: 212));
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: POST /labs {number:211, semester:1, content:'x'×500,
         // assignmentUrl:null, defenseRequired:false}.

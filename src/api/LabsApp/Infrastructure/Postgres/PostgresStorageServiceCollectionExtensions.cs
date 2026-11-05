@@ -33,7 +33,6 @@ public static class PostgresStorageServiceCollectionExtensions
         services.AddScoped<IGroupRepository, EfGroupRepository>();
         services.AddScoped<ILabRepository, EfLabRepository>();
         services.AddScoped<ISubmissionRepository, NpgsqlSubmissionRepository>();
-        services.AddScoped<ISecurityTokenRepository, EfSecurityTokenRepository>();
 
         services.AddScoped<SeedRunner>();
 

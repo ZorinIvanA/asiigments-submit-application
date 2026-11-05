@@ -1,21 +1,11 @@
 /**
  * Тестовая среда интеграционных спеков батча 3 «Группы · Доступ · Ведомость ·
- * Сдачи студента · Оболочка» (переработка на HttpTestingController, FR-026):
- * реальные страницы фич, реальные core-сервисы и реальное HTTP-ядро
- * приложения (HttpClient + authInterceptor: withCredentials, дедуплицируемый
- * refresh, нормализация отказов в ApiError) над программируемым
+ * Оболочка» (переработка на HttpTestingController): реальные страницы фич,
+ * реальные core-сервисы и реальное HTTP-ядро приложения (HttpClient, без
+ * интерцептора — приложение анонимно) над программируемым
  * HttpTestingController-бэкендом — GridBackendStub (детерминированный сид
- * зоны, состояние REST-доменов в памяти). Прежний демонстрационный мок-слой
- * зоной не используется (удалён по FR-026); признак сессии — ТОЛЬКО память
- * AuthService (FR-092).
- *
- * Сессия:
- *  - serverSession(login)  — серверная личность бэкенда без HTTP (уровень
- *    компонентных спеков: роли и /me/submissions определяются по ней);
- *  - loginAs(login)        — то же + настоящая загрузка профиля (GET /auth/me
- *    → кэш AuthService): fakeAsync-спеки (uses tick);
- *  - await loginAsync(login) — то же для RouterTestingHarness-спеков с
- *    реальными таймерами.
+ * зоны, состояние REST-доменов в памяти). Бэкенд без аутентификации:
+ * все домены отвечают анонимно, от имени сид-преподавателя.
  *
  * Тайминги: задержек бэкенда нет — «волна» settle() отвечает все
  * перехваченные на данный момент запросы (сериальные цепочки — следующими
@@ -31,7 +21,7 @@
  */
 import { tick, ComponentFixture, TestBed } from '@angular/core/testing';
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -44,9 +34,7 @@ import { By } from '@angular/platform-browser';
 import { Select } from 'primeng/select';
 
 import { API_BASE_URL } from '../../../core/api-base-url';
-import { authInterceptor } from '../../../core/auth-interceptor';
 import { routes } from '../../../core/config/app.routes';
-import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../shared/notifications/notification-service';
 import {
   NOTIFICATION_AUTO_CLOSE_MS,
@@ -73,7 +61,6 @@ export class GridAccessEnv {
   /** Базовый префикс API (TestBed.inject(API_BASE_URL), конвенция ADR-014). */
   readonly apiBase: string;
 
-  readonly auth: AuthService;
   readonly notifications: NotificationService;
 
   /** Маршрутизаторное окружение (RouterTestingHarness), если создано. */
@@ -86,21 +73,18 @@ export class GridAccessEnv {
     this.backend = new GridBackendStub(seed);
     this.httpMock = TestBed.inject(HttpTestingController);
     this.apiBase = TestBed.inject(API_BASE_URL);
-    this.auth = TestBed.inject(AuthService);
     this.notifications = TestBed.inject(NotificationService);
   }
 
   /**
    * Собирает окружение (beforeEach): свежий инжектор, реальное HTTP-ядро
-   * (интерцептор + тестовый бэкенд), заглушка брейкпоинтов, noop-анимации.
+   * (HttpClient + тестовый бэкенд), заглушка брейкпоинтов, noop-анимации.
    */
   static setup(opts: GridEnvOptions = {}): GridAccessEnv {
-    localStorage.clear();
-    sessionStorage.clear();
     const breakpoints = new MockBreakpointObserver();
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClient(),
         provideHttpClientTesting(),
         { provide: BreakpointObserver, useValue: breakpoints },
         provideNoopAnimations(),
@@ -125,33 +109,6 @@ export class GridAccessEnv {
   /** Продвижение виртуального времени (fakeAsync) — шов для дебаунса. */
   tick(ms: number): void {
     tick(ms);
-  }
-
-  // ---------- сессия ----------
-
-  /** Серверная личность бэкенда без HTTP (уровень компонентных спеков). */
-  serverSession(login: string | null): void {
-    this.backend.sessionLogin = login;
-  }
-
-  /**
-   * Сессия с настоящей загрузкой профиля (GET /auth/me → кэш AuthService):
-   * fakeAsync-спеки — использует tick().
-   */
-  loginAs(login: string): void {
-    this.serverSession(login);
-    const pending = this.auth.loadMe();
-    this.respondAll();
-    tick(0);
-    void pending;
-  }
-
-  /** То же для асинхронных RouterTestingHarness-спеков (реальные таймеры). */
-  async loginAsync(login: string): Promise<void> {
-    this.serverSession(login);
-    const pending = this.auth.loadMe();
-    await this.pump();
-    await pending;
   }
 
   // ---------- волны ответов ----------

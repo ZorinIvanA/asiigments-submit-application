@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B14.Groups.Scenarios;
 /// (boundary, FR-019, P1).
 ///
 /// given: в группе 25 студентов (pageSize=10, полных страниц 3; демо-сид
-///        ИК-221: student01..student25); сессия teacher.
+///        ИК-221: student01..student25); анонимный клиент (текущий пользователь — сид-преподаватель).
 /// when:  GET /api/v1/groups/{id}/students?page=0; ?page=abc; ?page=99.
 /// then:  page=0 и page=abc — 200 с page=1 в ответе (эхо некорректного значения
 ///        запрещено; нормализация как в FR-017); page=99 — 200
@@ -23,7 +23,7 @@ public sealed class Ts160_GroupRosterPageNormalizationTests : IClassFixture<B14G
     [Fact]
     public async Task GetRosterWithPage0_NormalizesToPage1()
     {
-        // given: сессия teacher; id группы с 25 студентами (ИК-221).
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); id группы с 25 студентами (ИК-221).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
@@ -41,7 +41,7 @@ public sealed class Ts160_GroupRosterPageNormalizationTests : IClassFixture<B14G
     [Fact]
     public async Task GetRosterWithNonNumericPage_NormalizesToPage1()
     {
-        // given: сессия teacher; id группы с 25 студентами (ИК-221).
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); id группы с 25 студентами (ИК-221).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
@@ -59,7 +59,7 @@ public sealed class Ts160_GroupRosterPageNormalizationTests : IClassFixture<B14G
     [Fact]
     public async Task GetRosterWithPageBeyondLast_ReturnsEmptyItemsWithCorrectTotal()
     {
-        // given: сессия teacher; id группы с 25 студентами (ИК-221).
+        // given: анонимный клиент (текущий пользователь — сид-преподаватель); id группы с 25 студентами (ИК-221).
         using var client = await B14GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B14GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 

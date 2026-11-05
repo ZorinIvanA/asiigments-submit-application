@@ -11,10 +11,10 @@
  * карточки «Лаб N» без горизонтального скролла страницы. Даты отображаются
  * toDisplayDate (дд.мм.гггг, ADR-007); пустая дата — пустая ячейка.
  *
- * Признак «в группе» — синхронно из кэша профиля groupName (аменда 3 к
- * tech-solution, CR-002: MeDto содержит groupName по IF-101, загружено
- * guards'ами к моменту рендера); submissions.getMy при пустом списке
- * семестров НЕ вызывается — вызов с семестром вне 1..10 запрещён решением.
+ * Признак «в группе» — из профиля GET /me/profile (ProfileService): у
+ * сид-преподавателя groupName null, поэтому экран показывает пустое
+ * состояние «без группы»; submissions.getMy при пустом списке семестров
+ * НЕ вызывается — вызов с семестром вне 1..10 запрещён решением.
  *
  * Вырожденные состояния:
  *  - студент без группы — постоянный жёлтый баннер role=status «Вы не
@@ -38,14 +38,14 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { TableModule } from 'primeng/table';
 
-import { AuthService } from '../../../core/services/auth.service';
 import { LabsService } from '../../../core/services/labs.service';
+import { ProfileService } from '../../../core/services/profile.service';
 import { SubmissionsService } from '../../../core/services/submissions.service';
 import { toApiError } from '../../../shared/api-error';
 import { toDisplayDate } from '../../../shared/dates';
 import { NOTIFICATION_MOBILE_MEDIA_QUERY } from '../../../shared/notifications/notification-model';
 import { NotificationService } from '../../../shared/notifications/notification-service';
-import { MySubmissionsDto } from '../../../shared/models';
+import { MySubmissionsDto, ProfileDto } from '../../../shared/models';
 
 /** Предупреждение «без группы» — дословно макету SCR-010 (FR-016). */
 export const TEXT_NO_GROUP =
@@ -73,8 +73,8 @@ interface SubmissionRow {
 export class MySubmissionsPage {
   private readonly labsService = inject(LabsService);
   private readonly submissionsService = inject(SubmissionsService);
+  private readonly profileService = inject(ProfileService);
   private readonly notifications = inject(NotificationService);
-  private readonly auth = inject(AuthService);
   private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -99,10 +99,17 @@ export class MySubmissionsPage {
   readonly semestersLoaded = signal(false);
 
   /**
-   * Признак «включён в группу» — синхронно из кэша профиля (аменда 3,
-   * CR-002): groupName !== null. Не зависит от ответов getMy.
+   * Профиль текущего пользователя (GET /me/profile, ProfileService);
+   * null — ещё загружается. В анонимной консоли это всегда сид-преподаватель.
    */
-  readonly inGroup = computed(() => this.auth.currentUser()?.groupName != null);
+  readonly profile = signal<ProfileDto | null>(null);
+
+  /**
+   * Признак «включён в группу» — из профиля: groupName !== null. У
+   * сид-преподавателя groupName null — экран показывает состояние «без
+   * группы». Не зависит от ответов getMy.
+   */
+  readonly inGroup = computed(() => this.profile()?.groupName != null);
 
   /**
    * Предупреждение «без группы» — вместо таблицы, постоянно (макет
@@ -130,8 +137,8 @@ export class MySubmissionsPage {
     () => this.inGroup() && this.data() !== null && this.rows().length > 0,
   );
 
-  /** ФИО студента для колонки «Студент» (кэш профиля AuthService). */
-  readonly fullName = computed(() => this.auth.currentUser()?.fullName ?? '');
+  /** ФИО для колонки «Студент» (профиль GET /me/profile). */
+  readonly fullName = computed(() => this.profile()?.fullName ?? '');
 
   /** Тексты макета SCR-010 — единый источник для шаблона и тестов. */
   readonly noGroupText = TEXT_NO_GROUP;
@@ -176,14 +183,17 @@ export class MySubmissionsPage {
       .subscribe((state: BreakpointState) => {
         this.isMobile.set(state.matches);
       });
+    // Профиль (GET /me/profile) — источник ФИО и признака «в группе»;
+    // отказ оставляет profile = null: экран остаётся в состоянии «без группы».
+    void this.profileService.get().then((profile) => this.profile.set(profile));
     void this.reload();
   }
 
   /**
    * Полная загрузка (первичный вход и возврат на страницу): семестры,
    * по умолчанию — НАИМЕНЬШИЙ из возвращённых (макет SCR-010, сид: 1),
-   * затем сдачи выбранного семестра. Семестров нет — getMy не вызывается
-   * (аменда 3, CR-002): состояние определяется по groupName профиля.
+   * затем сдачи выбранного семестра. Семестров нет — getMy не вызывается:
+   * состояние «в группе» определяется по groupName профиля.
    */
   async reload(): Promise<void> {
     this.loading.set(true);

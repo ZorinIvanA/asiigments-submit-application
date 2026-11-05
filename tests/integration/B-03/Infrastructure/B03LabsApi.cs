@@ -1,13 +1,26 @@
+using Microsoft.AspNetCore.Mvc.Testing;
+
 namespace LabsApp.IntegrationTests.B03.Infrastructure;
 
 /// <summary>
-/// Запросы кейсов списков работ B-03 (TS-088..TS-091, FR-017) к GET /api/v1/labs и
-/// чтение PagedResult&lt;LabDto&gt;. Query передаётся «сырой» строкой: кейсы проверяют
-/// мягкую нормализацию нечисловых/дробных значений semester и page (ISS-009/AR-002)
-/// — параметры должны дойти до сервера дословно, без клиентской типизации.
+/// Запросы кейсов списков/создания работ B-03 (TS-088..TS-094, FR-017) к
+/// /api/v1/labs и чтение PagedResult&lt;LabDto&gt;. Query передаётся «сырой» строкой:
+/// кейсы проверяют мягкую нормализацию нечисловых/дробных значений semester и page
+/// (ISS-009/AR-002) — параметры должны дойти до сервера дословно, без клиентской
+/// типизации.
 /// </summary>
 public static class B03LabsApi
 {
+    /// <summary>
+    /// Клиент кейсов работ: без авто-редиректов (точные статусы), запросы анонимные —
+    /// аутентификации в приложении нет, эндпойнты публичны.
+    /// </summary>
+    public static HttpClient CreateClient(WebApplicationFactory<Program> factory) =>
+        factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+        });
+
     /// <summary>GET /api/v1/labs (query — «сырая» строка параметров либо null).</summary>
     public static Task<HttpResponseMessage> GetLabsAsync(HttpClient client, string? query = null) =>
         client.GetAsync(string.IsNullOrEmpty(query) ? "/api/v1/labs" : $"/api/v1/labs?{query}");

@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B01.Scenarios;
 
 /// <summary>
 /// Кейс TS-171 «Конверт ошибок: форма 400» (FR-023, P0).
-/// given: teacher авторизован (валидный access).
+/// given: запрос выполняется анонимно (аутентификации в приложении нет).
 /// when: POST /api/v1/labs с semester=0 (прочее валидно).
 /// then: 400; Content-Type application/json; body.message='Данные заполнены
 /// неверно'; body.errors.semester — массив строк ['Семестр — число от 1 до 10'];
@@ -22,10 +22,9 @@ public sealed class Ts171_ErrorEnvelopeForm400Tests
     [Fact]
     public async Task PostLabsWithSemesterZero_ReturnsValidationEnvelopeWithStringArrayErrors()
     {
-        // given: teacher авторизован — валидная access-cookie сеяного учителя
-        // (ADR-015: DI-сид + минтованный access-JWT вместо HTTP-входа).
+        // given: Development-стенд; клиент анонимный — эндпойнты публичны.
         using var factory = new B01WebAppFactory();
-        using var client = await MintedSession.CreateTeacherClient(factory);
+        using var client = HostClients.Create(factory);
 
         // when: POST /api/v1/labs с semester=0 (прочие поля валидны).
         using var response = await client.PostAsJsonAsync(

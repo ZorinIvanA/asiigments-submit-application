@@ -10,7 +10,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// первая страница — 5 студентов × 20 работ, total, page».
 /// given: демо-сид: ИК-221 (25 студентов student01..student25), семестр 1 —
 ///        20 работ, 4 сид-сдачи у student01 (работы 1, 2, 3) и student02
-///        (работа 1); сессия teacher.
+///        (работа 1); анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  GET /api/v1/submissions?groupId=&lt;ИК-221&gt;&amp;semester=1&amp;page=1
 /// then:  200: students.length=5 (первые по fullName↑, затем login↑, ru);
 ///        labs.length=20 (number↑, поля {id, number, defenseRequired});
@@ -26,7 +26,7 @@ public sealed class Ts150_SubmissionsGridFirstPageSeedTests : IClassFixture<B05W
     [Fact]
     public async Task FirstPage_ReturnsFiveSeedStudentsTwentyLabsSeedSubmissionsTotal25()
     {
-        // given: ИК-221 (в сиде student01..student25); семестр 1 — 20 работ; teacher.
+        // given: ИК-221 (в сиде student01..student25); семестр 1 — 20 работ; анонимный доступ.
         var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
         var users = _factory.Services.GetRequiredService<IUserRepository>();
         var labsRepo = _factory.Services.GetRequiredService<ILabRepository>();
@@ -45,7 +45,7 @@ expectedSubmissions.Add((student01.Id.ToString(), await LabId(3)));
 expectedSubmissions.Add((student02.Id.ToString(), await LabId(1)));
         
 
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: первая страница ведомости ИК-221 по семестру 1.
         using var response = await client.GetAsync(

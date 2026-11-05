@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// <summary>
 /// TS-108 «Лабораторные: sortField/sortDir вне словаря нормализуются к дефолтам»
 /// (boundary, FR-017 «значения вне словаря нормализуются без ошибки»): given —
-/// демо-сид (23 работы); сессия teacher; when — GET /labs?sortField=foo&amp;sortDir=bar;
+/// демо-сид (23 работы); клиент анонимный; when — GET /labs?sortField=foo&amp;sortDir=bar;
 /// then — 200 total=23; порядок эквивалентен дефолтному (semester↑, number↑);
 /// без ошибки (не 400 и не исключение).
 /// </summary>
@@ -31,9 +31,9 @@ public sealed class Ts108_LabsSortNormalizationTests : IClassFixture<B03HostFact
     [Fact]
     public async Task GetLabsWithOutOfDictionarySortParams_MatchesDefaultOrderWithoutError()
     {
-        // given: сид с 23 работами (20 семестра 1 + 3 семестра 2); сессия teacher.
+        // given: сид с 23 работами (20 семестра 1 + 3 семестра 2); клиент анонимный.
         Assert.Equal(23, (await _factory.Services.GetRequiredService<ILabRepository>().GetAllAsync()).Count);
-        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
+        var client = B03LabsApi.CreateClient(_factory);
 
         // when: sortField=foo, sortDir=bar — вне словаря; и дефолтный список.
         using var garbageSort = await B03LabsApi.GetLabsAsync(client, "sortField=foo&sortDir=bar");
@@ -41,9 +41,9 @@ public sealed class Ts108_LabsSortNormalizationTests : IClassFixture<B03HostFact
 
         // then: оба — 200 без ошибки (не 400 и не исключение).
         using var garbageBody = await ResponseAssert.ParseWithStatusAsync(
-            garbageSort, HttpStatusCode.OK, "GET /api/v1/labs?sortField=foo&sortDir=bar (teacher)");
+            garbageSort, HttpStatusCode.OK, "GET /api/v1/labs?sortField=foo&sortDir=bar (анонимно)");
         using var defaultBody = await ResponseAssert.ParseWithStatusAsync(
-            defaultList, HttpStatusCode.OK, "GET /api/v1/labs (teacher)");
+            defaultList, HttpStatusCode.OK, "GET /api/v1/labs (анонимно)");
 
         // then: total=23, page=1; порядок эквивалентен дефолтному (semester↑, number↑).
         Assert.Equal(23, B03LabsApi.ReadInt(garbageBody.RootElement, "total"));

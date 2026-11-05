@@ -9,10 +9,10 @@
  * при ошибке справочника групп (аменда 6), отсутствие success-тостов,
  * обработка ошибки setGroup (notifyError + перезагрузка страницы списка).
  *
- * HTTP-ядро реальное (FR-026): настоящие StudentsService/GroupsService поверх
- * HttpClient + authInterceptor на программируемом HttpTestingController-
- * бэкенде GridBackendStub с собственным сидом спека (15 студентов, 3 группы);
- * серверная сессия преподавателя — serverSession (роли домена students/groups).
+ * HTTP-ядро реальное: настоящие StudentsService/GroupsService поверх
+ * HttpClient на программируемом HttpTestingController-бэкенде
+ * GridBackendStub с собственным сидом спека (15 студентов, 3 группы);
+ * бэкенд без аутентификации — все домены отвечают анонимно.
  * Задержек бэкенда нет — «волны» settle() отвечают перехваченные запросы и
  * продвигают виртуальное время (fakeAsync + tick: дебаунс 300 мс). PrimeNG-
  * оверлеи (p-select, p-confirmdialog) управляются DOM-событиями при
@@ -115,7 +115,6 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
 
   beforeEach(() => {
     env = GridAccessEnv.setup({ seed: accessSeed() });
-    env.serverSession('teacher');
     studentsService = TestBed.inject(StudentsService);
     groupsService = TestBed.inject(GroupsService);
     notifications = env.notifications;

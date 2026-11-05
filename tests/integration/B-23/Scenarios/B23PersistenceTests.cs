@@ -10,7 +10,8 @@ namespace LabsApp.IntegrationTests.B23.Scenarios;
 /// Ключевое отличие реальной БД от заглушек: данные переживают перезапуск
 /// процесса. Первый хост создаёт уникальную группу, хост уничтожается
 /// (Dispose = «перезапуск»), второй хост обязан увидеть группу в перечне.
-/// Группа удаляется в конце — зона идемпотентна.
+/// Группа удаляется в конце — зона идемпотентна. Клиенты анонимные
+/// (аутентификации в приложении нет).
 /// </summary>
 public sealed class B23PersistenceTests
 {
@@ -22,8 +23,7 @@ public sealed class B23PersistenceTests
         string groupId;
         using (var first = new B23WebAppFactory())
         {
-            using var client = await first.LoginClientAsync(
-                B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
+            using var client = first.CreateClient();
 
             var create = await client.PostAsync(
                 "/api/v1/groups",
@@ -36,8 +36,7 @@ public sealed class B23PersistenceTests
         // «Перезапуск»: новый хост на той же БД.
         using (var second = new B23WebAppFactory())
         {
-            using var client = await second.LoginClientAsync(
-                B23WebAppFactory.TeacherLogin, B23WebAppFactory.TeacherPassword);
+            using var client = second.CreateClient();
 
             var groups = await client.GetFromJsonAsync<JsonElement[]>("/api/v1/groups")
                 ?? throw new InvalidOperationException("Перечень групп недоступен.");

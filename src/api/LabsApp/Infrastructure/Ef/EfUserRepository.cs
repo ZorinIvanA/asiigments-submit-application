@@ -97,19 +97,6 @@ public sealed class EfUserRepository(LabsAppDbContext db) : IUserRepository
         }
     }
 
-    public async Task<bool> SetPasswordAsync(Guid userId, string passwordHash)
-    {
-        if (string.IsNullOrEmpty(passwordHash))
-        {
-            throw new ArgumentNullException(nameof(passwordHash));
-        }
-
-        var rows = await db.Users
-            .Where(u => u.Id == userId)
-            .ExecuteUpdateAsync(s => s.SetProperty(u => u.PasswordHash, passwordHash));
-        return rows > 0;
-    }
-
     public async Task<UpdateProfileResult> UpdateProfileAsync(Guid userId, string fullName, string email)
     {
         ArgumentNullException.ThrowIfNull(fullName);

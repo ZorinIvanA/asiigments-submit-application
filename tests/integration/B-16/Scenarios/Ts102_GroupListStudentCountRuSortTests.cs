@@ -41,7 +41,7 @@ public sealed class Ts102_GroupListStudentCountRuSortTests : IClassFixture<B16Gr
     public async Task GetGroups_ReturnsFiveGroupsWithCountsInRuNameOrder()
     {
         // given: сессия teacher; группы ИК-221/222/223 демо-сида.
-        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B16GroupsSession.CreateClient(_factory);
 
         // given: teacher через POST /api/v1/groups создаёт «Аврора» и «Ёлка».
         using var avrora = await B16GroupsApi.PostGroupAsync(client, "Аврора");

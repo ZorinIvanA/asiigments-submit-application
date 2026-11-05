@@ -10,9 +10,9 @@ namespace LabsApp.IntegrationTests.B16.Infrastructure;
 /// файл не трогает существующую фикс-стуру зоны B16WebAppFactory, у которой
 /// Seed__DemoData жёстко false).
 ///
-/// Окружение — Development; Auth__JwtKey и Seed__TeacherPassword зафиксированы;
-/// Auth__Pbkdf2Iterations=1000 — тестовое умолчание спеки (FR-005/FR-027).
-/// Seed__DemoData задаётся производной фикстурой:
+/// Окружение — Development. Аутентификации в приложении нет: все эндпоинты
+/// публичны, «текущий пользователь» — засеянный преподаватель
+/// (Seed__TeacherLogin). Seed__DemoData задаётся производной фикстурой:
 ///  - B16GroupsDemoDataFactory (true) — данные given кейсов TS-102, TS-103, TS-104,
 ///    TS-105, TS-106, TS-160: демо-сид спеки (SeedRunner воспроизводит
 ///    src/client/app/mock/seed.ts) — группы ИК-221 (25 студентов), ИК-222 (5),
@@ -20,11 +20,9 @@ namespace LabsApp.IntegrationTests.B16.Infrastructure;
 ///  - базовый класс (false) — чистое хранилище (только сид-преподаватель): given
 ///    TS-169 «групп с пробельными именами не существует».
 ///
-/// Изоляция сценариев (хранилище и лимитеры in-memory — FR-002): каждый тестовый
+/// Изоляция сценариев (хранилище in-memory — FR-002): каждый тестовый
 /// КЛАСС со своей IClassFixture-фикстурой получает свежий экземпляр приложения —
-/// чистые хранилища и лимитеры (в том числе регистрационный 5/3600с: 2 запроса
-/// TS-106 в свежей фикстуре не исчерпывают лимит; повторные прогоны тоже, ибо
-/// состояние пересоздаётся — шов IRateLimitStore не требуется).
+/// чистые хранилища.
 ///
 /// BL-001 (среда прогона): DOTNET_USE_POLLING_FILE_WATCHER=true и
 /// hostBuilder:reloadConfigOnChange=false — хосты параллельных батчей не истощают
@@ -32,12 +30,6 @@ namespace LabsApp.IntegrationTests.B16.Infrastructure;
 /// </summary>
 public class B16GroupsWebAppFactory : WebApplicationFactory<Program>
 {
-    /// <summary>Ключ подписи JWT тестового хоста (FR-008: ≥32 символа).</summary>
-    public const string TestJwtKey = "b16-groups-integration-test-jwt-signing-key-0123456789abcdef";
-
-    /// <summary>Пароль сид-преподавателя фикстуры (значение непусто для хэширования сида).</summary>
-    public const string TestTeacherPassword = "b16-groups-teacher-password1!";
-
     /// <summary>Демо-набор включён (ИК-221/222/223 + student01..32) или чистое хранилище.</summary>
     protected virtual bool SeedDemoData => false;
 
@@ -63,9 +55,6 @@ public class B16GroupsWebAppFactory : WebApplicationFactory<Program>
         // фабрики попадают в аргументы точки входа до запуска Program, поэтому
         // ключи передаются с разделителем ':' ('__'-иерархию создаёт только
         // провайдер переменных окружения).
-        builder.UseSetting("Auth:JwtKey", TestJwtKey);
-        builder.UseSetting("Auth:Pbkdf2Iterations", "1000");
-        builder.UseSetting("Seed:TeacherPassword", TestTeacherPassword);
         builder.UseSetting("Seed:DemoData", SeedDemoData ? "true" : "false");
     }
 }

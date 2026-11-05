@@ -3,15 +3,13 @@
  * батча 3 с мок-слоя на HttpTestingController): двойник REST-доменов
  * students/groups/submissions над детерминированным серверным состоянием —
  * сид «1 преподаватель + 32 студента + 3 группы + 23 работы + 4 сдачи»
- * (аналог прежнего seedFixtures). Заменяет прежний мок-слой (IF-104/105/106
- * поверх localStorage), удалённый при миграции на реальные HTTP-запросы
- * (FR-026) — зона полностью самодостаточна.
+ * (аналог прежнего seedFixtures).
  *
- * Серверное поведение воспроизводит контракты REST:
- *  - GET /auth/me — MeDto сессионного пользователя либо 401 «Не авторизован»;
- *    POST /auth/logout — 204 (сессия сброшена); POST /auth/login — 200 MeDto
- *    демо-учётки; POST /auth/refresh — всегда 401 (cookie-семантика зоны не
- *    программируется — «сессия уже истекла»);
+ * Серверное поведение воспроизводит контракты REST (бэкенд без
+ * аутентификации — все домены публичны и обслуживают сид-преподавателя):
+ *  - GET /me/profile — ProfileDto сид-преподавателя;
+ *  - GET /me/submissions — всегда {hasGroup: false, labs: [], submissions: []}
+ *    (у преподавателя группы нет);
  *  - GET /groups — name↑, studentCount вычисляется; POST/PUT/DELETE —
  *    201/200/204, 400 «Данные заполнены неверно» (errors.name), 409
  *    «Группа с таким названием уже существует» (ci), 404 «Группа не найдена»;
@@ -25,11 +23,8 @@
  *  - GET /submissions — грид группы×семестра (5 студентов/страницу, total —
  *    вся группа, page — нормализована); PUT /submissions — upsert с
  *    updatedBy/updatedAt (404 «Студент не найден»/«Лабораторная не найдена»);
- *  - GET /me/submissions — сдачи сессионного студента (не student → 403);
- *  - GET /me/profile — ProfileDto сессионного пользователя.
  *
- * Роли: домены students/groups/submissions — только teacher (403 «Доступ
- * запрещён»); /me/submissions — только student. «Другой сеанс» — прямые
+ * «Другой сеанс» — прямые
  * мутации состояния: mutate(fn) и вспомогательные removeGroupDirect/
  * removeLabDirect (каскад сдач — §4.3); последующие операции UI честно
  * получают 404. Запросы вне перечисленных маршрутов — ошибка сценария
@@ -43,7 +38,6 @@ import {
   LABS_PAGE_SIZE,
   LabsSortDir,
   LabsSortField,
-  MeDto,
   PagedResult,
   ProfileDto,
   STUDENTS_PAGE_SIZE,
@@ -53,22 +47,18 @@ import {
 } from '../../../shared/models';
 
 /** Тексты отказов — дословно контракты IF-004/104/105/106. */
-const TEXT_UNAUTHORIZED = 'Не авторизован';
-const TEXT_FORBIDDEN = 'Доступ запрещён';
 const TEXT_NOT_FOUND_GROUP = 'Группа не найдена';
 const TEXT_NOT_FOUND_STUDENT = 'Студент не найден';
 const TEXT_NOT_FOUND_LAB = 'Лабораторная не найдена';
 const TEXT_DUPLICATE_GROUP = 'Группа с таким названием уже существует';
-const TEXT_WRONG_CREDENTIALS = 'Неверный логин или пароль';
 
+/** Тексты статусов для flush (диагностика в отчётах HttpTestingController). */
 /** Тексты статусов для flush (диагностика в отчётах HttpTestingController). */
 const STATUS_TEXT: Record<number, string> = {
   200: 'OK',
   201: 'Created',
   204: 'No Content',
   400: 'Bad Request',
-  401: 'Unauthorized',
-  403: 'Forbidden',
   404: 'Not Found',
   409: 'Conflict',
 };
@@ -224,7 +214,8 @@ function integrationSeed(): GridBackendSeed {
  * Состояние и поведение REST-бэкенда доменов зоны. Экземпляр создаётся на
  * каждый сценарий (GridAccessEnv.setup) — состояние не протекает между
  * спеками. Ссылки членов групп в сидах допускают маркер 'ГРУППА:<имя>' —
- * раскрывается в uuid по порядку объявления групп.
+ * раскрывается в uuid по порядку объявления групп. Аутентификации нет:
+ * домены students/groups/submissions и /me/* отвечают анонимно.
  */
 export class GridBackendStub {
   private idCounter = 0;
@@ -233,9 +224,6 @@ export class GridBackendStub {
   private clock = 0;
 
   private readonly state: GridBackendState;
-
-  /** Логин сессионного пользователя (null — гость: /auth/me → 401). */
-  sessionLogin: string | null = null;
 
   /** Программируемый отказ следующего PUT /students/{id}/group. */
   private nextSetGroupFailure: { status: number; message: string } | null = null;
@@ -398,77 +386,53 @@ export class GridBackendStub {
     const path = queryIndex === -1 ? pathWithQuery : pathWithQuery.slice(0, queryIndex);
     const query = new URLSearchParams(queryIndex === -1 ? '' : pathWithQuery.slice(queryIndex + 1));
 
-    if (req.method === 'GET' && path === '/auth/me') {
-      return this.me();
-    }
-    if (req.method === 'POST' && path === '/auth/login') {
-      return this.login(req.body as { login: string; password: string });
-    }
-    if (req.method === 'POST' && path === '/auth/logout') {
-      this.sessionLogin = null;
-      return ok(204, null);
-    }
-    if (req.method === 'POST' && path === '/auth/refresh') {
-      return fail(401, TEXT_UNAUTHORIZED);
-    }
-
-    const session = this.sessionUser();
     if (req.method === 'GET' && path === '/me/profile') {
-      return session === null
-        ? fail(401, TEXT_UNAUTHORIZED)
-        : ok(200, this.profileOf(session));
+      return ok(200, this.profileOf(this.teacherUser()));
     }
     if (req.method === 'GET' && path === '/me/submissions') {
-      return this.mySubmissions(session, Number(query.get('semester')));
+      // В анонимной консоли «текущий пользователь» — преподаватель: группы
+      // нет, сдач нет (контракт ответа — MySubmissionsDto без группы).
+      return ok(200, { hasGroup: false, labs: [], submissions: [] });
     }
 
     if (req.method === 'GET' && path === '/groups') {
-      return this.teacherGate(session) ?? ok(200, this.groupDtos());
+      return ok(200, this.groupDtos());
     }
     if (req.method === 'POST' && path === '/groups') {
-      return this.teacherGate(session) ?? this.createGroup(req.body as { name: string });
+      return this.createGroup(req.body as { name: string });
     }
     const groupMatch = /^\/groups\/([^/]+)$/.exec(path);
     if (groupMatch !== null) {
       const id = decodeURIComponent(groupMatch[1]!);
       if (req.method === 'PUT') {
-        return this.teacherGate(session) ?? this.renameGroup(id, req.body as { name: string });
+        return this.renameGroup(id, req.body as { name: string });
       }
       if (req.method === 'DELETE') {
-        return this.teacherGate(session) ?? this.deleteGroup(id);
+        return this.deleteGroup(id);
       }
     }
     const membersMatch = /^\/groups\/([^/]+)\/students$/.exec(path);
     if (membersMatch !== null && req.method === 'GET') {
-      return (
-        this.teacherGate(session) ??
-        this.groupStudents(decodeURIComponent(membersMatch[1]!), Number(query.get('page')))
-      );
+      return this.groupStudents(decodeURIComponent(membersMatch[1]!), Number(query.get('page')));
     }
 
     if (req.method === 'GET' && path === '/students') {
-      return (
-        this.teacherGate(session) ??
-        this.studentsList(
-          query.get('search'),
-          query.get('groupId'),
-          Number(query.get('page')),
-        )
+      return this.studentsList(
+        query.get('search'),
+        query.get('groupId'),
+        Number(query.get('page')),
       );
     }
     const groupOfStudent = /^\/students\/([^/]+)\/group$/.exec(path);
     if (groupOfStudent !== null && req.method === 'PUT') {
-      return (
-        this.teacherGate(session) ??
-        this.setGroup(decodeURIComponent(groupOfStudent[1]!), req.body as { groupId: string | null })
-      );
+      return this.setGroup(decodeURIComponent(groupOfStudent[1]!), req.body as { groupId: string | null });
     }
 
     if (req.method === 'GET' && path === '/semesters') {
       return ok(200, [...new Set(this.state.labs.map((lab) => lab.semester))].sort((a, b) => a - b));
     }
     if (req.method === 'GET' && path === '/labs') {
-      return this.teacherGate(session) ?? this.labsList(query);
+      return this.labsList(query);
     }
     const labMatch = /^\/labs\/([^/]+)$/.exec(path);
     if (labMatch !== null && req.method === 'GET') {
@@ -477,46 +441,33 @@ export class GridBackendStub {
     }
 
     if (req.method === 'GET' && path === '/submissions') {
-      return (
-        this.teacherGate(session) ??
-        this.grid(
-          query.get('groupId') ?? '',
-          Number(query.get('semester')),
-          Number(query.get('page')),
-        )
+      return this.grid(
+        query.get('groupId') ?? '',
+        Number(query.get('semester')),
+        Number(query.get('page')),
       );
     }
     if (req.method === 'PUT' && path === '/submissions') {
-      return (
-        this.teacherGate(session) ??
-        this.upsertSubmission(req.body as {
-          studentId: string;
-          labId: string;
-          submitDate: string | null;
-          defenseDate: string | null;
-        })
-      );
+      return this.upsertSubmission(req.body as {
+        studentId: string;
+        labId: string;
+        submitDate: string | null;
+        defenseDate: string | null;
+      });
     }
 
     throw new Error(`grid-backend-stub: нет обработчика ${req.method} ${req.url}`);
   }
 
-  // ---------- auth ----------
+  // ---------- текущий пользователь (анонимно — сид-преподаватель) ----------
 
-  private sessionUser(): BackendUser | null {
-    if (this.sessionLogin === null) {
-      return null;
+  /** Сид-преподаватель состояния; отсутствие — ошибка сида. */
+  private teacherUser(): BackendUser {
+    const teacher = this.state.users.find((user) => user.role === 'teacher');
+    if (teacher === undefined) {
+      throw new Error('grid-backend-stub: в сиде нет преподавателя');
     }
-    return this.state.users.find((user) => user.login === this.sessionLogin) ?? null;
-  }
-
-  private meDtoOf(user: BackendUser): MeDto {
-    return {
-      login: user.login,
-      fullName: user.fullName,
-      role: user.role,
-      groupName: user.groupId === null ? null : this.groupNameOf(user.groupId),
-    };
+    return teacher;
   }
 
   private profileOf(user: BackendUser): ProfileDto {
@@ -531,27 +482,6 @@ export class GridBackendStub {
 
   private groupNameOf(groupId: string): string | null {
     return this.state.groups.find((group) => group.id === groupId)?.name ?? null;
-  }
-
-  private me(): BackendResponse {
-    const session = this.sessionUser();
-    return session === null ? fail(401, TEXT_UNAUTHORIZED) : ok(200, this.meDtoOf(session));
-  }
-
-  private login(body: { login: string; password: string }): BackendResponse {
-    const user = this.state.users.find(
-      (candidate) => candidate.login === body?.login && candidate.password === body?.password,
-    );
-    if (user === undefined) {
-      return fail(401, TEXT_WRONG_CREDENTIALS);
-    }
-    this.sessionLogin = user.login;
-    return ok(200, this.meDtoOf(user));
-  }
-
-  /** Шлюз преподавателя: 403 для гостя и студента, null — пропуск. */
-  private teacherGate(session: BackendUser | null): BackendResponse | null {
-    return session !== null && session.role === 'teacher' ? null : fail(403, TEXT_FORBIDDEN);
   }
 
   // ---------- groups ----------
@@ -814,7 +744,7 @@ export class GridBackendStub {
     if (lab === undefined) {
       return fail(404, TEXT_NOT_FOUND_LAB);
     }
-    const teacher = this.sessionUser();
+    const teacher = this.teacherUser();
     const existing = this.state.submissions.find(
       (candidate) => candidate.studentId === body.studentId && candidate.labId === body.labId,
     );
@@ -826,7 +756,7 @@ export class GridBackendStub {
         submitDate: body.submitDate,
         defenseDate: body.defenseDate,
         updatedAt: this.nextUpdatedAt(),
-        updatedBy: teacher === null ? null : teacher.id,
+        updatedBy: teacher.id,
       };
       this.state.submissions.push(created);
       return ok(200, { ...created });
@@ -834,38 +764,11 @@ export class GridBackendStub {
     existing.submitDate = body.submitDate;
     existing.defenseDate = body.defenseDate;
     existing.updatedAt = this.nextUpdatedAt();
-    existing.updatedBy = teacher === null ? null : teacher.id;
+    existing.updatedBy = teacher.id;
     const saved: Submission = { ...existing };
     return ok(200, saved);
   }
 
-  private mySubmissions(session: BackendUser | null, semester: number): BackendResponse {
-    if (session === null || session.role !== 'student') {
-      return fail(403, TEXT_FORBIDDEN);
-    }
-    if (session.groupId === null) {
-      return ok(200, { hasGroup: false, labs: [], submissions: [] });
-    }
-    const labs = this.state.labs
-      .filter((lab) => lab.semester === semester)
-      .sort((a, b) => a.number - b.number);
-    const labIds = new Set(labs.map((lab) => lab.id));
-    const submissions = this.state.submissions
-      .filter(
-        (submission) =>
-          submission.studentId === session.id && labIds.has(submission.labId),
-      )
-      .map((submission) => ({
-        labId: submission.labId,
-        submitDate: submission.submitDate,
-        defenseDate: submission.defenseDate,
-      }));
-    return ok(200, {
-      hasGroup: true,
-      labs: labs.map((lab) => ({ id: lab.id, number: lab.number, defenseRequired: lab.defenseRequired })),
-      submissions,
-    });
-  }
 }
 
 /** Нормализация номера страницы (ADR-109 аддендум 1: некорректное → 1). */

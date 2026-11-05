@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-150 «Upsert сдачи: студент и работа не найдены — 404» (негативный, P0, FR-021).
 ///
-/// given: сессия teacher; даты валидны (null).
+/// given: анонимный клиент; даты валидны (null).
 /// when:  PUT /api/v1/submissions с несуществующим studentId (работа существует);
 ///        затем PUT с существующим studentId и несуществующим labId.
 /// then:  первый — 404 'Студент не найден'; второй — 404 'Лабораторная не найдена'
@@ -33,8 +33,8 @@ public sealed class Ts150_SubmissionUnknownEntitiesTests : IClassFixture<B06Subm
     [Fact]
     public async Task PutSubmissionWithUnknownStudent_Returns404StudentNotFound()
     {
-        // given: сессия teacher; даты валидны (null); studentId не существует.
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; даты валидны (null); studentId не существует.
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: PUT /submissions {неизвестный studentId, существующий labId, null, null}.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(
@@ -53,8 +53,8 @@ public sealed class Ts150_SubmissionUnknownEntitiesTests : IClassFixture<B06Subm
     [Fact]
     public async Task PutSubmissionWithUnknownLab_Returns404LabNotFound()
     {
-        // given: сессия teacher; даты валидны (null); labId не существует.
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; даты валидны (null); labId не существует.
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: PUT /submissions {существующий studentId, неизвестный labId, null, null}.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

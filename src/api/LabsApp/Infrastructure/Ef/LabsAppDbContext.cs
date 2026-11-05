@@ -21,12 +21,6 @@ public sealed class LabsAppDbContext(DbContextOptions<LabsAppDbContext> options)
 
     public DbSet<Submission> Submissions => Set<Submission>();
 
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-
-    public DbSet<RecoveryCode> RecoveryCodes => Set<RecoveryCode>();
-
-    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Group>(entity =>
@@ -79,39 +73,5 @@ public sealed class LabsAppDbContext(DbContextOptions<LabsAppDbContext> options)
             entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
         });
 
-        modelBuilder.Entity<RefreshToken>(entity =>
-        {
-            entity.ToTable("refresh_tokens");
-            entity.HasKey(t => t.Id);
-            entity.Property(t => t.Id).HasColumnName("id");
-            entity.Property(t => t.UserId).HasColumnName("user_id");
-            entity.Property(t => t.TokenHash).HasColumnName("token_hash");
-            entity.Property(t => t.ExpiresAt).HasColumnName("expires_at");
-            entity.Property(t => t.RevokedAt).HasColumnName("revoked_at");
-            entity.Property(t => t.CreatedAt).HasColumnName("created_at");
-        });
-
-        modelBuilder.Entity<RecoveryCode>(entity =>
-        {
-            entity.ToTable("recovery_codes");
-            entity.HasKey(c => c.Id);
-            entity.Property(c => c.Id).HasColumnName("id");
-            entity.Property(c => c.UserId).HasColumnName("user_id");
-            entity.Property(c => c.CodeHash).HasColumnName("code_hash");
-            entity.Property(c => c.ExpiresAt).HasColumnName("expires_at");
-            entity.Property(c => c.UsedAt).HasColumnName("used_at");
-            entity.Property(c => c.Attempts).HasColumnName("attempts");
-            entity.Property(c => c.CreatedAt).HasColumnName("created_at");
-        });
-
-        modelBuilder.Entity<PasswordResetToken>(entity =>
-        {
-            entity.ToTable("password_reset_tokens");
-            entity.HasKey(t => t.TokenHash);
-            entity.Property(t => t.TokenHash).HasColumnName("token_hash");
-            entity.Property(t => t.UserId).HasColumnName("user_id");
-            entity.Property(t => t.ExpiresAt).HasColumnName("expires_at");
-            entity.Property(t => t.UsedAt).HasColumnName("used_at");
-        });
     }
 }

@@ -40,10 +40,9 @@ describe('Интеграция: уведомления на экранах works
     localStorage.clear();
   });
 
-  /** Монтирование, сессия teacher, открытие /works (desktop-режим). */
+  /** Монтирование и открытие /works (desktop-режим, анонимно). */
   function openWorks(): void {
     harness.attach();
-    harness.loginTeacher();
     harness.navigate('/works');
     harness.flush();
   }
@@ -179,7 +178,6 @@ describe('Интеграция: уведомления на экранах works
   it('TS-225: мобильный inline-баннер — под формой vs под шапкой; граница 768px', fakeAsync(() => {
     harness.breakpoints.simulate(true); // 767px
     harness.attach();
-    harness.loginTeacher();
 
     // 409 формы создания → inline-баннер непосредственно под формой #lab-form.
     harness.navigate('/works/new');
@@ -215,7 +213,6 @@ describe('Интеграция: уведомления на экранах works
   it('TS-226: баннер не переживает уход с экрана-инициатора; новая ошибка показывается под шапкой', fakeAsync(() => {
     harness.breakpoints.simulate(true); // mobile
     harness.attach();
-    harness.loginTeacher();
 
     harness.navigate('/works/new');
     submitDuplicateForm();

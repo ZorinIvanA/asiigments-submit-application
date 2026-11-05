@@ -1,4 +1,3 @@
-using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B16.Infrastructure;
 
@@ -7,7 +6,8 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 /// <summary>
 /// TS-092 «Профиль: некорректный формат email — 400» (negative, FR-015, P2).
 ///
-/// given: пользователь авторизован; fullName валиден.
+/// given: текущий пользователь приложения — засеянный преподаватель; клиент
+///        анонимный (аутентификации в приложении нет); fullName валиден.
 /// when:  PUT /api/v1/me/profile {fullName:'Ф И О', email:'a b@example.com'}
 ///        (пробел в локальной части).
 /// then:  400; errors.email=['Введите корректный email'] (валидация как во FR-006,
@@ -16,9 +16,6 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 [Collection(SerialBuildAndProcessCollection.Name)]
 public sealed class Ts092_ProfilePutInvalidEmailFormatTests : IClassFixture<B16WebAppFactory>
 {
-    private const string Login = "ts092";
-    private const string Email = "ts092@x.ru";
-
     private readonly B16WebAppFactory _factory;
 
     public Ts092_ProfilePutInvalidEmailFormatTests(B16WebAppFactory factory) => _factory = factory;
@@ -26,16 +23,9 @@ public sealed class Ts092_ProfilePutInvalidEmailFormatTests : IClassFixture<B16W
     [Fact]
     public async Task PutProfile_WithSpaceInEmailLocalPart_Returns400WithFormatError()
     {
-        // given: пользователь авторизован.
-        var user = B16Harness.SeedUser(
-            _factory,
-            login: Login,
-            email: Email,
-            fullName: "Студент ТС-092",
-            role: UserRoles.Student,
-            groupId: null,
-            password: B16Harness.TestUserPassword);
-        using var client = B16Harness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий пользователь — засеянный преподаватель; клиент анонимный.
+        _ = await B16Harness.CurrentUserAsync(_factory);
+        using var client = B16Harness.Create(_factory);
 
         // when: PUT с валидным ФИО и email с пробелом в локальной части.
         using var response = await client.PutAsJsonAsync(B16Harness.ProfileEndpoint, new

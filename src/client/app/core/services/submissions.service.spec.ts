@@ -2,8 +2,9 @@
  * Юнит-тесты SubmissionsService (C-014, FR-091) — все вызовы через
  * HttpTestingController (конвенция URL — ADR-014: ожидаемые URL строятся из
  * TestBed.inject(API_BASE_URL), литералы префикса запрещены).
- * Производственная цепочка — реальный authInterceptor (withCredentials,
- * нормализация отказов в ApiError, дедуплицированный refresh):
+ * Производственная цепочка — реальный HttpClient (без интерцептора:
+ * приложение анонимно, все эндпоинты публичны; отказы нормализует сам
+ * сервис — http-errors.ts):
  *  - getGrid → GET /submissions с query «groupId&semester&page» в контрактом
  *    порядке (все три параметра обязательны);
  *  - update → PUT /submissions с телом {studentId, labId, submitDate,
@@ -13,15 +14,12 @@
  *  - возвращаемые типы идентичны прежним (сигнатуры сервиса не менялись);
  *  - отказы 404/400+errors/403 — реджект ApiError той же формы (баннеры
  *    body.message и полевые errors работают без изменений);
- *  - 401 (истекшая сессия) — после безуспешного refresh реджект
- *    ApiError {status: 401, body: {message}}.
  */
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { provideRouter } from '@angular/router';
 
-import { authInterceptor } from '../auth-interceptor';
 import { API_BASE_URL } from '../api-base-url';
 import { ApiError, MySubmissionsDto, Submission } from '../../shared/models';
 import {
@@ -79,7 +77,7 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
       ],
@@ -102,9 +100,6 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
       const request = httpMock.expectOne(`${apiBase}/submissions?groupId=${GROUP_ID}&semester=1&page=2`);
       expect(request.request.method).toBe('GET');
       expect(request.request.body).withContext('у GET тела нет').toBeNull();
-      expect(request.request.withCredentials)
-        .withContext('cookie-аутентификация — withCredentials (FR-091)')
-        .toBeTrue();
       request.flush(GRID);
 
       await expectAsync(pending).toBeResolvedTo(GRID);
@@ -170,7 +165,6 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
       const request = httpMock.expectOne(`${apiBase}/me/submissions?semester=3`);
       expect(request.request.method).toBe('GET');
       expect(request.request.body).toBeNull();
-      expect(request.request.withCredentials).toBeTrue();
       request.flush(MY);
 
       await expectAsync(pending).toBeResolvedTo(MY);
@@ -279,25 +273,5 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
       } satisfies ApiError);
     });
 
-    it('getMy: 401 (сессия истекла) — refresh безуспешен, реджект ApiError 401 «Не авторизован»', async () => {
-      // Интерцептор в фазе инициализации не навигирует; spy страхует цепочку
-      // Router от необработанных отказов (навигация — не зона сервиса).
-      spyOn(TestBed.inject(Router), 'navigate');
-
-      const pending = service.getMy(1);
-      httpMock.expectOne(`${apiBase}/me/submissions?semester=1`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
-      httpMock.expectOne(`${apiBase}/auth/refresh`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
-
-      await expectAsync(pending).toBeRejectedWith({
-        status: 401,
-        body: { message: 'Не авторизован' },
-      } satisfies ApiError);
-    });
   });
 });

@@ -1,4 +1,3 @@
-using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B18Profile.Infrastructure;
 
@@ -7,8 +6,10 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 /// <summary>
 /// TS-200 «Профиль: границы длины fullName 200/201» (boundary, FR-015, P2).
 ///
-/// given: пользователь авторизован; email валиден и свободен (не меняется —
-///        собственный email, по TS-090 совпадение с собой не конфликт).
+/// given: текущий пользователь приложения — засеянный преподаватель
+///        (Seed__TeacherLogin «teacher», email 'teacher@example.com'); клиент
+///        анонимный (аутентификации в приложении нет); email валиден и не меняется
+///        (собственный email — совпадение с собой не конфликт).
 /// when:  PUT /api/v1/me/profile с fullName длиной ровно 200 символов; затем
 ///        отдельный PUT с fullName длиной 201.
 /// then:  первый — 200 (ProfileDto с новым ФИО); второй — 400,
@@ -18,8 +19,7 @@ namespace LabsApp.IntegrationTests.B18Profile.Scenarios;
 [Collection(B18ProfileSerialCollection.Name)]
 public sealed class Ts200_ProfileFullNameLengthBoundaryTests : IClassFixture<B18ProfileWebAppFactory>
 {
-    private const string Login = "ts200";
-    private const string Email = "ts200@x.ru";
+    private const string OwnEmail = "teacher@example.com";
 
     private readonly B18ProfileWebAppFactory _factory;
 
@@ -28,16 +28,11 @@ public sealed class Ts200_ProfileFullNameLengthBoundaryTests : IClassFixture<B18
     [Fact]
     public async Task PutProfile_FullName200Accepted_FullName201RejectedWithLengthError()
     {
-        // given: пользователь авторизован; email не меняется (собственный).
-        var user = B18ProfileHarness.SeedUser(
-            _factory,
-            login: Login,
-            email: Email,
-            fullName: "Студент ТС-200",
-            role: UserRoles.Student,
-            groupId: null,
-            password: B18ProfileHarness.TestUserPassword);
-        using var client = B18ProfileHarness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
+        // given: текущий пользователь — засеянный преподаватель; email не меняется
+        // (собственный); клиент анонимный.
+        var current = await B18ProfileHarness.CurrentUserAsync(_factory);
+        Assert.Equal(OwnEmail, current.Email);
+        using var client = B18ProfileHarness.Create(_factory);
 
         var fullName200 = new string('Ф', 200);
         var fullName201 = new string('Ф', 201);
@@ -48,7 +43,7 @@ public sealed class Ts200_ProfileFullNameLengthBoundaryTests : IClassFixture<B18
         using var accepted = await client.PutAsJsonAsync(B18ProfileHarness.ProfileEndpoint, new
         {
             fullName = fullName200,
-            email = Email,
+            email = OwnEmail,
         });
         Assert.True(
             accepted.StatusCode == HttpStatusCode.OK,
@@ -60,7 +55,7 @@ public sealed class Ts200_ProfileFullNameLengthBoundaryTests : IClassFixture<B18
         using var rejected = await client.PutAsJsonAsync(B18ProfileHarness.ProfileEndpoint, new
         {
             fullName = fullName201,
-            email = Email,
+            email = OwnEmail,
         });
         Assert.True(
             rejected.StatusCode == HttpStatusCode.BadRequest,

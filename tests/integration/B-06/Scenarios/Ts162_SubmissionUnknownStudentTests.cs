@@ -31,8 +31,8 @@ public sealed class Ts162_SubmissionUnknownStudentTests : IClassFixture<B06Submi
     [Fact]
     public async Task PutSubmissionWithUnknownStudent_Returns404StudentNotFound()
     {
-        // given: teacher-сессия; studentId — случайный uuid; labId валиден; даты валидны.
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; studentId — случайный uuid; labId валиден; даты валидны.
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
         var unknownStudentId = Guid.NewGuid();
 
         // when: PUT /submissions {studentId:<случайный uuid>, labId:<валидный>, ...}.

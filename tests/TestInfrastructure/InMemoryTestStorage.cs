@@ -15,7 +15,7 @@ public static class InMemoryTestStorage
 {
     /// <summary>
     /// Подменяет регистрации хранилища in-memory двойками: интерфейсы
-    /// репозиториев, ISecurityTokenRepository и SeedRunner. Пары «конкретный
+    /// репозиториев и SeedRunner. Пары «конкретный
     /// класс + интерфейс» нужны межрепозиторным каскадам (группы сбрасывают
     /// GroupId, работы удаляют сдачи) под общей <see cref="StorageLock"/>.
     /// </summary>
@@ -36,8 +36,6 @@ public static class InMemoryTestStorage
 
         services.AddSingleton<InMemoryLabRepository>();
         services.AddSingleton<ILabRepository>(static sp => sp.GetRequiredService<InMemoryLabRepository>());
-
-        services.AddSingleton<ISecurityTokenRepository, InMemorySecurityTokenRepository>();
 
         services.AddSingleton<SeedRunner>();
 

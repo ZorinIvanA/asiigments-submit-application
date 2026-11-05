@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-162 «Граница длины content работы: ровно 500 — 201, 501 — 400»
 /// (boundary, FR-014).
 ///
-/// given: teacher авторизован; пара (5,1) свободна (демо-сид содержит только
+/// given: анонимный запрос (текущий пользователь — сид-преподаватель); пара (5,1) свободна (демо-сид содержит только
 ///        семестры 1 и 2).
 /// when:  POST /api/v1/labs {number:1, semester:5, content: строка ровно 500
 ///        символов (без краевых пробелов), assignmentUrl:null,
@@ -27,8 +27,8 @@ public sealed class Ts162_ContentBoundaryTests : IClassFixture<B05WebAppFactory>
     [Fact]
     public async Task Content_Exactly500Created_Exactly501Rejected()
     {
-        // given: teacher авторизован; пара (5,1) свободна.
-        using var client = await HostClients.CreateTeacherClientAsync(_factory);
+        // given: анонимный запрос (текущий пользователь — сид-преподаватель); пара (5,1) свободна.
+        using var client = HostClients.Create(_factory);
 
         // when: content ровно 500 символов без краевых пробелов.
         var content500 = new string('Ж', 500);

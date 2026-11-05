@@ -161,21 +161,6 @@ public sealed class DtoTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void MeDto_SerializesContractShape()
-    {
-        var dto = new MeDto { Login = "student01", FullName = "Иванов Иван", Role = UserRoles.Student, GroupName = null };
-
-        using var doc = JsonDocument.Parse(JsonSerializer.Serialize(dto, SerializerOptions));
-        var root = doc.RootElement;
-
-        Assert.Equal(4, root.EnumerateObject().Count());
-        Assert.Equal("student01", root.GetProperty("login").GetString());
-        Assert.Equal("Иванов Иван", root.GetProperty("fullName").GetString());
-        Assert.Equal("student", root.GetProperty("role").GetString());
-        Assert.Equal(JsonValueKind.Null, root.GetProperty("groupName").ValueKind);
-    }
-
-    [Fact]
     public void ProfileDto_SerializesContractShape()
     {
         var dto = new ProfileDto

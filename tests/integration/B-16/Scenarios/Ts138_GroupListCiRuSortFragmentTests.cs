@@ -24,7 +24,7 @@ public sealed class Ts138_GroupListCiRuSortFragmentTests : IClassFixture<B16Grou
     {
         // given: сессия teacher; созданы группы 'ик-225' и 'ИК-224' (сид
         // ИК-221..223 присутствует в фикстуре).
-        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
+        using var client = B16GroupsSession.CreateClient(_factory);
         using var createdLower = await B16GroupsApi.PostGroupAsync(client, "ик-225");
         using var createdLowerBody = await B16GroupsApi.ParseWithStatusAsync(
             createdLower, HttpStatusCode.Created, "POST /groups {name:'ик-225'} (teacher)");

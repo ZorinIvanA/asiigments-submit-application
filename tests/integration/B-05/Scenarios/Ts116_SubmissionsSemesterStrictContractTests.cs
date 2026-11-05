@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-116 «submissions: строгий контракт semester и обязательность groupId»
 /// (negative, FR-021/FR-023).
 ///
-/// given: сессия teacher (минт, ADR-015); Labs__MaxSemester=10 (умолчание
+/// given: анонимный доступ (текущий пользователь — сид-преподаватель); Labs__MaxSemester=10 (умолчание
 ///        конфигурации); валидный groupId существует (ИК-221 сида).
 /// when:  GET /api/v1/submissions?groupId=&lt;валидный&gt;&amp;semester=0;
 ///        ?semester=99; ?semester=abc; запрос без параметра semester; запрос
@@ -28,9 +28,9 @@ public sealed class Ts116_SubmissionsSemesterStrictContractTests : IClassFixture
     [Fact]
     public async Task OutOfRange_NonNumeric_AndMissingSemester_AreRejectedWithFieldError()
     {
-        // given: валидная группа ИК-221; teacher авторизован; MaxSemester=10.
+        // given: валидная группа ИК-221; анонимный запрос (текущий пользователь — сид-преподаватель); MaxSemester=10.
         var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: semester=0; semester=99; semester=abc; semester отсутствует.
         using var belowRange = await client.GetAsync(
@@ -61,8 +61,8 @@ public sealed class Ts116_SubmissionsSemesterStrictContractTests : IClassFixture
     [Fact]
     public async Task MissingGroupId_IsRejectedWithRequiredFieldError()
     {
-        // given: teacher авторизован; валидный semester=1; groupId не передан.
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        // given: анонимный запрос (текущий пользователь — сид-преподаватель); валидный semester=1; groupId не передан.
+        using var client = HostClients.Create(_factory);
 
         // when: GET /submissions?semester=1&page=1 (без groupId).
         using var response = await client.GetAsync($"{GridEndpoint}?semester=1&page=1");

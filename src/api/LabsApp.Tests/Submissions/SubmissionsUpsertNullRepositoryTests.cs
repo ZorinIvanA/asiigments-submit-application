@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
@@ -163,20 +162,12 @@ public sealed class SubmissionsUpsertNullRepositoryTests(SubmissionsNullUpsertFi
 
     private static async Task<HttpClient> CreateTeacherClient(WebApplicationFactory<Program> factory)
     {
-        var user = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher")
+        _ = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher")
             ?? throw new InvalidOperationException("Учителя нет в хранилище тестового хоста.");
-        var token = factory.Services
-            .GetRequiredService<ITokenService>()
-            .IssueAccessToken(user.Id, user.Role);
-
-        var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        return factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
             HandleCookies = false,
         });
-        client.DefaultRequestHeaders.Add(
-            "Cookie",
-            $"{AuthCoreDefaults.AccessTokenCookieName}={token}");
-        return client;
     }
 }

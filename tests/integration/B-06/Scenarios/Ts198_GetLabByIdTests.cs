@@ -8,7 +8,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 ///
 /// given: сид развёрнут (демо-набор); известна запись семестра 1 номера 1
 ///        (id получен из GET /api/v1/labs?semester=1: первый элемент items);
-///        сессия teacher.
+///        анонимный клиент.
 /// when:  GET /api/v1/labs/{id}.
 /// then:  200; тело LabDto {id, semester:1, number:1,
 ///        content:'Содержание лабораторной работы №1', assignmentUrl:null (N=1 не кратно 5),
@@ -26,8 +26,8 @@ public sealed class Ts198_GetLabByIdTests : IClassFixture<B06SubmissionsWebAppFa
     [Fact]
     public async Task GetLabById_ReturnsLabDtoEqualToListItem()
     {
-        // given: сессия teacher; id записи (1,1) — первый элемент items списка GET /labs?semester=1.
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        // given: анонимный клиент; id записи (1,1) — первый элемент items списка GET /labs?semester=1.
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
         using var listResponse = await B06SubmissionsApi.GetLabsBySemesterAsync(client, semester: "1");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
         var list = await BodyAssertions.ReadRootObjectAsync(listResponse);

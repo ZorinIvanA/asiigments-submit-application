@@ -7,13 +7,12 @@ namespace LabsApp.IntegrationTests.B17.Groups.Scenarios;
 /// TS-124 «Группы: удаление сбрасывает groupId у студентов» (data_integrity,
 /// FR-019, FR-020, P0).
 ///
-/// given: в ИК-222 есть студенты (демо-сид: student26..student30); сессии teacher
-///        и студента student26 минтятся до удаления (ADR-015).
-/// when:  DELETE /groups/{id ИК-222}; затем GET /students?groupId=none; затем
-///        GET /auth/me студента.
-/// then:  204; студенты живы с groupId=null и groupName=null; видимы в выдаче
-///        groupId=none; GET /auth/me студента — groupName=null
-///        (FR-019 AC «Удаление сбрасывает группу у студентов»).
+/// given: в ИК-222 есть студенты (демо-сид: student26..student30); клиент
+///        анонимный (аутентификации в приложении нет — бывшие сессии teacher и
+///        студента не существуют).
+/// when:  DELETE /groups/{id ИК-222}; затем GET /students?groupId=none.
+/// then:  204; студенты живы с groupId=null и groupName=null, видимы в выдаче
+///        groupId=none (FR-019 AC «Удаление сбрасывает группу у студентов»).
 /// </summary>
 public sealed class Ts124_GroupDeleteDetachesStudentsTests : IClassFixture<B17GroupsDemoDataFactory>
 {
@@ -29,14 +28,13 @@ public sealed class Ts124_GroupDeleteDetachesStudentsTests : IClassFixture<B17Gr
     [Fact]
     public async Task DeleteGroup_KeepsStudentsWithoutGroup()
     {
-        // given: демо-сид (student26..student30 в ИК-222); сессии teacher и student26.
-        using var teacher = await B17GroupsSession.CreateTeacherAsync(_factory);
-        using var student = await B17GroupsSession.CreateStudentAsync(_factory, "student26");
+        // given: демо-сид (student26..student30 в ИК-222); клиент анонимный.
+        using var client = B17GroupsSession.CreateClient(_factory);
 
-        var ik222Id = await B17GroupsApi.GetGroupIdByNameAsync(teacher, "ИК-222");
+        var ik222Id = await B17GroupsApi.GetGroupIdByNameAsync(client, "ИК-222");
 
         // when: DELETE /groups/{id ИК-222}.
-        using var deleted = await B17GroupsApi.DeleteGroupAsync(teacher, ik222Id);
+        using var deleted = await B17GroupsApi.DeleteGroupAsync(client, ik222Id);
 
         // then: 204.
         Assert.True(
@@ -45,7 +43,7 @@ public sealed class Ts124_GroupDeleteDetachesStudentsTests : IClassFixture<B17Gr
             await deleted.Content.ReadAsStringAsync());
 
         // then: студенты 26–30 живы, видимы в GET /students?groupId=none, groupId/groupName — null.
-        using var ungrouped = await B17GroupsApi.GetStudentsAsync(teacher, "groupId=none");
+        using var ungrouped = await B17GroupsApi.GetStudentsAsync(client, "groupId=none");
         using var ungroupedBody = await B17GroupsApi.ParseWithStatusAsync(
             ungrouped, HttpStatusCode.OK, "GET /students?groupId=none после удаления группы (TS-124)");
         var items = ungroupedBody.RootElement.GetProperty("items").EnumerateArray().ToList();
@@ -61,12 +59,5 @@ public sealed class Ts124_GroupDeleteDetachesStudentsTests : IClassFixture<B17Gr
             Assert.Equal(JsonValueKind.Null, byLogin[login].GetProperty("groupId").ValueKind);
             Assert.Equal(JsonValueKind.Null, byLogin[login].GetProperty("groupName").ValueKind);
         }
-
-        // then: GET /auth/me любого из них — groupName=null (пользователь сохранён).
-        using var me = await B17GroupsApi.GetMeAsync(student);
-        using var meBody = await B17GroupsApi.ParseWithStatusAsync(
-            me, HttpStatusCode.OK, "GET /auth/me студента удалённой группы (TS-124)");
-        Assert.Equal(JsonValueKind.Null, meBody.RootElement.GetProperty("groupName").ValueKind);
-        Assert.Equal("student26", B17GroupsApi.ReadString(meBody.RootElement, "login"));
     }
 }

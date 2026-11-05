@@ -12,7 +12,7 @@ namespace LabsApp.IntegrationTests.B01.Scenarios;
 /// <summary>
 /// Кейс TS-157 «Конверт ошибок: 500 без деталей исключения» (FR-023, P1).
 /// given: в тестовом окружении один сервис — ILabRepository-заглушка — заменён
-/// реализацией, бросающей исключение; teacher авторизован.
+/// реализацией, бросающей исключение; запрос выполняется анонимно.
 /// when: вызов затронутого эндпойнта POST /labs — имитация необработанного
 /// исключения.
 /// then: 500 {'message':'Внутренняя ошибка сервера'}; ответ не содержит имён
@@ -28,11 +28,10 @@ public sealed class Ts157_ErrorEnvelope500WithoutDetailsTests
         // given: ILabRepository заменён бросающей реализацией (ConfigureTestServices
         // регистрируется позже Program — последняя регистрация побеждает в DI). Хост
         // стартует на штатной реализации (сид выполняется), затем сервис «взводится»
-        // — целевой запрос получает замену, бросающую исключение. teacher —
-        // валидная access-cookie сеяного учителя (ADR-015: DI-сид + минтованный
-        // access-JWT вместо HTTP-входа).
+        // — целевой запрос получает замену, бросающую исключение. Клиент анонимный
+        // (аутентификации в приложении нет — эндпойнты публичны).
         using var factory = new ArmedRepositoryFactory();
-        using var client = await MintedSession.CreateTeacherClient(factory);
+        using var client = HostClients.Create(factory);
         ((ArmedLabRepository)factory.Services.GetRequiredService<ILabRepository>()).Arm();
 
         // when: POST /api/v1/labs с валидным телом — валидация проходит (в том

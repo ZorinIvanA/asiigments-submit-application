@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-113 (P0, negative; FR-020 AC «Преподаватель не студент») «Студенты:
 /// 404 для не-студента, неизвестного id и неизвестной группы».
-/// given: сессия teacher; известен uuid пользователя teacher и uuid несуществующей группы.
+/// given: анонимный доступ (текущий пользователь — сид-преподаватель); известен uuid пользователя teacher и uuid несуществующей группы.
 /// when:  PUT /students/{teacherId}/group {groupId:null};
 ///        PUT /students/&lt;несуществующий-id&gt;/group {groupId:null};
 ///        PUT /students/{id31}/group {groupId:&lt;несуществующий-uuid&gt;}.
@@ -20,9 +20,9 @@ public sealed class Ts113_StudentGroup404Tests : IClassFixture<B05WebAppFactory>
     [Fact]
     public async Task PutGroupForTeacher_ReturnsStudentNotFound()
     {
-        // given: существующий пользователь с ролью teacher; сессия teacher.
+        // given: существующий пользователь с ролью teacher; анонимный доступ (текущий пользователь — сид-преподаватель).
         var teacher = await B05SeedLookup.TeacherAsync(_factory);
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: попытка назначить группу пользователю-преподавателю.
         using var put = await client.PutAsJsonAsync(
@@ -38,9 +38,9 @@ public sealed class Ts113_StudentGroup404Tests : IClassFixture<B05WebAppFactory>
     [Fact]
     public async Task PutGroupForUnknownStudent_ReturnsStudentNotFound()
     {
-        // given: uuid, которого нет среди пользователей; сессия teacher.
+        // given: uuid, которого нет среди пользователей; анонимный доступ (текущий пользователь — сид-преподаватель).
         var unknownStudentId = Guid.NewGuid();
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: назначение группы несуществующему студенту.
         using var put = await client.PutAsJsonAsync(
@@ -56,9 +56,9 @@ public sealed class Ts113_StudentGroup404Tests : IClassFixture<B05WebAppFactory>
     [Fact]
     public async Task PutUnknownGroupForStudent_ReturnsGroupNotFound()
     {
-        // given: student31 существует; группы с указанным uuid нет; сессия teacher.
+        // given: student31 существует; группы с указанным uuid нет; анонимный доступ (текущий пользователь — сид-преподаватель).
         var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: назначение в несуществующую группу.
         using var put = await client.PutAsJsonAsync(

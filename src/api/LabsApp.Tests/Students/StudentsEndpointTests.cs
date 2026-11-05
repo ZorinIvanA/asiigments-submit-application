@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
@@ -53,14 +52,14 @@ internal static class StudentsEndpointHarness
     {
         var teacher = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
-        return CreateSessionClient(factory, teacher.Id, UserRoles.Teacher);
+        return CreateAnonymousClient(factory);
     }
 
     public static async Task<HttpClient> CreateStudentClient(WebApplicationFactory<Program> factory)
     {
         var student = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("student01");
         Assert.NotNull(student);
-        return CreateSessionClient(factory, student.Id, UserRoles.Student);
+        return CreateAnonymousClient(factory);
     }
 
     public static HttpClient CreateAnonymousClient(WebApplicationFactory<Program> factory) =>
@@ -130,18 +129,6 @@ internal static class StudentsEndpointHarness
     public static string[] ErrorOf(JsonElement errors, string field) =>
         [.. errors.GetProperty(field).EnumerateArray().Select(item => item.GetString() ?? string.Empty)];
 
-    private static HttpClient CreateSessionClient(WebApplicationFactory<Program> factory, Guid userId, string role)
-    {
-        var token = factory.Services
-            .GetRequiredService<ITokenService>()
-            .IssueAccessToken(userId, role);
-
-        var client = CreateAnonymousClient(factory);
-        client.DefaultRequestHeaders.Add(
-            "Cookie",
-            $"{AuthCoreDefaults.AccessTokenCookieName}={token}");
-        return client;
-    }
 }
 
 /// <summary>
@@ -775,93 +762,5 @@ public sealed class StudentsSetGroupEndpointTests(StudentsApiFixture fixture) : 
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("Студент не найден", await StudentsEndpointHarness.MessageAsync(response));
-    }
-}
-
-/// <summary>
-/// FR-022 (представитель группы students*): анонимно — 401, student — 403,
-/// причём роль проверяется раньше валидации параметров (400), разбора тела и
-/// поиска записи (404); teacher — статус по бизнес-правилам.
-/// </summary>
-public sealed class StudentsRolesEndpointTests(StudentsApiFixture fixture) : IClassFixture<StudentsApiFixture>
-{
-    private readonly TestWebAppFactory _factory = fixture.Factory;
-
-    [Fact]
-    public async Task List_Anonymous_Returns401Envelope()
-    {
-        using var client = StudentsEndpointHarness.CreateAnonymousClient(_factory);
-
-        using var response = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        Assert.Equal("Не авторизован", await StudentsEndpointHarness.MessageAsync(response));
-    }
-
-    [Fact]
-    public async Task List_Student_Returns403Envelope()
-    {
-        using var client = await StudentsEndpointHarness.CreateStudentClient(_factory);
-
-        using var response = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal("Доступ запрещён", await StudentsEndpointHarness.MessageAsync(response));
-    }
-
-    [Fact]
-    public async Task List_StudentTooLongSearch_403Before400()
-    {
-        using var client = await StudentsEndpointHarness.CreateStudentClient(_factory);
-
-        // Роль проверяется раньше валидации: слишком длинный search не даёт 400.
-        using var response = await client.GetAsync(
-            $"{StudentsEndpointHarness.StudentsEndpoint}?search={Uri.EscapeDataString(new string('х', 201))}");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal("Доступ запрещён", await StudentsEndpointHarness.MessageAsync(response));
-    }
-
-    [Fact]
-    public async Task SetGroup_Anonymous_Returns401Envelope()
-    {
-        using var client = StudentsEndpointHarness.CreateAnonymousClient(_factory);
-
-        using var response = await client.PutAsync(
-            $"{StudentsEndpointHarness.StudentsEndpoint}/{Guid.NewGuid()}/group",
-            StudentsEndpointHarness.Json("""{"groupId":null}"""));
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        Assert.Equal("Не авторизован", await StudentsEndpointHarness.MessageAsync(response));
-    }
-
-    [Fact]
-    public async Task SetGroup_StudentUnknownIdBrokenJson_403Before400And404()
-    {
-        using var client = await StudentsEndpointHarness.CreateStudentClient(_factory);
-
-        // Роль раньше разбора тела (400-ветки нет) и поиска записи (404).
-        using var response = await client.PutAsync(
-            $"{StudentsEndpointHarness.StudentsEndpoint}/{Guid.NewGuid()}/group",
-            StudentsEndpointHarness.Json("""{"groupId": broken"""));
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Equal("Доступ запрещён", await StudentsEndpointHarness.MessageAsync(response));
-    }
-
-    [Fact]
-    public async Task TeacherOwnRole_BusinessStatuses()
-    {
-        var ik223 = await StudentsEndpointHarness.GroupByNameAsync(_factory, "ИК-223");
-        var student31 = await StudentsEndpointHarness.StudentByLoginAsync(_factory, "student31");
-        using var client = await StudentsEndpointHarness.CreateTeacherClient(_factory);
-
-        using var list = await client.GetAsync(StudentsEndpointHarness.StudentsEndpoint);
-        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
-
-        using var assign = await client.PutAsync(
-            $"{StudentsEndpointHarness.StudentsEndpoint}/{student31.Id}/group",
-            StudentsEndpointHarness.Json($$"""{"groupId":"{{ik223.Id}}"}"""));
-        Assert.Equal(HttpStatusCode.NoContent, assign.StatusCode);
     }
 }

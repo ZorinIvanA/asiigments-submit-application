@@ -4,12 +4,14 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace LabsApp.IntegrationTests.B23.Infrastructure;
 
 /// <summary>
-/// Тестовый хост зоны B-23: РЕАЛЬНОЕ PostgreSQL-хранилище (Storage__Provider=
-/// postgres + строка подключения к локальному кластеру из src/api/db/README.md).
-/// БД обязана существовать: схема — src/api/db/02_schema.sql, демо-данные —
-/// 03_seed_demo.sql. Сид приложения при старте хоста идемпотентно дубликатов
-/// не создаёт. Каждый тест работает с собственными уникальными данными
-/// (Guid-суффиксы) и удаляет их за собой — зона повторяемо гоняется на общей БД.
+/// Тестовый хост зоны B-23: РЕАЛЬНОЕ PostgreSQL-хранилище (строка подключения
+/// к локальному кластеру из src/api/db/README.md). БД обязана существовать:
+/// схема — src/api/db/02_schema.sql, демо-данные — 03_seed_demo.sql. Сид
+/// приложения при старте хоста идемпотентно дубликатов не создаёт. Каждый тест
+/// работает с собственными уникальными данными (Guid-суффиксы) и удаляет их
+/// за собой — зона повторяемо гоняется на общей БД. Аутентификации в приложении
+/// нет: POST /api/v1/auth/* удалён, «текущий пользователь» — засеянный
+/// преподаватель (SQL-сид teacher); сценарии ходят анонимным клиентом.
 /// </summary>
 public sealed class B23WebAppFactory : WebApplicationFactory<Program>
 {
@@ -17,14 +19,11 @@ public sealed class B23WebAppFactory : WebApplicationFactory<Program>
     public const string ConnectionString =
         "Host=127.0.0.1;Port=5434;Database=labsapp;Username=labsapp;Password=labsapp";
 
-    /// <summary>Демо-учётки SQL-сида (src/api/db/03_seed_demo.sql).</summary>
+    /// <summary>Логины демо-учёток SQL-сида (src/api/db/03_seed_demo.sql);
+    /// пароли роли не играют — аутентификации в приложении нет.</summary>
     public const string TeacherLogin = "teacher";
 
-    public const string TeacherPassword = "teacher123!";
-
     public const string StudentLogin = "student01";
-
-    public const string StudentPassword = "student123!";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-117 «submissions: несуществующая группа — 404» (negative, FR-021).
 ///
-/// given: группы с указанным uuid нет (случайный Guid); сессия teacher.
+/// given: группы с указанным uuid нет (случайный Guid); анонимный доступ (текущий пользователь — сид-преподаватель).
 /// when:  GET /api/v1/submissions?groupId=&lt;неизвестный&gt;&amp;semester=1&amp;page=1
 /// then:  404 'Группа не найдена' (FR-021 AC «Нет группы — 404»).
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class Ts117_SubmissionsUnknownGroup404Tests : IClassFixture<B05Web
         var groups = _factory.Services.GetRequiredService<IGroupRepository>();
         Assert.Null( await groups.GetByIdAsync(unknownGroupId) );
 
-        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
+        using var client = HostClients.Create(_factory);
 
         // when: ведомость по неизвестной группе.
         using var response = await client.GetAsync(

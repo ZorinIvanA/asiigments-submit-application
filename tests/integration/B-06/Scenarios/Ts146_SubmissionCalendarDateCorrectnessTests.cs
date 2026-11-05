@@ -40,11 +40,11 @@ public sealed class Ts146_SubmissionCalendarDateCorrectnessTests : IClassFixture
     [Fact]
     public async Task PutSubmissionWithFebruary30_IsRejectedAndLeapYearDateIsAccepted()
     {
-        // given: teacher-сессия; обе пары (student05×1.1, student06×1.1) свободны.
+        // given: анонимный клиент; обе пары (student05×1.1, student06×1.1) свободны.
         var submissions = _factory.Services.GetRequiredService<ISubmissionRepository>();
         Assert.Null(await submissions.GetByStudentAndLabAsync(_student05Id, _labId));
         Assert.Null(await submissions.GetByStudentAndLabAsync(_student06Id, _labId));
-        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
 
         // when: PUT на первую свободную пару с несуществующей датой '2026-02-30'.
         using var impossible = await B06SubmissionsApi.PutSubmissionAsync(

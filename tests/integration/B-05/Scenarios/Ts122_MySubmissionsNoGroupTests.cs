@@ -1,12 +1,12 @@
-using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B05.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
 
 /// <summary>
-/// TS-122 «me/submissions: студент без группы» (happy_path, FR-021).
+/// TS-122 «me/submissions: пользователь без группы» (happy_path, FR-021).
 ///
-/// given: student31 без группы (демо-сид); его валидная сессия (минт, ADR-015).
+/// given: текущий пользователь анонимного приложения — сид-преподаватель
+///        (Seed__TeacherLogin); он не включён ни в одну группу (GroupId=null).
 /// when:  GET /api/v1/me/submissions?semester=1
 /// then:  200 {hasGroup:false, labs:[], submissions:[]} (FR-021 AC «Свои сдачи
 ///        без группы»).
@@ -20,14 +20,13 @@ public sealed class Ts122_MySubmissionsNoGroupTests : IClassFixture<B05WebAppFac
     public Ts122_MySubmissionsNoGroupTests(B05WebAppFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task StudentWithoutGroup_GetsEmptyAnswerWithHasGroupFalse()
+    public async Task CurrentUserWithoutGroup_GetsEmptyAnswerWithHasGroupFalse()
     {
-        // given: student31 существует и не включён ни в одну группу.
-        var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
-        Assert.Null(student31.GroupId);
+        // given: сид-преподаватель существует и не включён ни в одну группу.
+        var teacher = await B05SeedLookup.TeacherAsync(_factory);
+        Assert.Null(teacher.GroupId);
 
-        using var client = B05MintedSessions.Create(_factory);
-        B05MintedSessions.MintAccessCookie(_factory, client, student31.Id, UserRoles.Student);
+        using var client = HostClients.Create(_factory);
 
         // when: свои сдачи по семестру 1.
         using var response = await client.GetAsync($"{MySubmissionsEndpoint}?semester=1");
