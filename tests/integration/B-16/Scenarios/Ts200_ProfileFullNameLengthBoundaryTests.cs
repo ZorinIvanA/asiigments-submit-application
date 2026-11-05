@@ -1,3 +1,4 @@
+using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B16.Infrastructure;
 
@@ -6,10 +7,8 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 /// <summary>
 /// TS-200 «Профиль: границы длины fullName 200/201» (boundary, FR-015, P2).
 ///
-/// given: текущий пользователь приложения — засеянный преподаватель
-///        (Seed__TeacherLogin «teacher», email 'teacher@example.com'); клиент
-///        анонимный (аутентификации в приложении нет); email валиден и не меняется
-///        (собственный email — по TS-089/TS-091 совпадение с собой не конфликт).
+/// given: пользователь авторизован; email валиден и свободен (не меняется —
+///        собственный email, по TS-090 совпадение с собой не конфликт).
 /// when:  PUT /api/v1/me/profile с fullName длиной ровно 200 символов; затем
 ///        отдельный PUT с fullName длиной 201.
 /// then:  первый — 200 (ProfileDto с новым ФИО); второй — 400,
@@ -19,7 +18,8 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 [Collection(SerialBuildAndProcessCollection.Name)]
 public sealed class Ts200_ProfileFullNameLengthBoundaryTests : IClassFixture<B16WebAppFactory>
 {
-    private const string Email = "teacher@example.com";
+    private const string Login = "ts200";
+    private const string Email = "ts200@x.ru";
 
     private readonly B16WebAppFactory _factory;
 
@@ -28,11 +28,16 @@ public sealed class Ts200_ProfileFullNameLengthBoundaryTests : IClassFixture<B16
     [Fact]
     public async Task PutProfile_FullName200Accepted_FullName201RejectedWithLengthError()
     {
-        // given: текущий пользователь — засеянный преподаватель; email не меняется
-        // (собственный); клиент анонимный.
-        var current = await B16Harness.CurrentUserAsync(_factory);
-        Assert.Equal(Email, current.Email);
-        using var client = B16Harness.Create(_factory);
+        // given: пользователь авторизован; email не меняется (собственный).
+        var user = B16Harness.SeedUser(
+            _factory,
+            login: Login,
+            email: Email,
+            fullName: "Студент ТС-200",
+            role: UserRoles.Student,
+            groupId: null,
+            password: B16Harness.TestUserPassword);
+        using var client = B16Harness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         var fullName200 = new string('Ф', 200);
         var fullName201 = new string('Ф', 201);

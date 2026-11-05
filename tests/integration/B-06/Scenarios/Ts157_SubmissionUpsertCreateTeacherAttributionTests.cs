@@ -10,8 +10,8 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// TS-157 «Upsert сдачи: создание записи с updatedBy преподавателя»
 /// (happy_path, P0, FR-021).
 ///
-/// given: пара (student05, работа 1.4) отсутствует; анонимный клиент (uuid
-///        преподавателя известен тесту из хранилища хоста).
+/// given: пара (student05, работа 1.4) отсутствует; сессия teacher (uuid
+///        преподавателя известен тесту из хранилища хоста — ADR-015).
 /// when:  PUT /api/v1/submissions {studentId:&lt;student05&gt;, labId:&lt;1.4&gt;,
 ///        submitDate:'2026-09-20', defenseDate:null}; затем GET ведомости
 ///        ИК-221 семестра 1.
@@ -51,10 +51,10 @@ public sealed class Ts157_SubmissionUpsertCreateTeacherAttributionTests :
     [Fact]
     public async Task PutSubmissionOnFreePair_CreatesRecordWithTeacherAttribution()
     {
-        // given: пара (student05, работа 1.4) в хранилище отсутствует; анонимный клиент.
+        // given: пара (student05, работа 1.4) в хранилище отсутствует; teacher-сессия.
         Assert.Null(await _factory.Services.GetRequiredService<ISubmissionRepository>()
             .GetByStudentAndLabAsync(_studentId, _labId));
-        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherClientAsync(_factory);
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
         using var _client = client;
         var hostNow = _factory.Time.GetUtcNow();
 

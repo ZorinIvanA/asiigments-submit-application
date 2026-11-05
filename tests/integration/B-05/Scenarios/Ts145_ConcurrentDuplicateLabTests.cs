@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-145 «Конкурентное создание дублирующей пары (semester, number)»
 /// (concurrency, FR-014, FR-002).
 ///
-/// given: анонимный запрос (текущий пользователь — сид-преподаватель); пара (3,99) свободна (демо-сид содержит только
+/// given: teacher авторизован; пара (3,99) свободна (демо-сид содержит только
 ///        семестры 1 и 2 — в семестре 3 работ нет); два параллельных HTTP-клиента
 ///        с cookie преподавателя.
 /// when:  одновременно (параллельные задачи) два POST /api/v1/labs с одинаковым
@@ -29,9 +29,9 @@ public sealed class Ts145_ConcurrentDuplicateLabTests : IClassFixture<B05WebAppF
     [Fact]
     public async Task TwoConcurrentPostsOfSamePair_ExactlyOneCreatedAndOneConflict()
     {
-        // given: анонимный запрос (текущий пользователь — сид-преподаватель); два параллельных клиента с cookie преподавателя.
-        using var clientA = HostClients.Create(_factory);
-        using var clientB = HostClients.Create(_factory);
+        // given: teacher авторизован; два параллельных клиента с cookie преподавателя.
+        using var clientA = await HostClients.CreateTeacherClientAsync(_factory);
+        using var clientB = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: одновременно два POST /api/v1/labs с одинаковым телом {number:99, semester:3}.
         var body = new

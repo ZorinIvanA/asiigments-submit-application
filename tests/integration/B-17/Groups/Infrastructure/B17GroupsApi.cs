@@ -17,6 +17,9 @@ public static class B17GroupsApi
     /// <summary>Базовый путь /students (IF-009/FR-020).</summary>
     public const string StudentsEndpoint = "/api/v1/students";
 
+    /// <summary>Текущий пользователь (IF-004/FR-009).</summary>
+    public const string MeEndpoint = "/api/v1/auth/me";
+
     /// <summary>GET /api/v1/groups (список, без пагинации).</summary>
     public static Task<HttpResponseMessage> GetGroupsAsync(HttpClient client) =>
         client.GetAsync(GroupsEndpoint);
@@ -46,6 +49,10 @@ public static class B17GroupsApi
     /// <summary>GET /api/v1/students?{query} (кейс TS-124: фильтр groupId=none).</summary>
     public static Task<HttpResponseMessage> GetStudentsAsync(HttpClient client, string query) =>
         client.GetAsync($"{StudentsEndpoint}?{query}");
+
+    /// <summary>GET /api/v1/auth/me (кейс TS-124: groupName после удаления группы).</summary>
+    public static Task<HttpResponseMessage> GetMeAsync(HttpClient client) =>
+        client.GetAsync(MeEndpoint);
 
     /// <summary>
     /// Проверяет статус и парсит JSON-тело. При несовпадении статуса сообщение

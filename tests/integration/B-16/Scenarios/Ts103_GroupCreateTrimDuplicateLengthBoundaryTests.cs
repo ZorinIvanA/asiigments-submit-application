@@ -38,7 +38,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     public async Task PostGroup_TrimsName_ThenCiDuplicateConflicts()
     {
         // given: сессия teacher; группы ИК-224 нет.
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
 
         // when: POST /groups {name:'  ИК-224  '}.
         using var created = await B16GroupsApi.PostGroupAsync(client, "  ИК-224  ");
@@ -63,7 +63,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     {
         // given: сессия teacher; группы ИК-230 не существует; инвариант
         // lower(group.name) из FR-024 оспаривается конкуренцией (РЕВ-ISS-001).
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
 
         // when: два ПАРАЛЛЕЛЬНЫХ POST /groups {name:'ИК-230'} — барьерный старт:
         // обе задачи готовятся, отправляются одновременно после барьера.
@@ -118,7 +118,7 @@ public sealed class Ts103_GroupCreateTrimDuplicateLengthBoundaryTests : IClassFi
     {
         // given: сессия teacher; имена граничной длины без пробельных символов
         // (после трима длина сохраняется); в хранилище таких имён нет.
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var name100 = new string('Г', 100);
         var name101 = new string('Г', 101);
         Assert.Equal(100, name100.Length);

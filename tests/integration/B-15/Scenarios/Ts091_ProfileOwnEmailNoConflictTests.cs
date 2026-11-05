@@ -5,17 +5,19 @@ namespace LabsApp.IntegrationTests.B15.Scenarios;
 /// <summary>
 /// TS-091 «PUT /me/profile со своим email: 200, без конфликта» (idempotency, FR-021, P1).
 ///
-/// given: текущий пользователь приложения — засеянный преподаватель
-///        (Seed__TeacherLogin «teacher», email 'teacher@example.com'); других
-///        пользователей с этим email нет (свежее хранилище фикстуры); клиент
-///        анонимный (аутентификации в приложении нет).
-/// when:  PUT /me/profile {fullName:'Имя', email:'teacher@example.com'}.
+/// given: пользователь role=student с email a@b.ru создан прямым DI-сидом
+///        в IUserRepository тестового хоста; других пользователей с этим email нет;
+///        сессия — cookie access_token с JWT HS256, минтым харнесом ключом
+///        Auth__JwtKey тестового хоста; POST /auth/register и POST /auth/login
+///        в предусловиях НЕ вызываются (CR-001, арбитраж a-017).
+/// when:  PUT /me/profile {fullName:'Имя', email:'a@b.ru'}.
 /// then:  200. FR-021 AC «Свой email»: «Свой неизменённый email конфликтом
 ///        не считается».
 /// </summary>
 public sealed class Ts091_ProfileOwnEmailNoConflictTests : IClassFixture<B15WebAppFactory>
 {
-    private const string Email = "teacher@example.com";
+    private const string Login = "ts091";
+    private const string Email = "a@b.ru";
 
     private readonly B15WebAppFactory _factory;
 
@@ -24,11 +26,10 @@ public sealed class Ts091_ProfileOwnEmailNoConflictTests : IClassFixture<B15WebA
     [Fact]
     public async Task ProfileUpdate_WithOwnUnchangedEmail_ReturnsOkWithoutConflict()
     {
-        // given: текущий пользователь — засеянный преподаватель с email
-        // teacher@example.com; других пользователей с этим email нет; клиент анонимный.
-        var current = await B15Harness.CurrentUserAsync(_factory);
-        Assert.Equal(Email, current.Email);
-        using var client = B15Harness.CreateClient(_factory);
+        // given: студент с email a@b.ru (DI-сид); других пользователей с этим email нет
+        // (свежее хранилище фикстуры); сессия — минтованный access-cookie.
+        var seeded = B15Harness.SeedStudent(_factory, fullName: "Текущее Имя", login: Login, email: Email);
+        using var client = B15Harness.CreateSessionClient(_factory, seeded.Id);
 
         // when: отправка своего текущего email без изменения.
         using var response = await client.PutAsJsonAsync(B15Harness.ProfileEndpoint, new

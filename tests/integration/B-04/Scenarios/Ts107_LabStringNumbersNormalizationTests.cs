@@ -27,7 +27,7 @@ public sealed class Ts107_LabStringNumbersNormalizationTests(B04LabsWebAppFactor
         // given: пара (1,30) свободна.
         Assert.Null( await labs.TryGetByPairAsync(semester: 1, number: 30) );
 
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs со строками цифр и необработанными строковыми полями.
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

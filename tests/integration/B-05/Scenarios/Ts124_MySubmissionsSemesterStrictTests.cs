@@ -1,3 +1,4 @@
+using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B05.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B05.Scenarios;
@@ -6,13 +7,12 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-124 «me/submissions: внедиапазонный/нечисловой semester — 400»
 /// (negative, FR-021).
 ///
-/// given: текущий пользователь анонимного приложения — сид-преподаватель;
-///        Labs__MaxSemester=10 (умолчание конфигурации).
+/// given: student01 авторизован (минт сессии, ADR-015); Labs__MaxSemester=10
+///        (умолчание конфигурации).
 /// when:  GET /api/v1/me/submissions?semester=11; ?semester=abc
 /// then:  оба — 400 'Данные заполнены неверно' +
 ///        errors.semester=['Семестр — число от 1 до 10'] (не 200 с пустыми
-///        массивами; строгий semester проверяется раньше ветки hasGroup)
-///        (FR-021 AC «me/submissions: внедиапазонный semester — 400»).
+///        массивами) (FR-021 AC «me/submissions: внедиапазонный semester — 400»).
 /// </summary>
 public sealed class Ts124_MySubmissionsSemesterStrictTests : IClassFixture<B05WebAppFactory>
 {
@@ -25,9 +25,10 @@ public sealed class Ts124_MySubmissionsSemesterStrictTests : IClassFixture<B05We
     [Fact]
     public async Task AboveRange_AndNonNumericSemester_AreRejectedWithFieldError()
     {
-        // given: анонимный клиент (текущий пользователь — сид-преподаватель);
-        //        MaxSemester=10.
-        using var client = HostClients.Create(_factory);
+        // given: валидная сессия student01; MaxSemester=10.
+        var student01 = await B05SeedLookup.StudentByLoginAsync(_factory, "student01");
+        using var client = B05MintedSessions.Create(_factory);
+        B05MintedSessions.MintAccessCookie(_factory, client, student01.Id, UserRoles.Student);
 
         // when: semester=11 и semester=abc.
         using var aboveRange = await client.GetAsync($"{MySubmissionsEndpoint}?semester=11");

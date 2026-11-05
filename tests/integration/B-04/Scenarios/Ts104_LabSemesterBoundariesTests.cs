@@ -25,7 +25,7 @@ public sealed class Ts104_LabSemesterBoundariesTests(B04LabsWebAppFactory factor
     [InlineData(11, false)]
     public async Task TS104_PostLabSemesterBoundaries(int semester, bool withinRange)
     {
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с граничным semester; number подобран так, что пара
         // (semester, number) уникальна и свободна для каждого варианта.

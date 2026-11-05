@@ -1,15 +1,15 @@
 using System.Text.Json;
-using LabsApp.Hosting.Configuration;
 using LabsApp.IntegrationTests.B06.Infrastructure;
+using LabsApp.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
 
 /// <summary>
-/// TS-164 «me/submissions: пользователь без группы — hasGroup:false»
+/// TS-164 «me/submissions: студент без группы — hasGroup:false»
 /// (happy_path, P0, FR-021).
 ///
-/// given: анонимный клиент; текущий пользователь — сид-преподаватель
-///        (Seed__TeacherLogin), GroupId = null.
+/// given: student31 без группы (демо-набор сида); его сессия.
 /// when:  GET /api/v1/me/submissions?semester=1.
 /// then:  200 {hasGroup:false, labs:[], submissions:[]}
 ///        (FR-021 AC «Свои сдачи без группы»).
@@ -23,10 +23,10 @@ public sealed class Ts164_MeSubmissionsNoGroupTests : IClassFixture<B06Submissio
     [Fact]
     public async Task GetMeSubmissionsWithoutGroup_ReturnsEmptyHasGroupFalse()
     {
-        // given: анонимный клиент; текущий пользователь — сид-преподаватель (без группы).
-        Assert.Null(
-            (await B06SubmissionsSessions.RequireUserAsync(_factory, SeedOptions.DefaultTeacherLogin)).GroupId);
-        using var client = HostClients.Create(_factory);
+        // given: student31 без группы; его сессия.
+        var student31 = await B06SubmissionsSessions.RequireUserAsync(_factory, "student31");
+        Assert.Null(student31.GroupId);
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student31");
 
         // when: GET /me/submissions?semester=1.
         using var response = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "1");
