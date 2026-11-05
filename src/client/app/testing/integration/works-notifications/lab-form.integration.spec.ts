@@ -41,9 +41,10 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     localStorage.clear();
   });
 
-  /** Монтирование и открытие формы создания (анонимно). */
+  /** Монтирование, сессия teacher, открытие формы создания. */
   function openNewForm(): void {
     harness.attach();
+    harness.loginTeacher();
     harness.navigate('/works/new');
   }
 
@@ -90,6 +91,7 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
 
   it('TS-214: редактирование — загрузка значений, сохранение; «Назад» — без записи', fakeAsync(() => {
     harness.attach();
+    harness.loginTeacher();
     const lab1 = harness.labId(1, 1);
     const update = spyOn(harness.labs, 'update').and.callThrough();
 
@@ -135,6 +137,7 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
 
   it('TS-215: deep-link /works/:id/edit переживает прямую навигацию (F5)', fakeAsync(() => {
     harness.attach();
+    harness.loginTeacher();
     const lab5 = harness.labId(1, 5);
 
     harness.navigate(`/works/${lab5}/edit`);
@@ -258,6 +261,7 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
   it('TS-218: save-404 — запись удалена из другой вкладки во время редактирования (аменда 5)', fakeAsync(() => {
     harness.breakpoints.simulate(true); // mobile: якорь 'header' наблюдаем inline-баннером
     harness.attach();
+    harness.loginTeacher();
     const lab1 = harness.labId(1, 1);
     const update = spyOn(harness.labs, 'update').and.callThrough();
 
@@ -294,6 +298,7 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
   it('TS-219: edit-load-404 — несуществующий id в маршруте: баннер, редирект, форма не показана', fakeAsync(() => {
     harness.breakpoints.simulate(true); // mobile: якорь 'header' наблюдаем inline-баннером
     harness.attach();
+    harness.loginTeacher();
 
     harness.navigate('/works/00000000-0000-0000-0000-000000000000/edit');
     harness.flush(); // getById → 404

@@ -1,22 +1,28 @@
 /**
  * Юнит-тесты общих моделей и констант (контракт IF-011).
  *
- * Интерфейсы стираются при компиляции, поэтому их форма фиксируется
- * литеральными образцами (несовпадение полей не скомпилируется —
+ * Интерфейсы стираются при компиляции, поэтому их форма фиксируется двумя
+ * способами: литеральными образцами (несовпадение полей не скомпилируется —
  * tsconfig.spec включён в strict-сборку тестов) и точечными проверками
- * значений.
+ * значений. Константы (ключи хранилищ) проверяются дословно:
+ * их значения зафиксированы спекой и переименование молча ломает персистентность.
  */
 import {
   ApiError,
+  AUTH_ERRORS,
+  ConfirmRecoveryResult,
   LabDto,
   LABS_PAGE_SIZE,
   LabInput,
   LabsGetListParams,
   LabsUpdateParams,
+  LoginParams,
   MAX_SEMESTER,
   MySubmissionsDto,
   PagedResult,
   ProfileDto,
+  RegisterParams,
+  STORAGE_KEYS,
   STUDENTS_PAGE_SIZE,
   StudentDto,
   StudentsGetListParams,
@@ -27,7 +33,12 @@ import {
 } from './models';
 
 describe('Константы и модели DTO (IF-011)', () => {
-  it('User — образец студента без группы: uuid-id, role, groupId/groupName = null', () => {
+  it('ключи хранилищ — только recovery.flow.v1; mock-ключи удалены вместе с мок-слоем (FR-026(4))', () => {
+    expect(Object.keys(STORAGE_KEYS)).toEqual(['recoveryFlow']);
+    expect(STORAGE_KEYS.recoveryFlow).toBe('recovery.flow.v1');
+  });
+
+  it('User — образец студента без группы: uuid-id, role, groupId/groupName = null, пароль только внутри модели', () => {
     const student: User = {
       id: '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b',
       login: 'student31',
@@ -128,7 +139,7 @@ describe('Константы и модели DTO (IF-011)', () => {
     expect(grid.total).toBe(25);
   });
 
-  it('MySubmissionsDto — hasGroup, работы и сдачи только текущего пользователя', () => {
+  it('MySubmissionsDto — hasGroup, работы и сдачи только текущего студента', () => {
     const mine: MySubmissionsDto = {
       hasGroup: false,
       labs: [],
@@ -166,13 +177,51 @@ describe('Константы и модели DTO (IF-011)', () => {
       'Номер должен быть положительным числом',
     ]);
 
-    const notFound: ApiError = { status: 404, body: { message: 'Группа не найдена' } };
-    expect(notFound.body.errors).toBeUndefined();
+    const unauthorized: ApiError = { status: 401, body: { message: 'Не авторизован' } };
+    expect(unauthorized.body.errors).toBeUndefined();
+  });
+
+  it('AUTH_ERRORS — тексты отказов IF-101 дословно (страницы сравнивают с ними ветки)', () => {
+    expect(AUTH_ERRORS.wrongCredentials).toBe('Неверный логин или пароль');
+    expect(AUTH_ERRORS.invalidData).toBe('Данные заполнены неверно');
+    expect(AUTH_ERRORS.loginTaken).toBe('Пользователь с таким логином уже существует');
+    expect(AUTH_ERRORS.emailTaken).toBe('Пользователь с таким email уже существует');
+    expect(AUTH_ERRORS.tooManyAttempts).toBe('Слишком много попыток. Повторите позже');
+    expect(AUTH_ERRORS.recoveryCodeRejected).toBe('Код восстановления не подходит');
+    expect(AUTH_ERRORS.resetLinkInvalid).toBe(
+      'Ссылка восстановления недействительна или истекла',
+    );
+    expect(AUTH_ERRORS.unauthorized).toBe('Не авторизован');
   });
 
   it('LABS_PAGE_SIZE и STUDENTS_PAGE_SIZE — ровно 10 (§4.3, ADR-109)', () => {
     expect(LABS_PAGE_SIZE).toBe(10);
     expect(STUDENTS_PAGE_SIZE).toBe(10);
+  });
+
+  it('RegisterParams/LoginParams — форма полей форм auth (IF-101)', () => {
+    const register: RegisterParams = {
+      fullName: 'Иванов Иван Иванович',
+      login: 'student31',
+      email: 'student31@example.com',
+      password: 'Student#2026',
+      repeatPassword: 'Student#2026',
+    };
+    expect(Object.keys(register).sort()).toEqual([
+      'email',
+      'fullName',
+      'login',
+      'password',
+      'repeatPassword',
+    ]);
+
+    const login: LoginParams = { login: 'student31', password: 'Student#2026' };
+    expect(login.login).toBe('student31');
+  });
+
+  it('ConfirmRecoveryResult — краткоживущий resetToken (IF-101)', () => {
+    const result: ConfirmRecoveryResult = { resetToken: 'runtime-id' };
+    expect(typeof result.resetToken).toBe('string');
   });
 
   it('LabInput/LabsUpdateParams — вход формы лабораторной (IF-103)', () => {

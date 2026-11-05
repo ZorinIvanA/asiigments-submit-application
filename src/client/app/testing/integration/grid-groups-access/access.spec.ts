@@ -1,10 +1,10 @@
 /**
  * Интеграционные спеки раздела «Доступ» /access и шва «Доступ → Ведомость»
  * (батч 3, FR-4.6, SCR-013): реальные AccessPage/SubmissionsPage + core-
- * сервисы на реальном HTTP-ядре (HttpClient, без интерцептора) поверх
+ * сервисы на реальном HTTP-ядре (HttpClient + authInterceptor) поверх
  * программируемого HttpTestingController-бэкенда GridBackendStub с сидом
- * зоны; аутентификации нет — бэкенд всегда отвечает от имени
- * сид-преподавателя.
+ * зоны; серверная сессия teacher — serverSession/loginAs (признак сессии —
+ * память AuthService, FR-092).
  *
  * Сценарии (automation: automated): TS-313 (шов: студент без группы невидим,
  * включение добавляет в ведомость), TS-350 (таблица, порядок, пагинация 10),
@@ -18,6 +18,7 @@
  */
 import { ComponentFixture, fakeAsync, tick } from '@angular/core/testing';
 
+import { AuthService } from '../../../core/services/auth.service';
 import { GroupsService } from '../../../core/services/groups.service';
 import { StudentsService } from '../../../core/services/students.service';
 import { SubmissionsService } from '../../../core/services/submissions.service';
@@ -41,6 +42,7 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
   let groupsService: GroupsService;
   let studentsService: StudentsService;
   let submissionsService: SubmissionsService;
+  let auth: AuthService;
   let fixture: ComponentFixture<AccessPage | SubmissionsPage | MySubmissionsPage>;
 
   let student01: string;
@@ -55,11 +57,13 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     groupsService = env.inject(GroupsService);
     studentsService = env.inject(StudentsService);
     submissionsService = env.inject(SubmissionsService);
+    auth = env.auth;
     student01 = env.backend.userIdByLogin('student01');
     student26 = env.backend.userIdByLogin('student26');
     student31 = env.backend.userIdByLogin('student31');
     ik221 = env.backend.groupIdByName('ИК-221');
     ik222 = env.backend.groupIdByName('ИК-222');
+    env.serverSession('teacher');
   });
 
   afterEach(() => {
@@ -358,15 +362,14 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     env.settleRequests(1);
     expect(grid.students.map((student) => student.fullName)).toEqual(['Иванов Иван Иванович 31']);
 
-    // Его /my-submissions: консоль преподавателя всегда без группы —
-    // предупреждение вместо таблицы (GET /me/submissions отвечает
-    // {hasGroup: false}, профиль — сид-преподаватель).
+    // Его /my-submissions — таблица вместо предупреждения.
     fixture.destroy();
+    env.loginAs('student31');
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2);
     const myRoot = fixture.nativeElement as HTMLElement;
-    expect(myRoot.querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
-    expect(myRoot.querySelector('p-table')).withContext('таблицы нет').toBeNull();
+    expect(myRoot.querySelector('.no-group')).withContext('предупреждения нет').toBeNull();
+    expect(myRoot.querySelector('p-table')).withContext('таблица вместо предупреждения').not.toBeNull();
   }));
 
   it('TS-355: перевод студента 26 из ИК-222 в ИК-221 — счётчики 26/4, студент в ведомости ИК-221 и отсутствует в ИК-222, составы групп согласованы', fakeAsync(() => {
@@ -447,8 +450,9 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     expect(grid.total).toBe(24);
     expect(grid.students.map((student) => student.fullName)).not.toContain('Иванов Иван Иванович 01');
 
-    // /my-submissions консоли — предупреждение (группы нет).
+    // Его /my-submissions — предупреждение.
     fixture.destroy();
+    env.loginAs('student01');
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2);
     expect((fixture.nativeElement as HTMLElement).querySelector('.no-group')?.textContent).toContain(

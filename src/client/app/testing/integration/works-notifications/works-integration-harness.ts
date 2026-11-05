@@ -2,9 +2,10 @@
  * Интеграционный стенд батча «works + notifications» (FR-4.3/FR-4.9,
  * сценарии TS-201..TS-228): реальные страницы works, реальный Router
  * (маршруты фичи), реальный NotificationService со всеми хостами IF-109 и
- * реальный сервис core LabsService поверх HttpClient — HTTP-ядро
- * приложения (без интерцептора — приложение анонимно) на программируемом
- * HttpTestingController-бэкенде.
+ * реальные сервисы core (LabsService/AuthService) поверх HttpClient —
+ * HTTP-ядро приложения (authInterceptor: withCredentials, нормализация
+ * отказов в ApiError) на программируемом HttpTestingController-бэкенде
+ * (FR-026, зона без мок-слоя).
  *
  * Отличие от unit-спеков соседей: тесты проходят ЧЕРЕЗ границы компонентов
  * (страница → LabsService → HttpTestingController → состояние бэкенда и
@@ -18,6 +19,9 @@
  * его потребитель удаляется задачей T-023 — ISS-002) и мок-слой
  * не используются.
  *
+ *  - сессия teacher поднимается настоящим auth.login (POST /auth/login,
+ *    teacher/teacher123!, ADR-107) — как в демонстрации; признак сессии —
+ *    только память AuthService (FR-092);
  *  - режим уведомлений (>=768px desktop / <768px mobile) — BreakpointObserverStub;
  *  - тайминги: задержек бэкенда нет — «волна» flush() отвечает все
  *    перехваченные на данный момент запросы; сериальные цепочки страницы
@@ -25,7 +29,7 @@
  *    волнами — детерминированный fakeAsync/tick без искусственных задержек.
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Component, DebugElement } from '@angular/core';
 import { ComponentFixture, TestBed, flushMicrotasks, tick } from '@angular/core/testing';
@@ -33,6 +37,8 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 
 import { API_BASE_URL } from '../../../core/api-base-url';
+import { authInterceptor } from '../../../core/auth-interceptor';
+import { AuthService } from '../../../core/services/auth.service';
 import { LabsService } from '../../../core/services/labs.service';
 import { WORKS_ROUTES } from '../../../features/works/works.routes';
 import { HeaderNotification } from '../../../shared/notifications/header-notification';
@@ -60,8 +66,8 @@ import { WorksBackendSnapshot, WorksBackendStub } from './works-backend-stub';
 export class WorksIntegrationHost {}
 
 /**
- * Интеграционный стенд. Все методы с задержками (navigate/flush/uiSettle)
- * обязаны вызываться внутри fakeAsync — они используют tick.
+ * Интеграционный стенд. Все методы с задержками (loginTeacher/navigate/
+ * flush/uiSettle) обязаны вызываться внутри fakeAsync — они используют tick.
  */
 export class WorksIntegrationHarness {
   readonly breakpoints = new BreakpointObserverStub();
@@ -78,6 +84,7 @@ export class WorksIntegrationHarness {
   private nativeElement!: HTMLElement;
 
   readonly labs: LabsService;
+  readonly auth: AuthService;
   readonly notifications: NotificationService;
   readonly router: Router;
 
@@ -85,13 +92,13 @@ export class WorksIntegrationHarness {
     TestBed.configureTestingModule({
       imports: [WorksIntegrationHost],
       providers: [
-        // Производственная цепочка HTTP: HttpClient + тестовый бэкенд
+        // Производственная цепочка HTTP: interceptors + тестовый бэкенд
         // (паттерн spec-файлов сервисов core).
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
         { provide: BreakpointObserver, useValue: this.breakpoints },
-        // Маршруты фичи works без guards (guards удалены вместе с
-        // аутентификацией — приложение анонимно).
+        // Маршруты фичи works без guards: авторизация сессией через
+        // auth.login, guards — зона app.routes (вне scope батча).
         provideRouter(WORKS_ROUTES),
         provideNoopAnimations(),
       ],
@@ -99,6 +106,7 @@ export class WorksIntegrationHarness {
     this.apiBase = TestBed.inject(API_BASE_URL);
     this.httpMock = TestBed.inject(HttpTestingController);
     this.labs = TestBed.inject(LabsService);
+    this.auth = TestBed.inject(AuthService);
     this.notifications = TestBed.inject(NotificationService);
     this.router = TestBed.inject(Router);
   }
@@ -144,6 +152,12 @@ export class WorksIntegrationHarness {
   /** DebugElement-корень — для доступа к директивам (например Tooltip). */
   get debugElement(): DebugElement {
     return this.fixture.debugElement;
+  }
+
+  /** Вход teacher/teacher123! настоящим auth.login (одна волна ответов). */
+  loginTeacher(): void {
+    void this.auth.login({ login: 'teacher', password: 'teacher123!' });
+    this.flush();
   }
 
   /**

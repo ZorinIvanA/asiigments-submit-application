@@ -1,0 +1,56 @@
+<div class="auth-page">
+  <form class="auth-card" [attr.id]="formId" [formGroup]="form" (ngSubmit)="submit()">
+    <h1 class="auth-card__title">Восстановление пароля</h1>
+    <p class="auth-card__step">Шаг 2 из 3</p>
+
+    <div class="field" [class.field--invalid]="errorTextOf('code') !== null">
+      <label for="code-input">Код восстановления</label>
+      <input
+        id="code-input"
+        type="text"
+        pInputText
+        formControlName="code"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+      />
+      <div class="field__hint">Код из 6 цифр</div>
+      <div class="field__hint">
+        В демо-режиме код отправляется в консоль браузера (F12) — [mock-email]
+      </div>
+      @if (errorTextOf('code'); as text) {
+        <div class="field__error">{{ text }}</div>
+      }
+    </div>
+
+    <div class="auth-card__actions">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        label="Отмена"
+        [disabled]="submitState.busy()"
+        (click)="cancel()"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        label="Ввести код"
+        [loading]="submitState.busy()"
+        [disabled]="submitState.busy()"
+      ></button>
+    </div>
+
+    <p class="auth-card__center">
+      <button
+        type="button"
+        class="auth-card__link-button"
+        [disabled]="submitState.busy()"
+        (click)="resend()"
+      >
+        Переотправить код
+      </button>
+    </p>
+
+    <app-notification-anchor [formId]="formId" />
+  </form>
+</div>

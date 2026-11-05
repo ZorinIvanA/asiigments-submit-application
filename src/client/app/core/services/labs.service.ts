@@ -3,11 +3,13 @@
  * FR-4.3/FR-4.4): список с фильтром/сортировкой/пагинацией, карточка,
  * создание/редактирование/удаление и перечень семестров с работами.
  * Единственная точка доступа страниц к эндпойнтам labs (снаружи сервисы
- * core). Базовый префикс — токен API_BASE_URL (ADR-009); HTTP-отказы
- * нормализуются в ApiError {status, body: {message, errors?}}
- * (http-errors.ts) — форма отказов страниц не меняется.
- * Коды ошибок — дословно контрактам REST эндпойнтов labs* и semesters
- * (анонимная консоль преподавателя, без 401/403):
+ * core). Базовый префикс — токен API_BASE_URL (ADR-009); запросы идут
+ * с withCredentials: true через authInterceptor (C-013), HTTP-отказы
+ * нормализуются им в ApiError {status, body: {message, errors?}}
+ * (http-errors.ts) — прежняя форма отказов страниц не меняется.
+ * Коды ошибок — дословно контрактам REST эндпойнтов labs* и semesters:
+ *  - 401 «Не авторизован» — нет/битая сессия;
+ *  - 403 «Доступ запрещён» — роль не teacher (кроме GET /semesters);
  *  - 400 «Данные заполнены неверно» + errors {number, semester, content,
  *    assignmentUrl} — нарушение правил §8;
  *  - 409 «Лабораторная с таким номером уже есть в семестре» — занятая
@@ -16,6 +18,7 @@
  */
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from '../api-base-url';
 import {
@@ -27,7 +30,6 @@ import {
   LabsUpdateParams,
   PagedResult,
 } from '../../shared/models';
-import { firstValueFromApi } from '../http-errors';
 
 /**
  * Размер страницы списка лабораторных — контракт §4.3 (pageSize=10).
@@ -65,33 +67,33 @@ export class LabsService {
     if (params.sortDir !== undefined) {
       query = query.set('sortDir', params.sortDir);
     }
-    return firstValueFromApi(
+    return firstValueFrom(
       this.http.get<PagedResult<LabDto>>(`${this.apiBase}/labs`, { params: query }),
     );
   }
 
   /** Лабораторная по id (GET /labs/{id}) — deep-link/refresh формы. */
   getById(id: string): Promise<LabDto> {
-    return firstValueFromApi(this.http.get<LabDto>(`${this.apiBase}/labs/${id}`));
+    return firstValueFrom(this.http.get<LabDto>(`${this.apiBase}/labs/${id}`));
   }
 
   /** Создание лабораторной (POST /labs, 201) — успех: созданная запись. */
   create(input: LabInput): Promise<LabDto> {
-    return firstValueFromApi(this.http.post<LabDto>(`${this.apiBase}/labs`, input));
+    return firstValueFrom(this.http.post<LabDto>(`${this.apiBase}/labs`, input));
   }
 
   /** Обновление лабораторной (PUT /labs/{id}, тело как у POST) — успех: обновлённая запись. */
   update(id: string, input: LabInput): Promise<LabDto> {
-    return firstValueFromApi(this.http.put<LabDto>(`${this.apiBase}/labs/${id}`, input));
+    return firstValueFrom(this.http.put<LabDto>(`${this.apiBase}/labs/${id}`, input));
   }
 
   /** Удаление лабораторной (DELETE /labs/{id} → 204); записи ведомости удаляются каскадом. */
   remove(id: string): Promise<void> {
-    return firstValueFromApi(this.http.delete<void>(`${this.apiBase}/labs/${id}`));
+    return firstValueFrom(this.http.delete<void>(`${this.apiBase}/labs/${id}`));
   }
 
   /** Семестры, в которых есть работы (GET /semesters): distinct, по возрастанию (§4.4). */
   getSemesters(): Promise<number[]> {
-    return firstValueFromApi(this.http.get<number[]>(`${this.apiBase}/semesters`));
+    return firstValueFrom(this.http.get<number[]>(`${this.apiBase}/semesters`));
   }
 }
