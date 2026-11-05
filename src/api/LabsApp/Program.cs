@@ -1,6 +1,8 @@
 using System.Diagnostics.Metrics;
+using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using LabsApp.Auth;
 using LabsApp.Hosting;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Observability;
@@ -31,10 +33,22 @@ builder.Services.AddOptions<StorageOptions>()
 builder.Services.AddSingleton<IValidateOptions<StorageOptions>>(
     new StorageOptionsValidator(builder.Environment.EnvironmentName));
 
+// C-004/T-101 (FR-005): Api.Auth.Core — PBKDF2-хэширование (IF-002),
+// токены (IF-003), cookie (IF-004), ReferenceHashes и собственная схема
+// аутентификации по cookie access_token со схемой по умолчанию; позиция
+// UseAuthentication в конвейере сохранена (якорь C-001).
+builder.Services.AddAuthCore();
+
 // Единый источник бизнес-времени (tech solution «время», FR-003): все TTL, окна
 // лимитеров и метки времени читают TimeProvider из DI; композиция-корень —
 // единственная точка, которую тесты переопределяют FakeTimeProvider'ом (ADR-002).
 builder.Services.AddSingleton(TimeProvider.System);
+
+// C-012/T-103 (IF-005/IF-016): журнал событий безопасности и заглушка доставки
+// email — реализация IEmailSender выбирается по окружению здесь, в
+// композиция-корне (Development → «EmailDev» с маркером [DEV-EMAIL]; остальные
+// среды → no-op с одним warning без адресата и содержимого).
+builder.Services.AddSecurityEventLogging(builder.Environment);
 
 builder.Services
     .AddControllers()
@@ -89,8 +103,8 @@ await app.SeedDatabaseAsync();
 // ============================================================================
 // ЗОНА КОНВЕЙЕРА (порядок v2.2, C-001/ADR-006)
 // ============================================================================
-// ObservabilityMiddleware → UseExceptionHandler (500-конверт) → Routing
-// → MapControllers → GET /health → UseApiRouteNotFoundHandler (404
+// ObservabilityMiddleware → UseExceptionHandler (500-конверт) → Routing → AuthN
+// → AuthZ → MapControllers → GET /health → UseApiRouteNotFoundHandler (404
 // {'message':'Не найдено'}) → UseSwaggerBlockedOutsideDevelopment → статики
 // (nosniff/DENY) → SPA-fallback (nosniff/DENY).
 // CORS, 413-гейт тела и ForwardedHeaders НЕ настраиваются (FR-001 «CORS MUST NOT
@@ -99,8 +113,8 @@ await app.SeedDatabaseAsync();
 // ============================================================================
 
 // C-011 (IF-016): первый middleware конвейера — request-лог /api/** и /health,
-// события 403/429 и метрики; до маппинга контроллеров, чтобы финальный статус
-// ответа фиксировался всегда.
+// события 403/429 и метрики; до аутентификации/авторизации и маппинга
+// контроллеров, чтобы финальный статус ответа фиксировался всегда.
 app.UseObservability();
 
 // FR-023: необработанное исключение → 500 {'message':'Внутренняя ошибка сервера'}
@@ -141,6 +155,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+
+// Якорь AuthN (C-001): строго между Routing и Authorization; схемы добавляет
+// AddAuthCore() (собственная схема по cookie access_token — ADR-003).
+app.UseAuthentication();
+
+app.UseAuthorization();
 
 app.MapControllers();
 
@@ -187,8 +207,37 @@ static bool IsKestrelRequestRejection(Exception? error) =>
 
 static void AddHostingOptions(WebApplicationBuilder builder)
 {
+    // Размер эпизодического dev-ключа подписи JWT: 64 случайных байта (≫ требуемых
+    // HS256 32 байт); значение НЕ логируется (NFR-006) и живёт до перезапуска.
+    const int EphemeralJwtKeyBytes = 64;
+
     var environmentName = builder.Environment.EnvironmentName;
     var isDevelopment = builder.Environment.IsDevelopment();
+
+    builder.Services.AddOptions<AuthOptions>()
+        .BindConfiguration(AuthOptions.SectionName)
+        .PostConfigure<ILoggerFactory>((options, loggerFactory) =>
+        {
+            // FR-006: в Development без явного ключа — эпизодический случайный
+            // ключ (перегенерируется при каждом старте) + warning в журнал
+            // конфигурации. Само значение ключа не логируется (NFR-006).
+            if (!isDevelopment || !string.IsNullOrWhiteSpace(options.JwtKey))
+            {
+                return;
+            }
+
+            options.JwtKey = Convert.ToBase64String(
+                RandomNumberGenerator.GetBytes(EphemeralJwtKeyBytes));
+            loggerFactory
+                .CreateLogger(HostingLogCategories.Configuration)
+                .LogWarning(
+                    "Переменная {Variable} не задана; в Development подпись JWT выполняется "
+                    + "эпизодическим случайным ключом, который перегенерируется при каждом старте "
+                    + "(задайте переменную явно для токенов, переживающих перезапуск).",
+                    AuthOptions.JwtKeyVariable);
+        })
+        .ValidateOnStart();
+    builder.Services.AddSingleton<IValidateOptions<AuthOptions>>(new AuthOptionsValidator(environmentName));
 
     builder.Services.AddOptions<LabsOptions>()
         .BindConfiguration(LabsOptions.SectionName)
