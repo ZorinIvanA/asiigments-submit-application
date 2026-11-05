@@ -187,6 +187,7 @@ static bool IsKestrelRequestRejection(Exception? error) =>
 
 static void AddHostingOptions(WebApplicationBuilder builder)
 {
+    var environmentName = builder.Environment.EnvironmentName;
     var isDevelopment = builder.Environment.IsDevelopment();
 
     builder.Services.AddOptions<LabsOptions>()
@@ -214,6 +215,7 @@ static void AddHostingOptions(WebApplicationBuilder builder)
                     isDevelopment);
         })
         .ValidateOnStart();
+    builder.Services.AddSingleton<IValidateOptions<SeedOptions>>(new SeedOptionsValidator(environmentName));
 }
 
 // Совместимость с WebApplicationFactory<Program> (ADR-010): Program обязан быть публичным.
