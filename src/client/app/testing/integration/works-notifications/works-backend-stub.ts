@@ -94,10 +94,34 @@ const SEED_SUBMISSION_RULES: ReadonlyArray<{
   submitDate: string | null;
   defenseDate: string | null;
 }> = [
-  { studentLogin: 'student01', semester: 1, labNumber: 1, submitDate: '2026-09-01', defenseDate: '2026-09-11' },
-  { studentLogin: 'student01', semester: 1, labNumber: 2, submitDate: '2026-09-02', defenseDate: '2026-09-12' },
-  { studentLogin: 'student01', semester: 1, labNumber: 3, submitDate: '2026-09-03', defenseDate: null },
-  { studentLogin: 'student02', semester: 1, labNumber: 1, submitDate: '2026-09-01', defenseDate: null },
+  {
+    studentLogin: 'student01',
+    semester: 1,
+    labNumber: 1,
+    submitDate: '2026-09-01',
+    defenseDate: '2026-09-11',
+  },
+  {
+    studentLogin: 'student01',
+    semester: 1,
+    labNumber: 2,
+    submitDate: '2026-09-02',
+    defenseDate: '2026-09-12',
+  },
+  {
+    studentLogin: 'student01',
+    semester: 1,
+    labNumber: 3,
+    submitDate: '2026-09-03',
+    defenseDate: null,
+  },
+  {
+    studentLogin: 'student02',
+    semester: 1,
+    labNumber: 1,
+    submitDate: '2026-09-01',
+    defenseDate: null,
+  },
 ];
 
 /** Ответ «успех» для flush. */
@@ -125,8 +149,18 @@ export class WorksBackendStub {
       fullName: TEACHER_FULL_NAME,
       role: 'teacher',
     },
-    { id: this.nextId(), login: 'student01', fullName: 'Иванов Иван Иванович 01', role: 'student' },
-    { id: this.nextId(), login: 'student02', fullName: 'Иванов Иван Иванович 02', role: 'student' },
+    {
+      id: this.nextId(),
+      login: 'student01',
+      fullName: 'Иванов Иван Иванович 01',
+      role: 'student',
+    },
+    {
+      id: this.nextId(),
+      login: 'student02',
+      fullName: 'Иванов Иван Иванович 02',
+      role: 'student',
+    },
   ];
 
   /** Работы: семестр 1 №1–20, семестр 2 №1–3 (сид T-107/ADR-107). */
@@ -135,7 +169,8 @@ export class WorksBackendStub {
   private readonly submissions: WorksBackendSubmission[] = [];
 
   /** Программируемый отказ следующего POST /labs (серверный 400 формы). */
-  private nextCreateFailure: { status: number; body: object | null } | null = null;
+  private nextCreateFailure: { status: number; body: object | null } | null =
+    null;
 
   constructor() {
     const labIdByKey = new Map<string, string>();
@@ -151,7 +186,9 @@ export class WorksBackendStub {
           content: `Содержание лабораторной работы №${number}`,
           defenseRequired: number % 2 === 0,
           assignmentUrl:
-            number % 5 === 0 ? `https://git.example.com/assignments/${semester}/${number}` : null,
+            number % 5 === 0
+              ? `https://git.example.com/assignments/${semester}/${number}`
+              : null,
         };
         labIdByKey.set(`${semester}:${number}`, lab.id);
         this.labs.push(lab);
@@ -159,9 +196,13 @@ export class WorksBackendStub {
     }
     for (const rule of SEED_SUBMISSION_RULES) {
       const labId = labIdByKey.get(`${rule.semester}:${rule.labNumber}`);
-      const student = this.users.find((candidate) => candidate.login === rule.studentLogin);
+      const student = this.users.find(
+        (candidate) => candidate.login === rule.studentLogin,
+      );
       if (labId === undefined || student === undefined) {
-        throw new Error('works-backend-stub: правило сид-сдачи невыполнимо — сид неполон');
+        throw new Error(
+          'works-backend-stub: правило сид-сдачи невыполнимо — сид неполон',
+        );
       }
       this.submissions.push({
         id: this.nextId(),
@@ -191,10 +232,13 @@ export class WorksBackendStub {
   /** uuid работы по паре (семестр, номер); отсутствие — ошибка сценария. */
   labId(semester: number, number: number): string {
     const lab = this.labs.find(
-      (candidate) => candidate.semester === semester && candidate.number === number,
+      (candidate) =>
+        candidate.semester === semester && candidate.number === number,
     );
     if (lab === undefined) {
-      throw new Error(`works-backend-stub: в состоянии нет работы ${semester}:${number}`);
+      throw new Error(
+        `works-backend-stub: в состоянии нет работы ${semester}:${number}`,
+      );
     }
     return lab.id;
   }
@@ -206,7 +250,9 @@ export class WorksBackendStub {
   removeLabDirect(id: string): void {
     const index = this.labs.findIndex((candidate) => candidate.id === id);
     if (index === -1) {
-      throw new Error(`works-backend-stub: работы ${id} нет в состоянии (removeLabDirect)`);
+      throw new Error(
+        `works-backend-stub: работы ${id} нет в состоянии (removeLabDirect)`,
+      );
     }
     this.labs.splice(index, 1);
     for (let i = this.submissions.length - 1; i >= 0; i -= 1) {
@@ -229,12 +275,17 @@ export class WorksBackendStub {
    */
   handle(req: HttpRequest<unknown>, apiBase: string): BackendResponse {
     if (!req.url.startsWith(`${apiBase}/`)) {
-      throw new Error(`works-backend-stub: запрос вне API ${req.method} ${req.url}`);
+      throw new Error(
+        `works-backend-stub: запрос вне API ${req.method} ${req.url}`,
+      );
     }
     const pathWithQuery = req.urlWithParams.slice(apiBase.length);
     const queryIndex = pathWithQuery.indexOf('?');
-    const path = queryIndex === -1 ? pathWithQuery : pathWithQuery.slice(0, queryIndex);
-    const query = new URLSearchParams(queryIndex === -1 ? '' : pathWithQuery.slice(queryIndex + 1));
+    const path =
+      queryIndex === -1 ? pathWithQuery : pathWithQuery.slice(0, queryIndex);
+    const query = new URLSearchParams(
+      queryIndex === -1 ? '' : pathWithQuery.slice(queryIndex + 1),
+    );
 
     if (req.method === 'GET' && path === '/labs') {
       return this.getList(query);
@@ -258,7 +309,9 @@ export class WorksBackendStub {
         return this.remove(id);
       }
     }
-    throw new Error(`works-backend-stub: нет обработчика ${req.method} ${req.url}`);
+    throw new Error(
+      `works-backend-stub: нет обработчика ${req.method} ${req.url}`,
+    );
   }
 
   /**
@@ -269,24 +322,33 @@ export class WorksBackendStub {
     const semesterRaw = query.get('semester');
     const semester = semesterRaw === null ? null : Number(semesterRaw);
     const requestedPage = Number(query.get('page'));
-    const page = Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
-    const sortField: LabsSortField = query.get('sortField') === 'number' ? 'number' : 'semester';
-    const sortDir: LabsSortDir = query.get('sortDir') === 'desc' ? 'desc' : 'asc';
+    const page =
+      Number.isInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
+    const sortField: LabsSortField =
+      query.get('sortField') === 'number' ? 'number' : 'semester';
+    const sortDir: LabsSortDir =
+      query.get('sortDir') === 'desc' ? 'desc' : 'asc';
 
     const direction = sortDir === 'desc' ? -1 : 1;
     const compare = (a: Lab, b: Lab): number => {
       const primary =
-        (sortField === 'semester' ? a.semester - b.semester : a.number - b.number) * direction;
+        (sortField === 'semester'
+          ? a.semester - b.semester
+          : a.number - b.number) * direction;
       if (primary !== 0) {
         return primary;
       }
-      return sortField === 'number' ? a.semester - b.semester : a.number - b.number;
+      return sortField === 'number'
+        ? a.semester - b.semester
+        : a.number - b.number;
     };
     const filtered = this.labs
       .filter((lab) => semester === null || lab.semester === semester)
       .sort(compare);
     const start = (page - 1) * LABS_PAGE_SIZE;
-    const items: LabDto[] = filtered.slice(start, start + LABS_PAGE_SIZE).map((lab) => ({ ...lab }));
+    const items: LabDto[] = filtered
+      .slice(start, start + LABS_PAGE_SIZE)
+      .map((lab) => ({ ...lab }));
     const result: PagedResult<LabDto> = {
       items,
       total: filtered.length,
@@ -299,7 +361,10 @@ export class WorksBackendStub {
   /** GET /semesters: distinct семестры работ по возрастанию (§4.4). */
   private getSemesters(): BackendResponse {
     const semesters = [...new Set(this.labs.map((lab) => lab.semester))];
-    return ok(200, semesters.sort((a, b) => a - b));
+    return ok(
+      200,
+      semesters.sort((a, b) => a - b),
+    );
   }
 
   /** GET /labs/{id}. */
@@ -309,9 +374,16 @@ export class WorksBackendStub {
   }
 
   /** Занята ли пара (semester, number); excludeId — своя запись update. */
-  private hasDuplicate(semester: number, number: number, excludeId: string | null): boolean {
+  private hasDuplicate(
+    semester: number,
+    number: number,
+    excludeId: string | null,
+  ): boolean {
     return this.labs.some(
-      (lab) => lab.id !== excludeId && lab.semester === semester && lab.number === number,
+      (lab) =>
+        lab.id !== excludeId &&
+        lab.semester === semester &&
+        lab.number === number,
     );
   }
 
@@ -320,7 +392,11 @@ export class WorksBackendStub {
     if (this.nextCreateFailure !== null) {
       const failure = this.nextCreateFailure;
       this.nextCreateFailure = null;
-      return { status: failure.status, statusText: STATUS_TEXT[failure.status] ?? '', body: failure.body };
+      return {
+        status: failure.status,
+        statusText: STATUS_TEXT[failure.status] ?? '',
+        body: failure.body,
+      };
     }
     if (this.hasDuplicate(Number(input.semester), Number(input.number), null)) {
       return fail(409, TEXT_DUPLICATE);

@@ -20,9 +20,7 @@
  */
 import { fakeAsync } from '@angular/core/testing';
 
-import {
-  WorksIntegrationHarness,
-} from './works-integration-harness';
+import { WorksIntegrationHarness } from './works-integration-harness';
 
 describe('Интеграция: список лабораторных /works (FR-4.3)', () => {
   let harness: WorksIntegrationHarness;
@@ -47,10 +45,12 @@ describe('Интеграция: список лабораторных /works (FR
   it('TS-201: сид-список — колонки, дефолтный порядок, первая страница, подпись «с 1 по 10 из 23»', fakeAsync(() => {
     openWorks();
 
-    expect(harness.native.querySelector('h1')!.textContent!.trim()).toBe('Лабораторные работы');
-    expect(harness.native.querySelector('.works-page__head button')!.textContent).toContain(
-      'Добавить…',
+    expect(harness.native.querySelector('h1')!.textContent!.trim()).toBe(
+      'Лабораторные работы',
     );
+    expect(
+      harness.native.querySelector('.works-page__head button')!.textContent,
+    ).toContain('Добавить…');
     expect(harness.headerTitles()).toEqual([
       'Номер',
       'Содержание',
@@ -154,7 +154,9 @@ describe('Интеграция: список лабораторных /works (FR
     const getList = spyOn(harness.labs, 'getList').and.callThrough();
 
     // Дефолт semester↑,number↑ (aria-sort на «Семестр»).
-    expect(harness.sortHeader('Семестр').getAttribute('aria-sort')).toBe('ascending');
+    expect(harness.sortHeader('Семестр').getAttribute('aria-sort')).toBe(
+      'ascending',
+    );
 
     // Клик по «Номер»: asc → desc → asc (третьего состояния нет).
     harness.sortHeader('Номер').click();
@@ -165,7 +167,9 @@ describe('Интеграция: список лабораторных /works (FR
       sortField: 'number',
       sortDir: 'asc',
     });
-    expect(harness.sortHeader('Номер').getAttribute('aria-sort')).toBe('ascending');
+    expect(harness.sortHeader('Номер').getAttribute('aria-sort')).toBe(
+      'ascending',
+    );
 
     harness.sortHeader('Номер').click();
     harness.flush();
@@ -202,7 +206,9 @@ describe('Интеграция: список лабораторных /works (FR
       sortField: 'semester',
       sortDir: 'desc',
     });
-    expect(harness.sortHeader('Семестр').getAttribute('aria-sort')).toBe('descending');
+    expect(harness.sortHeader('Семестр').getAttribute('aria-sort')).toBe(
+      'descending',
+    );
     harness.sortHeader('Семестр').click();
     harness.flush();
     expect(getList.calls.mostRecent().args[0]).toEqual({
@@ -255,10 +261,14 @@ describe('Интеграция: список лабораторных /works (FR
       .map((row) => harness.rowCells(row)[0]);
     expect(linkedNumbers).toEqual(['5', '10']);
 
-    const link5 = rows[4]!.querySelector<HTMLAnchorElement>('a.works-page__assignment')!;
+    const link5 = rows[4]!.querySelector<HTMLAnchorElement>(
+      'a.works-page__assignment',
+    )!;
     // Текст = URL без схемы, href = исходный https-URL.
     expect(link5.textContent!.trim()).toBe('git.example.com/assignments/1/5');
-    expect(link5.getAttribute('href')).toBe('https://git.example.com/assignments/1/5');
+    expect(link5.getAttribute('href')).toBe(
+      'https://git.example.com/assignments/1/5',
+    );
     expect(link5.getAttribute('target')).toBe('_blank');
     expect(link5.getAttribute('rel')).toBe('noopener noreferrer');
 
@@ -272,10 +282,27 @@ describe('Интеграция: список лабораторных /works (FR
     harness.flush();
     const page2 = harness.rows();
     expect(
-      page2.map((row) => row.querySelector('a.works-page__assignment') !== null),
-    ).toEqual([false, false, false, false, true, false, false, false, false, true]);
-    const link15 = page2[4]!.querySelector<HTMLAnchorElement>('a.works-page__assignment')!;
-    expect(link15.getAttribute('href')).toBe('https://git.example.com/assignments/1/15');
+      page2.map(
+        (row) => row.querySelector('a.works-page__assignment') !== null,
+      ),
+    ).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+    ]);
+    const link15 = page2[4]!.querySelector<HTMLAnchorElement>(
+      'a.works-page__assignment',
+    )!;
+    expect(link15.getAttribute('href')).toBe(
+      'https://git.example.com/assignments/1/15',
+    );
     expect(link15.textContent!.trim()).toBe('git.example.com/assignments/1/15');
   }));
 
@@ -295,9 +322,12 @@ describe('Интеграция: список лабораторных /works (FR
 
     (rows[0]!.querySelector('p-checkbox') as HTMLElement).click(); // №1, пустой
     harness.uiSettle();
-    expect(harness.rowByNumber(1).querySelector('p-checkbox')!.getAttribute('data-p-checked')).toBe(
-      'false',
-    );
+    expect(
+      harness
+        .rowByNumber(1)
+        .querySelector('p-checkbox')!
+        .getAttribute('data-p-checked'),
+    ).toBe('false');
     // Ни одного нового HTTP-запроса (read-only чекбокс, FR-011).
     expect(harness.pendingHttpRequests()).toBe(0);
   }));
@@ -333,29 +363,37 @@ describe('Интеграция: список лабораторных /works (FR
     const lab1 = harness.labId(1, 1);
     const lab2 = harness.labId(1, 2);
     const lab3 = harness.labId(1, 3);
-    const student01 = harness.readDb().users.find((user) => user.login === 'student01')!.id;
+    const student01 = harness
+      .readDb()
+      .users.find((user) => user.login === 'student01')!.id;
 
     harness.openRemoveDialog(harness.rowByNumber(1));
     harness.dialogButton('accept').click();
     harness.flush(3); // remove → getList → getSemesters
 
     expect(harness.toastTexts()).toContain('Удалено');
-    expect(harness.rows().some((row) => harness.rowCells(row)[0] === '1')).toBeFalse();
+    expect(
+      harness.rows().some((row) => harness.rowCells(row)[0] === '1'),
+    ).toBeFalse();
     expect(harness.reportText()).toBe('Показать записи с 1 по 10 из 22');
 
     // В состоянии сервера отсутствуют только submissions удалённой лабы.
     const db = harness.readDb();
     expect(db.labs.some((lab) => lab.id === lab1)).toBeFalse();
-    expect(db.submissions.some((submission) => submission.labId === lab1)).toBeFalse();
+    expect(
+      db.submissions.some((submission) => submission.labId === lab1),
+    ).toBeFalse();
     // Сдачи student01 по лабам 2 и 3 сохранены.
     expect(
       db.submissions.some(
-        (submission) => submission.studentId === student01 && submission.labId === lab2,
+        (submission) =>
+          submission.studentId === student01 && submission.labId === lab2,
       ),
     ).toBeTrue();
     expect(
       db.submissions.some(
-        (submission) => submission.studentId === student01 && submission.labId === lab3,
+        (submission) =>
+          submission.studentId === student01 && submission.labId === lab3,
       ),
     ).toBeTrue();
     harness.finalize(); // таймеры автозакрытия «Удалено»
@@ -399,9 +437,9 @@ describe('Интеграция: список лабораторных /works (FR
       harness.flush(3);
     }
 
-    expect(harness.native.querySelector('.works-page__empty')!.textContent).toContain(
-      'Записей нет',
-    );
+    expect(
+      harness.native.querySelector('.works-page__empty')!.textContent,
+    ).toContain('Записей нет');
     expect(harness.reportText()).toBe('Показать записи с 1 по 0 из 0');
     harness.openSemesterSelect();
     expect(harness.semesterOptionLabels()).toEqual(['Все семестры']);
@@ -430,10 +468,14 @@ describe('Интеграция: список лабораторных /works (FR
     expect(harness.toastTexts()).toContain('Лабораторная не найдена');
     // Редиректа НЕТ — список активен.
     expect(harness.router.url).toBe('/works');
-    expect(harness.native.querySelector('h1')!.textContent).toContain('Лабораторные работы');
+    expect(harness.native.querySelector('h1')!.textContent).toContain(
+      'Лабораторные работы',
+    );
     // Аменда 5: перезагрузка текущей страницы списка, строка исчезла.
     expect(getList).toHaveBeenCalledTimes(1);
-    expect(harness.rows().some((row) => harness.rowCells(row)[0] === '1')).toBeFalse();
+    expect(
+      harness.rows().some((row) => harness.rowCells(row)[0] === '1'),
+    ).toBeFalse();
     expect(harness.reportText()).toBe('Показать записи с 1 по 10 из 22');
     harness.finalize(); // таймер автозакрытия тоста ошибки
   }));
@@ -448,7 +490,9 @@ describe('Интеграция: список лабораторных /works (FR
     harness.flush(3);
 
     expect(remove).toHaveBeenCalledTimes(1);
-    expect(harness.toastTexts().filter((text) => text === 'Удалено').length).toBe(1);
+    expect(
+      harness.toastTexts().filter((text) => text === 'Удалено').length,
+    ).toBe(1);
     expect(harness.reportText()).toBe('Показать записи с 1 по 10 из 22');
     harness.finalize(); // таймер автозакрытия «Удалено»
   }));

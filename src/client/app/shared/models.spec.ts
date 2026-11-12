@@ -97,14 +97,23 @@ describe('Константы и модели DTO (IF-011)', () => {
     expect(student.groupName).toBe('ИК-222');
 
     // Аменда 6: у безгруппного студента null и ключевое groupId, и отображаемое groupName.
-    const withoutGroup: StudentDto = { ...student, groupId: null, groupName: null };
+    const withoutGroup: StudentDto = {
+      ...student,
+      groupId: null,
+      groupName: null,
+    };
     expect(withoutGroup.groupId).toBeNull();
     expect(withoutGroup.groupName).toBeNull();
   });
 
   it('SubmissionsGridDto — студенты × работы × сдачи + total ведомости', () => {
     const grid: SubmissionsGridDto = {
-      students: [{ id: '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b', fullName: 'Иванов Иван Иванович 01' }],
+      students: [
+        {
+          id: '0b0b0b0b-0b0b-4b0b-8b0b-0b0b0b0b0b0b',
+          fullName: 'Иванов Иван Иванович 01',
+        },
+      ],
       labs: [
         {
           id: '66666666-7777-4888-9999-aaaaaaaaaaaa',
@@ -148,7 +157,11 @@ describe('Константы и модели DTO (IF-011)', () => {
     };
     expect(teacher.groupName).toBeUndefined();
 
-    const student: ProfileDto = { ...teacher, role: 'student', groupName: 'ИК-221' };
+    const student: ProfileDto = {
+      ...teacher,
+      role: 'student',
+      groupName: 'ИК-221',
+    };
     expect(student.groupName).toBe('ИК-221');
   });
 
@@ -166,7 +179,10 @@ describe('Константы и модели DTO (IF-011)', () => {
       'Номер должен быть положительным числом',
     ]);
 
-    const notFound: ApiError = { status: 404, body: { message: 'Группа не найдена' } };
+    const notFound: ApiError = {
+      status: 404,
+      body: { message: 'Группа не найдена' },
+    };
     expect(notFound.body.errors).toBeUndefined();
   });
 
@@ -188,17 +204,29 @@ describe('Константы и модели DTO (IF-011)', () => {
     const update: LabsUpdateParams = { ...input, id: 'lab-uuid' };
     expect(update.id).toBe('lab-uuid');
 
-    const query: LabsGetListParams = { page: 2, semester: 1, sortField: 'number', sortDir: 'desc' };
+    const query: LabsGetListParams = {
+      page: 2,
+      semester: 1,
+      sortField: 'number',
+      sortDir: 'desc',
+    };
     expect(query.page).toBe(2);
     expect(query.sortField).toBe('number');
     expect(query.sortDir).toBe('desc');
   });
 
   it('StudentsGetListParams/StudentsSetGroupParams — поиск и назначение группы (IF-105)', () => {
-    const query: StudentsGetListParams = { search: 'иванов', groupId: 'none', page: 1 };
+    const query: StudentsGetListParams = {
+      search: 'иванов',
+      groupId: 'none',
+      page: 1,
+    };
     expect(query.groupId).toBe('none');
 
-    const setGroup: StudentsSetGroupParams = { studentId: 'student-uuid', groupId: null };
+    const setGroup: StudentsSetGroupParams = {
+      studentId: 'student-uuid',
+      groupId: null,
+    };
     expect(setGroup.groupId).toBeNull();
   });
 });

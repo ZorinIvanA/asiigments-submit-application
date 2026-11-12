@@ -24,7 +24,9 @@ describe('submitting', () => {
       busyLog.push(state.busy());
     });
 
-    expect(state.busy()).withContext('флаг поднят синхронно со стартом').toBe(true);
+    expect(state.busy())
+      .withContext('флаг поднят синхронно со стартом')
+      .toBe(true);
     await done;
     expect(state.busy()).toBe(false);
     expect(busyLog).toEqual([true]);

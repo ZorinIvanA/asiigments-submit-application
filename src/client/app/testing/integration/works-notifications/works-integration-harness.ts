@@ -26,9 +26,17 @@
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { Component, DebugElement } from '@angular/core';
-import { ComponentFixture, TestBed, flushMicrotasks, tick } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  TestBed,
+  flushMicrotasks,
+  tick,
+} from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 
@@ -276,19 +284,27 @@ export class WorksIntegrationHarness {
 
   /** Строки таблицы списка (включая строку пустого состояния). */
   rows(): HTMLTableRowElement[] {
-    return Array.from(this.nativeElement.querySelectorAll<HTMLTableRowElement>('tbody tr'));
+    return Array.from(
+      this.nativeElement.querySelectorAll<HTMLTableRowElement>('tbody tr'),
+    );
   }
 
   /** Текстовые ячейки строки (обрезанные). */
   rowCells(row: HTMLTableRowElement): string[] {
-    return Array.from(row.querySelectorAll('td')).map((td) => (td.textContent ?? '').trim());
+    return Array.from(row.querySelectorAll('td')).map((td) =>
+      (td.textContent ?? '').trim(),
+    );
   }
 
   /** Строка списка по номеру работы (первая ячейка). */
   rowByNumber(number: number): HTMLTableRowElement {
-    const row = this.rows().find((candidate) => this.rowCells(candidate)[0] === String(number));
+    const row = this.rows().find(
+      (candidate) => this.rowCells(candidate)[0] === String(number),
+    );
     if (row === undefined) {
-      throw new Error(`works-integration-harness: строка работы №${number} не найдена в таблице`);
+      throw new Error(
+        `works-integration-harness: строка работы №${number} не найдена в таблице`,
+      );
     }
     return row;
   }
@@ -298,32 +314,38 @@ export class WorksIntegrationHarness {
    * сортировки ▲/▼ (span.works-page__sort внутри th).
    */
   headerTitles(): string[] {
-    return Array.from(this.nativeElement.querySelectorAll('th')).map(
-      (th) => (th.firstChild?.textContent ?? '').trim(),
+    return Array.from(this.nativeElement.querySelectorAll('th')).map((th) =>
+      (th.firstChild?.textContent ?? '').trim(),
     );
   }
 
   /** Заголовок-кнопка сортировки по подписи колонки. */
   sortHeader(title: string): HTMLTableCellElement {
-    const header = Array.from(this.nativeElement.querySelectorAll('th')).find((th) =>
-      (th.firstChild?.textContent ?? '').trim().startsWith(title),
+    const header = Array.from(this.nativeElement.querySelectorAll('th')).find(
+      (th) => (th.firstChild?.textContent ?? '').trim().startsWith(title),
     );
     if (header === undefined) {
-      throw new Error(`works-integration-harness: заголовок «${title}» не найден`);
+      throw new Error(
+        `works-integration-harness: заголовок «${title}» не найден`,
+      );
     }
     return header;
   }
 
   /** Подпись пагинации «Показать записи с X по Y из Z». */
   reportText(): string {
-    return this.nativeElement.querySelector('.works-page__report')?.textContent ?? '';
+    return (
+      this.nativeElement.querySelector('.works-page__report')?.textContent ?? ''
+    );
   }
 
   /** Открывает панель селектора семестра (works и lab-form — один p-select). */
   openSemesterSelect(): void {
     const select = this.nativeElement.querySelector('p-select');
     if (select === null) {
-      throw new Error('works-integration-harness: селектор семестра (p-select) не найден');
+      throw new Error(
+        'works-integration-harness: селектор семестра (p-select) не найден',
+      );
     }
     (select as HTMLElement).click();
     this.uiSettle();
@@ -331,18 +353,20 @@ export class WorksIntegrationHarness {
 
   /** Подписи открытых опций селектора (по документу — оверлей PrimeNG). */
   semesterOptionLabels(): string[] {
-    return Array.from(document.querySelectorAll('.p-select-option')).map((option) =>
-      (option.textContent ?? '').trim(),
+    return Array.from(document.querySelectorAll('.p-select-option')).map(
+      (option) => (option.textContent ?? '').trim(),
     );
   }
 
   /** Выбор опции селектора по подписи (панель должна быть открыта). */
   chooseSemesterOption(label: string): void {
-    const option = Array.from(document.querySelectorAll<HTMLElement>('.p-select-option')).find(
-      (candidate) => (candidate.textContent ?? '').trim() === label,
-    );
+    const option = Array.from(
+      document.querySelectorAll<HTMLElement>('.p-select-option'),
+    ).find((candidate) => (candidate.textContent ?? '').trim() === label);
     if (option === undefined) {
-      throw new Error(`works-integration-harness: открытая опция «${label}» не найдена`);
+      throw new Error(
+        `works-integration-harness: открытая опция «${label}» не найдена`,
+      );
     }
     option.click();
     this.uiSettle();
@@ -350,20 +374,31 @@ export class WorksIntegrationHarness {
 
   /** Закрывает панель селектора без выбора (например после осмотра опций). */
   closeSemesterSelect(): void {
-    (this.nativeElement.querySelector('p-select') as HTMLElement | null)?.click();
+    (
+      this.nativeElement.querySelector('p-select') as HTMLElement | null
+    )?.click();
     this.uiSettle();
   }
 
   /** Текущая подпись закрытого селектора семестра. */
   semesterSelectLabel(): string {
-    return this.nativeElement.querySelector('.p-select-label')?.textContent?.trim() ?? '';
+    return (
+      this.nativeElement
+        .querySelector('.p-select-label')
+        ?.textContent?.trim() ?? ''
+    );
   }
 
   /** Переход пагинатором на страницу (1-based). */
   gotoPage(page: number): void {
-    const links = this.nativeElement.querySelectorAll<HTMLButtonElement>('.p-paginator-page');
+    const links =
+      this.nativeElement.querySelectorAll<HTMLButtonElement>(
+        '.p-paginator-page',
+      );
     if (links.length < page) {
-      throw new Error(`works-integration-harness: страницы ${page} нет в пагинаторе (кнопок ${links.length})`);
+      throw new Error(
+        `works-integration-harness: страницы ${page} нет в пагинаторе (кнопок ${links.length})`,
+      );
     }
     links[page - 1]!.click();
     this.uiSettle();
@@ -371,9 +406,13 @@ export class WorksIntegrationHarness {
 
   /** Открывает диалог удаления для строки (клик 🗑). */
   openRemoveDialog(row: HTMLTableRowElement): void {
-    const trash = row.querySelector<HTMLButtonElement>('button[aria-label="Удалить"]');
+    const trash = row.querySelector<HTMLButtonElement>(
+      'button[aria-label="Удалить"]',
+    );
     if (trash === null) {
-      throw new Error('works-integration-harness: кнопка «Удалить» не найдена в строке');
+      throw new Error(
+        'works-integration-harness: кнопка «Удалить» не найдена в строке',
+      );
     }
     trash.click();
     this.uiSettle();
@@ -381,7 +420,11 @@ export class WorksIntegrationHarness {
 
   /** Текст открытого диалога подтверждения («Yes»/«No» — primeng-ru, ADR-111). */
   dialogMessage(): string {
-    return document.body.querySelector('.p-confirmdialog-message')?.textContent?.trim() ?? '';
+    return (
+      document.body
+        .querySelector('.p-confirmdialog-message')
+        ?.textContent?.trim() ?? ''
+    );
   }
 
   /** Кнопка диалога: accept — «Yes», reject — «No». */
@@ -390,7 +433,9 @@ export class WorksIntegrationHarness {
       `button.p-confirmdialog-${kind}-button`,
     );
     if (button === null) {
-      throw new Error(`works-integration-harness: кнопка «${kind}» диалога не найдена`);
+      throw new Error(
+        `works-integration-harness: кнопка «${kind}» диалога не найдена`,
+      );
     }
     return button;
   }
@@ -409,7 +454,9 @@ export class WorksIntegrationHarness {
 
   /** Значение поля. */
   inputValue(selector: string): string {
-    return this.nativeElement.querySelector<HTMLInputElement>(selector)?.value ?? '';
+    return (
+      this.nativeElement.querySelector<HTMLInputElement>(selector)?.value ?? ''
+    );
   }
 
   /** Текст ошибки поля формы (подсветка): null — поле не подсвечено. */
@@ -417,7 +464,9 @@ export class WorksIntegrationHarness {
     const field = this.nativeElement
       .querySelector(`#${inputId}`)
       ?.closest('.lab-form__field');
-    return field?.querySelector('.lab-form__error')?.textContent?.trim() ?? null;
+    return (
+      field?.querySelector('.lab-form__error')?.textContent?.trim() ?? null
+    );
   }
 
   /** Кнопка формы по подписи («Сохранить», «Назад»). */
@@ -425,9 +474,13 @@ export class WorksIntegrationHarness {
     const buttons = Array.from(
       this.nativeElement.querySelectorAll<HTMLButtonElement>('button'),
     );
-    const button = buttons.find((candidate) => (candidate.textContent ?? '').trim() === label);
+    const button = buttons.find(
+      (candidate) => (candidate.textContent ?? '').trim() === label,
+    );
     if (button === undefined) {
-      throw new Error(`works-integration-harness: кнопка «${label}» не найдена`);
+      throw new Error(
+        `works-integration-harness: кнопка «${label}» не найдена`,
+      );
     }
     return button;
   }
@@ -447,8 +500,8 @@ export class WorksIntegrationHarness {
 
   /** Тексты desktop-тостов (хост app-notification-toast, >=768px). */
   toastTexts(): string[] {
-    return Array.from(document.querySelectorAll('.p-toast-summary')).map((element) =>
-      (element.textContent ?? '').trim(),
+    return Array.from(document.querySelectorAll('.p-toast-summary')).map(
+      (element) => (element.textContent ?? '').trim(),
     );
   }
 
@@ -463,14 +516,18 @@ export class WorksIntegrationHarness {
   /** Тексты мобильных баннеров «под шапкой» (хост app-header-notification). */
   headerBannerTexts(): string[] {
     return Array.from(
-      document.querySelectorAll('app-header-notification .app-notification-banner__text'),
+      document.querySelectorAll(
+        'app-header-notification .app-notification-banner__text',
+      ),
     ).map((element) => (element.textContent ?? '').trim());
   }
 
   /** Тексты мобильных баннеров под формами (якоря app-notification-anchor). */
   formAnchorBannerTexts(): string[] {
     return Array.from(
-      document.querySelectorAll('app-notification-anchor .app-notification-banner__text'),
+      document.querySelectorAll(
+        'app-notification-anchor .app-notification-banner__text',
+      ),
     ).map((element) => (element.textContent ?? '').trim());
   }
 }

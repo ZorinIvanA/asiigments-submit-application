@@ -10,7 +10,10 @@
  *    формы (баннеры body.message и полевые errors работают без изменений).
  */
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
@@ -61,7 +64,10 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
   });
 
   it('update(): PUT /me/profile с телом {fullName, email} → обновлённый ProfileDto', async () => {
-    const input: ProfileUpdateInput = { fullName: 'Петров Пётр Петрович', email: 'petr@example.com' };
+    const input: ProfileUpdateInput = {
+      fullName: 'Петров Пётр Петрович',
+      email: 'petr@example.com',
+    };
     const updated: ProfileDto = {
       login: 'student01',
       email: input.email,
@@ -80,11 +86,16 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
   });
 
   it('отказ 409 {message} → реджект ApiError {status: 409, body: {message}} (AC)', async () => {
-    const pending = service.update({ fullName: 'Иванов Иван Иванович 01', email: 'TEACHER@example.com' });
-    httpMock.expectOne(`${apiBase}/me/profile`).flush(
-      { message: 'Пользователь с таким email уже существует' },
-      { status: 409, statusText: 'Conflict' },
-    );
+    const pending = service.update({
+      fullName: 'Иванов Иван Иванович 01',
+      email: 'TEACHER@example.com',
+    });
+    httpMock
+      .expectOne(`${apiBase}/me/profile`)
+      .flush(
+        { message: 'Пользователь с таким email уже существует' },
+        { status: 409, statusText: 'Conflict' },
+      );
 
     await expectAsync(pending).toBeRejectedWith({
       status: 409,
@@ -93,7 +104,10 @@ describe('ProfileService — профиль поверх HttpClient (IF-013)', (
   });
 
   it('отказ 400 «Данные заполнены неверно» с errors → ApiError переносит errors по полям', async () => {
-    const pending = service.update({ fullName: 'Иванов Иван Иванович 01', email: 'битовый' });
+    const pending = service.update({
+      fullName: 'Иванов Иван Иванович 01',
+      email: 'битовый',
+    });
     httpMock.expectOne(`${apiBase}/me/profile`).flush(
       {
         message: 'Данные заполнены неверно',

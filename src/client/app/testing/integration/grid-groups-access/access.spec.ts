@@ -24,7 +24,10 @@ import { SubmissionsService } from '../../../core/services/submissions.service';
 import { NotificationService } from '../../../shared/notifications/notification-service';
 import { AccessPage } from '../../../features/access/pages/access-page/access-page';
 import { SubmissionsPage } from '../../../features/submissions/pages/submissions-page';
-import { MySubmissionsPage, TEXT_NO_GROUP } from '../../../features/my-submissions/pages/my-submissions-page';
+import {
+  MySubmissionsPage,
+  TEXT_NO_GROUP,
+} from '../../../features/my-submissions/pages/my-submissions-page';
 import {
   GridAccessEnv,
   openSelect,
@@ -41,7 +44,9 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
   let groupsService: GroupsService;
   let studentsService: StudentsService;
   let submissionsService: SubmissionsService;
-  let fixture: ComponentFixture<AccessPage | SubmissionsPage | MySubmissionsPage>;
+  let fixture: ComponentFixture<
+    AccessPage | SubmissionsPage | MySubmissionsPage
+  >;
 
   let student01: string;
   let student26: string;
@@ -107,7 +112,9 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
   }
 
   function typeSearch(value: string): void {
-    const input = root().querySelector<HTMLInputElement>('input[type="search"]')!;
+    const input = root().querySelector<HTMLInputElement>(
+      'input[type="search"]',
+    )!;
     input.value = value;
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -129,7 +136,10 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
   function rowModelValue(index: number): unknown {
     const row = qsAllIn(fixture, 'tbody tr')[index]!;
-    return selectModelValueOf(fixture as ComponentFixture<AccessPage>, row as HTMLTableRowElement);
+    return selectModelValueOf(
+      fixture as ComponentFixture<AccessPage>,
+      row as HTMLTableRowElement,
+    );
   }
 
   function rowConfirmButton(kind: 'accept' | 'reject'): HTMLButtonElement {
@@ -146,16 +156,25 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
   it('TS-313: шов «Доступ → Ведомость» — student31 без группы невидим в гридах; включение в ИК-222 добавляет его в ведомость с пустыми датами', fakeAsync(() => {
     // До включения: ИК-222 — 5 студентов, student31 не попадает ни в один грид.
     let grid222!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
-    void submissionsService.getGrid({ groupId: ik222, semester: 1, page: 1 }).then((result) => (grid222 = result));
+    void submissionsService
+      .getGrid({ groupId: ik222, semester: 1, page: 1 })
+      .then((result) => (grid222 = result));
     env.settleRequests(1);
     expect(grid222.total).toBe(5);
-    expect(grid222.students.some((student) => student.fullName === 'Иванов Иван Иванович 31')).toBeFalse();
+    expect(
+      grid222.students.some(
+        (student) => student.fullName === 'Иванов Иван Иванович 31',
+      ),
+    ).toBeFalse();
 
     // Включение student31 в ИК-222 селектором строки /access (страница 4).
     createAccessPage();
     clickPageButton('4');
     env.settle(fixture, 1);
-    expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31', 'Иванов Иван Иванович 32']);
+    expect(tableRowFullNames()).toEqual([
+      'Иванов Иван Иванович 31',
+      'Иванов Иван Иванович 32',
+    ]);
     openSelect(fixture, rowSelect(0));
     pickOption(fixture, 'ИК-222');
     env.settle(fixture, 2); // setGroup + перезагрузка страницы
@@ -167,23 +186,33 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     openSelect(fixture, selects[0]!);
     pickOption(fixture, 'ИК-222');
     env.settle(fixture, 1);
-    expect(qsIn(fixture, '[data-test="range-caption"]')?.textContent?.trim()).toBe(
-      'Показать записи с 1 по 5 из 6',
-    );
+    expect(
+      qsIn(fixture, '[data-test="range-caption"]')?.textContent?.trim(),
+    ).toBe('Показать записи с 1 по 5 из 6');
     clickPageButtonSubmissions('2');
     env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31']);
-    const submitInput = root().querySelector('tbody tr td:nth-child(2) input') as HTMLInputElement;
-    expect(submitInput.value).withContext('записей сдач у него нет — ячейка пуста').toBe('');
+    const submitInput = root().querySelector(
+      'tbody tr td:nth-child(2) input',
+    ) as HTMLInputElement;
+    expect(submitInput.value)
+      .withContext('записей сдач у него нет — ячейка пуста')
+      .toBe('');
 
     // ИК-221 остаётся 25; записей сдач student31 в состоянии бэкенда нет.
     let grid221!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
-    void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 1 }).then((result) => (grid221 = result));
+    void submissionsService
+      .getGrid({ groupId: ik221, semester: 1, page: 1 })
+      .then((result) => (grid221 = result));
     env.settleRequests(1);
     expect(grid221.total).toBe(25);
     expect(
-      env.backend.read().submissions.some((candidate) => candidate.studentId === student31),
-    ).withContext('записи сдач отсутствуют до проставления дат').toBeFalse();
+      env.backend
+        .read()
+        .submissions.some((candidate) => candidate.studentId === student31),
+    )
+      .withContext('записи сдач отсутствуют до проставления дат')
+      .toBeFalse();
   }));
 
   /** Кнопка страницы ведущего p-paginator ведомости (стр. 2). */
@@ -198,11 +227,15 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
   it('TS-350: таблица студентов — колонки, порядок ФИО↑, пагинация 10 (стр.4 — 2 записи), подпись «с 31 по 32 из 32», значения колонки «Группа»', fakeAsync(() => {
     createAccessPage();
 
-    const headers = Array.from(root().querySelectorAll('thead th')).map((th) => th.textContent?.trim());
+    const headers = Array.from(root().querySelectorAll('thead th')).map((th) =>
+      th.textContent?.trim(),
+    );
     expect(headers).toEqual(['ФИО', 'Логин', 'Email', 'Группа']);
 
-    const expected = Array.from({ length: 32 }, (_, index) =>
-      `Иванов Иван Иванович ${String(index + 1).padStart(2, '0')}`,
+    const expected = Array.from(
+      { length: 32 },
+      (_, index) =>
+        `Иванов Иван Иванович ${String(index + 1).padStart(2, '0')}`,
     );
     expect(tableRowFullNames()).toEqual(expected.slice(0, 10));
     expect(caption()).toBe('Показать записи с 1 по 10 из 32');
@@ -221,7 +254,9 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     clickPageButton('4');
     env.settle(fixture, 1);
     expect(tableRowFullNames()).toEqual(expected.slice(30, 32));
-    expect(rowSelectLabel(0)).withContext('student31 — «Без группы»').toBe('Без группы');
+    expect(rowSelectLabel(0))
+      .withContext('student31 — «Без группы»')
+      .toBe('Без группы');
     expect(rowSelectLabel(1)).toBe('Без группы');
     expect(caption()).toBe('Показать записи с 31 по 32 из 32');
   }));
@@ -232,7 +267,11 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
     typeSearch('STUDENT31');
     env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
-    expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: 'STUDENT31', groupId: null, page: 1 });
+    expect(getListSpy.calls.mostRecent().args[0]).toEqual({
+      search: 'STUDENT31',
+      groupId: null,
+      page: 1,
+    });
     expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31']);
     expect(caption()).toBe('Показать записи с 1 по 1 из 1');
 
@@ -254,14 +293,18 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     });
     // per-field AND: нет записи, у которой ОДНО поле содержит оба токена.
     expect(tableRowFullNames()).toEqual(['Записей нет']);
-    expect(caption()).withContext('аменда 7').toBe('Показать записи с 1 по 0 из 0');
+    expect(caption())
+      .withContext('аменда 7')
+      .toBe('Показать записи с 1 по 0 из 0');
   }));
 
   it('TS-352: maxlength 200 — строка 250 символов обрезана, запрос с 200-символьной строкой без совпадений даёт пустое состояние и подпись «с 1 по 0 из 0»', fakeAsync(() => {
     const getListSpy = spyOn(studentsService, 'getList').and.callThrough();
     createAccessPage();
 
-    const input = root().querySelector<HTMLInputElement>('input[type="search"]')!;
+    const input = root().querySelector<HTMLInputElement>(
+      'input[type="search"]',
+    )!;
     expect(input.maxLength).withContext('maxlength=200 в поле').toBe(200);
 
     // Ввод «пользователем»: DOM обрезает значение до maxlength.
@@ -289,8 +332,15 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
     clickNoGroupFilter();
     env.settle(fixture, 1);
-    expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: '', groupId: 'none', page: 1 });
-    expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31', 'Иванов Иван Иванович 32']);
+    expect(getListSpy.calls.mostRecent().args[0]).toEqual({
+      search: '',
+      groupId: 'none',
+      page: 1,
+    });
+    expect(tableRowFullNames()).toEqual([
+      'Иванов Иван Иванович 31',
+      'Иванов Иван Иванович 32',
+    ]);
 
     typeSearch('student3');
     env.settle(fixture, 1);
@@ -299,7 +349,10 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
       groupId: 'none',
       page: 1,
     });
-    expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 31', 'Иванов Иван Иванович 32']);
+    expect(tableRowFullNames()).toEqual([
+      'Иванов Иван Иванович 31',
+      'Иванов Иван Иванович 32',
+    ]);
 
     clickNoGroupFilter();
     env.settle(fixture, 1);
@@ -311,14 +364,18 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     // Снятие фильтра — полный список (буквально сценарию): очищаем поиск
     // кнопкой очистки (с сохранённым «student3» остались бы только 30–32,
     // CR-008) и проверяем страницу 1 полного списка.
-    root().querySelector<HTMLButtonElement>('button[aria-label="Очистить поиск"]')!.click();
+    root()
+      .querySelector<HTMLButtonElement>('button[aria-label="Очистить поиск"]')!
+      .click();
     env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: '',
       groupId: null,
       page: 1,
     });
-    expect(tableRowFullNames().length).withContext('страница 1 полного списка').toBe(10);
+    expect(tableRowFullNames().length)
+      .withContext('страница 1 полного списка')
+      .toBe(10);
     expect(caption()).toBe('Показать записи с 1 по 10 из 32');
   }));
 
@@ -333,9 +390,13 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
     // Немедленно: без диалога, селектор заблокирован, спиннер в подписи.
     expect(setGroupSpy).toHaveBeenCalledWith(student31, ik221);
-    expect(qsIn(fixture, '.p-confirmdialog')).withContext('без диалога').toBeNull();
+    expect(qsIn(fixture, '.p-confirmdialog'))
+      .withContext('без диалога')
+      .toBeNull();
     expect(rowSelect(0).classList).toContain('p-disabled');
-    expect(qsIn(fixture, '.access__spinner')).withContext('спиннер в подписи').not.toBeNull();
+    expect(qsIn(fixture, '.access__spinner'))
+      .withContext('спиннер в подписи')
+      .not.toBeNull();
 
     env.settle(fixture, 2); // setGroup + перезагрузка страницы списка
 
@@ -354,9 +415,13 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     expect(list.find((group) => group.id === ik221)?.studentCount).toBe(26);
 
     let grid!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
-    void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 6 }).then((result) => (grid = result));
+    void submissionsService
+      .getGrid({ groupId: ik221, semester: 1, page: 6 })
+      .then((result) => (grid = result));
     env.settleRequests(1);
-    expect(grid.students.map((student) => student.fullName)).toEqual(['Иванов Иван Иванович 31']);
+    expect(grid.students.map((student) => student.fullName)).toEqual([
+      'Иванов Иван Иванович 31',
+    ]);
 
     // Его /my-submissions: консоль преподавателя всегда без группы —
     // предупреждение вместо таблицы (GET /me/submissions отвечает
@@ -365,8 +430,12 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2);
     const myRoot = fixture.nativeElement as HTMLElement;
-    expect(myRoot.querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
-    expect(myRoot.querySelector('p-table')).withContext('таблицы нет').toBeNull();
+    expect(myRoot.querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
+    expect(myRoot.querySelector('p-table'))
+      .withContext('таблицы нет')
+      .toBeNull();
   }));
 
   it('TS-355: перевод студента 26 из ИК-222 в ИК-221 — счётчики 26/4, студент в ведомости ИК-221 и отсутствует в ИК-222, составы групп согласованы', fakeAsync(() => {
@@ -374,7 +443,9 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     createAccessPage();
     clickPageButton('3');
     env.settle(fixture, 1);
-    expect(tableRowFullNames()[5]).withContext('student26 на странице 3').toBe('Иванов Иван Иванович 26');
+    expect(tableRowFullNames()[5])
+      .withContext('student26 на странице 3')
+      .toBe('Иванов Иван Иванович 26');
 
     openSelect(fixture, rowSelect(5));
     pickOption(fixture, 'ИК-221');
@@ -391,27 +462,43 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
     // Ведомости: студент в ИК-221 и отсутствует в ИК-222.
     let grid221!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
-    void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 6 }).then((result) => (grid221 = result));
+    void submissionsService
+      .getGrid({ groupId: ik221, semester: 1, page: 6 })
+      .then((result) => (grid221 = result));
     env.settleRequests(1);
     expect(grid221.total).toBe(26);
-    expect(grid221.students.map((student) => student.fullName)).toContain('Иванов Иван Иванович 26');
+    expect(grid221.students.map((student) => student.fullName)).toContain(
+      'Иванов Иван Иванович 26',
+    );
 
     let grid222!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
-    void submissionsService.getGrid({ groupId: ik222, semester: 1, page: 1 }).then((result) => (grid222 = result));
+    void submissionsService
+      .getGrid({ groupId: ik222, semester: 1, page: 1 })
+      .then((result) => (grid222 = result));
     env.settleRequests(1);
     expect(grid222.total).toBe(4);
-    expect(grid222.students.map((student) => student.fullName)).not.toContain('Иванов Иван Иванович 26');
+    expect(grid222.students.map((student) => student.fullName)).not.toContain(
+      'Иванов Иван Иванович 26',
+    );
 
     // Составы /groups/:id согласованы с ведомостью.
     let members221!: Awaited<ReturnType<GroupsService['getStudents']>>;
-    void groupsService.getStudents(ik221, 3).then((result) => (members221 = result));
+    void groupsService
+      .getStudents(ik221, 3)
+      .then((result) => (members221 = result));
     env.settleRequests(1);
-    expect(members221.items.some((student) => student.login === 'student26')).toBeTrue();
+    expect(
+      members221.items.some((student) => student.login === 'student26'),
+    ).toBeTrue();
 
     let members222!: Awaited<ReturnType<GroupsService['getStudents']>>;
-    void groupsService.getStudents(ik222, 1).then((result) => (members222 = result));
+    void groupsService
+      .getStudents(ik222, 1)
+      .then((result) => (members222 = result));
     env.settleRequests(1);
-    expect(members222.items.some((student) => student.login === 'student26')).toBeFalse();
+    expect(
+      members222.items.some((student) => student.login === 'student26'),
+    ).toBeFalse();
   }));
 
   it('TS-356: исключение — диалог «Исключить студента … из группы?»; «No» — селектор вернулся, setGroup не вызывался; «Yes» — «Без группы», из ведомости ИК-221 исчез (total 24), предупреждение в /my-submissions', fakeAsync(() => {
@@ -428,8 +515,12 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     rowConfirmButton('reject').click();
     env.waitConfirmClosed(fixture);
     env.flushNgModel(fixture);
-    expect(qsIn(fixture, '.p-confirmdialog')).withContext('диалог закрыт').toBeNull();
-    expect(rowSelectLabel(0)).withContext('селектор вернулся на «ИК-221»').toBe('ИК-221');
+    expect(qsIn(fixture, '.p-confirmdialog'))
+      .withContext('диалог закрыт')
+      .toBeNull();
+    expect(rowSelectLabel(0))
+      .withContext('селектор вернулся на «ИК-221»')
+      .toBe('ИК-221');
     expect(setGroupSpy).not.toHaveBeenCalled();
 
     // Повторно → «Yes».
@@ -442,18 +533,23 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
     // Студент исчез из ведомости ИК-221 (total 24).
     let grid!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
-    void submissionsService.getGrid({ groupId: ik221, semester: 1, page: 1 }).then((result) => (grid = result));
+    void submissionsService
+      .getGrid({ groupId: ik221, semester: 1, page: 1 })
+      .then((result) => (grid = result));
     env.settleRequests(1);
     expect(grid.total).toBe(24);
-    expect(grid.students.map((student) => student.fullName)).not.toContain('Иванов Иван Иванович 01');
+    expect(grid.students.map((student) => student.fullName)).not.toContain(
+      'Иванов Иван Иванович 01',
+    );
 
     // /my-submissions консоли — предупреждение (группы нет).
     fixture.destroy();
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2);
-    expect((fixture.nativeElement as HTMLElement).querySelector('.no-group')?.textContent).toContain(
-      TEXT_NO_GROUP,
-    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.no-group')
+        ?.textContent,
+    ).toContain(TEXT_NO_GROUP);
   }));
 
   it('TS-357: согласованность groupId из students.getList и groups.getStudents; селекторы используют groupId как значение опций (аменда 6)', fakeAsync(() => {
@@ -476,7 +572,9 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
     // Источник 1: students.getList того же студента.
     let fromList!: Awaited<ReturnType<StudentsService['getList']>>;
-    void studentsService.getList({ search: 'student26', page: 1 }).then((result) => (fromList = result));
+    void studentsService
+      .getList({ search: 'student26', page: 1 })
+      .then((result) => (fromList = result));
     env.settleRequests(1);
     const transferred = fromList.items[0]!;
     expect(transferred.groupId).toBe(ik221);
@@ -484,31 +582,45 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
 
     // Источник 2: groups.getStudents той же группы — groupId совпадает с id.
     let fromGroup!: Awaited<ReturnType<GroupsService['getStudents']>>;
-    void groupsService.getStudents(ik221, 3).then((result) => (fromGroup = result));
+    void groupsService
+      .getStudents(ik221, 3)
+      .then((result) => (fromGroup = result));
     env.settleRequests(1);
-    const inGroup = fromGroup.items.find((student) => student.login === 'student26')!;
+    const inGroup = fromGroup.items.find(
+      (student) => student.login === 'student26',
+    )!;
     expect(inGroup.groupId).toBe(ik221);
     expect(inGroup.groupId).toBe(transferred.groupId);
     expect(inGroup.groupName).toBe(transferred.groupName);
     for (const item of fromGroup.items) {
-      expect(item.groupId).withContext('в составе группы groupId = id группы').toBe(ik221);
+      expect(item.groupId)
+        .withContext('в составе группы groupId = id группы')
+        .toBe(ik221);
     }
 
     // Исключённый: null в обоих источниках (null = без группы).
     let excluded!: Awaited<ReturnType<StudentsService['getList']>>;
-    void studentsService.getList({ search: 'student01', page: 1 }).then((result) => (excluded = result));
+    void studentsService
+      .getList({ search: 'student01', page: 1 })
+      .then((result) => (excluded = result));
     env.settleRequests(1);
     expect(excluded.items[0]!.groupId).toBeNull();
     expect(excluded.items[0]!.groupName).toBeNull();
     let group221Page1!: Awaited<ReturnType<GroupsService['getStudents']>>;
-    void groupsService.getStudents(ik221, 1).then((result) => (group221Page1 = result));
+    void groupsService
+      .getStudents(ik221, 1)
+      .then((result) => (group221Page1 = result));
     env.settleRequests(1);
-    expect(group221Page1.items.some((student) => student.login === 'student01')).toBeFalse();
+    expect(
+      group221Page1.items.some((student) => student.login === 'student01'),
+    ).toBeFalse();
 
     // Селекторы /access используют groupId как значение опций (не имя).
     typeSearch('student26');
     env.settle(fixture, 1);
-    expect(rowModelValue(0)).withContext('значение селектора — uuid группы').toBe(ik221);
+    expect(rowModelValue(0))
+      .withContext('значение селектора — uuid группы')
+      .toBe(ik221);
     typeSearch('student01');
     env.settle(fixture, 1);
     expect(rowModelValue(0)).withContext('без группы — null из DTO').toBeNull();
@@ -530,7 +642,9 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     expect(getListSpy.calls.count()).withContext('запроса ещё нет').toBe(1);
     env.settle(fixture, 1); // 300 мс дебаунса + ответ бэкенда
 
-    expect(getListSpy.calls.count()).withContext('ровно один отложенный запрос').toBe(2);
+    expect(getListSpy.calls.count())
+      .withContext('ровно один отложенный запрос')
+      .toBe(2);
     expect(getListSpy.calls.mostRecent().args[0]).toEqual({
       search: 'student0',
       groupId: null,
@@ -570,15 +684,21 @@ describe('AccessPage — интеграция с реальным HTTP-ядро�
     expect(setGroupSpy).toHaveBeenCalledWith(student31, ik222);
 
     env.settle(fixture, 1); // отказ setGroup (404 от бэкенда по чужому id)
-    expect(notifications.desktopMessage()).withContext('баннер якорем header').toEqual({
-      severity: 'error',
-      text: 'Группа не найдена',
-    });
+    expect(notifications.desktopMessage())
+      .withContext('баннер якорем header')
+      .toEqual({
+        severity: 'error',
+        text: 'Группа не найдена',
+      });
     env.drainNotifications();
 
     env.settle(fixture, 1); // перезагрузка страницы списка
-    expect(getListSpy.calls.count()).withContext('страница списка перезагружена').toBeGreaterThanOrEqual(2);
+    expect(getListSpy.calls.count())
+      .withContext('страница списка перезагружена')
+      .toBeGreaterThanOrEqual(2);
     expect(rowSelect(0).classList).not.toContain('p-disabled');
-    expect(rowSelectLabel(0)).withContext('строка показывает фактическое состояние').toBe('Без группы');
+    expect(rowSelectLabel(0))
+      .withContext('строка показывает фактическое состояние')
+      .toBe('Без группы');
   }));
 });

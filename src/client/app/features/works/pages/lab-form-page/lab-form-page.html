@@ -46,7 +46,11 @@
       </div>
 
       <div class="lab-form__field lab-form__field--checkbox">
-        <p-checkbox [binary]="true" inputId="lab-defense" formControlName="defenseRequired" />
+        <p-checkbox
+          [binary]="true"
+          inputId="lab-defense"
+          formControlName="defenseRequired"
+        />
         <label for="lab-defense">Нужна защита</label>
       </div>
 
@@ -84,7 +88,12 @@
       </div>
 
       <div class="lab-form__actions">
-        <p-button type="submit" label="Сохранить" [loading]="busy()" [disabled]="busy()" />
+        <p-button
+          type="submit"
+          label="Сохранить"
+          [loading]="busy()"
+          [disabled]="busy()"
+        />
         <p-button
           type="button"
           label="Назад"

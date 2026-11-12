@@ -182,7 +182,10 @@ export class SubmissionsPage implements OnInit {
         this.selectedGroupId.set(first.id);
       }
     } else {
-      this.notifications.notifyError(toApiError(groupsResult.reason).body.message, 'header');
+      this.notifications.notifyError(
+        toApiError(groupsResult.reason).body.message,
+        'header',
+      );
     }
 
     if (semestersResult.status === 'fulfilled') {
@@ -192,7 +195,10 @@ export class SubmissionsPage implements OnInit {
         this.selectedSemester.set(smallest);
       }
     } else {
-      this.notifications.notifyError(toApiError(semestersResult.reason).body.message, 'header');
+      this.notifications.notifyError(
+        toApiError(semestersResult.reason).body.message,
+        'header',
+      );
     }
 
     await this.loadGrid();
@@ -314,8 +320,14 @@ export class SubmissionsPage implements OnInit {
    * Ревизия ячейки: число меняется только при сбросе после ошибки —
    * OnPush-ячейка пересчитывает кэшированную Date и перезаписывает контрол.
    */
-  cellRevision(studentId: string, labId: string, field: SubmissionsDateField): number {
-    return this.cellRevisions().get(`${pairKey(studentId, labId)}:${field}`) ?? 0;
+  cellRevision(
+    studentId: string,
+    labId: string,
+    field: SubmissionsDateField,
+  ): number {
+    return (
+      this.cellRevisions().get(`${pairKey(studentId, labId)}:${field}`) ?? 0
+    );
   }
 
   /** Блокировка своей ячейки на время её сохранения (RSK-006). */

@@ -13,7 +13,13 @@
  * перечитываются (сервер — истина). Отсутствующая группа — «Группа не
  * найдена» под шапкой (якорь 'header') и возврат к /groups.
  */
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';
@@ -21,7 +27,10 @@ import { ButtonModule } from 'primeng/button';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TableModule } from 'primeng/table';
 
-import { GROUPS_PAGE_SIZE, GroupsService } from '../../../core/services/groups.service';
+import {
+  GROUPS_PAGE_SIZE,
+  GroupsService,
+} from '../../../core/services/groups.service';
 import { StudentsService } from '../../../core/services/students.service';
 import { toApiError } from '../../../shared/api-error';
 import { submitting } from '../../../shared/loading/submitting';
@@ -188,7 +197,10 @@ export class GroupPage {
         await this.studentsService.setGroup(student.id, null);
         this.notifications.notifySuccess('Сохранено');
       } catch (error) {
-        this.notifications.notifyError(toApiError(error).body.message, 'header');
+        this.notifications.notifyError(
+          toApiError(error).body.message,
+          'header',
+        );
       }
       // Сервер — истина: счётчик и страница обновляются при любом исходе.
       await this.loadStudents();

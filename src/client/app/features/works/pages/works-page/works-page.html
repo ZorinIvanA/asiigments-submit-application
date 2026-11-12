@@ -19,20 +19,33 @@
 
   <div class="works-page__card">
     <!-- Список блокируется, пока открыт диалог удаления (FR-014, макет SCR-007). -->
-    <div class="works-page__list" [class.works-page__list--locked]="dialogOpen()">
+    <div
+      class="works-page__list"
+      [class.works-page__list--locked]="dialogOpen()"
+    >
       <p-table [value]="rows()" [loading]="loading()">
         <ng-template #header>
           <tr>
             <th
               class="works-page__num works-page__sortable"
               (click)="toggleSort('number')"
-              [attr.aria-sort]="sortField() === 'number' ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'"
+              [attr.aria-sort]="
+                sortField() === 'number'
+                  ? sortDir() === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
+              "
             >
               Номер
               @if (sortField() === 'number') {
                 <span
                   class="works-page__sort"
-                  [title]="sortDir() === 'asc' ? 'Сортировка по возрастанию' : 'Сортировка по убыванию'"
+                  [title]="
+                    sortDir() === 'asc'
+                      ? 'Сортировка по возрастанию'
+                      : 'Сортировка по убыванию'
+                  "
                   >{{ sortDir() === 'asc' ? '▲' : '▼' }}</span
                 >
               }
@@ -41,13 +54,23 @@
             <th
               class="works-page__sortable"
               (click)="toggleSort('semester')"
-              [attr.aria-sort]="sortField() === 'semester' ? (sortDir() === 'asc' ? 'ascending' : 'descending') : 'none'"
+              [attr.aria-sort]="
+                sortField() === 'semester'
+                  ? sortDir() === 'asc'
+                    ? 'ascending'
+                    : 'descending'
+                  : 'none'
+              "
             >
               Семестр
               @if (sortField() === 'semester') {
                 <span
                   class="works-page__sort"
-                  [title]="sortDir() === 'asc' ? 'Сортировка по возрастанию' : 'Сортировка по убыванию'"
+                  [title]="
+                    sortDir() === 'asc'
+                      ? 'Сортировка по возрастанию'
+                      : 'Сортировка по убыванию'
+                  "
                   >{{ sortDir() === 'asc' ? '▲' : '▼' }}</span
                 >
               }

@@ -11,13 +11,15 @@
  */
 import { TestBed } from '@angular/core/testing';
 
+import type { Preset } from '@primeuix/themes';
 import { PrimeNG } from 'primeng/config';
 
 import { appConfig } from './app.config';
 
-/** Пресет — произвольное дерево токенов; типизация theme() в PrimeNG — any. */
-function themePreset(): any {
-  return TestBed.inject(PrimeNG).theme()?.preset;
+/** Пресет — то же дерево токенов, что передано providePrimeNG в appConfig. */
+function themePreset(): Preset {
+  // Типизация theme() в PrimeNG — any; приводим к Preset из @primeuix/themes.
+  return TestBed.inject(PrimeNG).theme()?.preset as Preset;
 }
 
 describe('design-токены темы по макетам (T-109, ADR-108)', () => {
@@ -52,8 +54,7 @@ describe('design-токены темы по макетам (T-109, ADR-108)', ()
 
   it('тёмная схема по-прежнему отключена (darkModeSelector: false)', () => {
     const theme = TestBed.inject(PrimeNG).theme() as
-      | { options?: { darkModeSelector?: unknown } }
-      | undefined;
+      { options?: { darkModeSelector?: unknown } } | undefined;
     expect(theme?.options?.darkModeSelector).toBe(false);
   });
 });

@@ -22,7 +22,15 @@
  *    опустела и page > 1 — предыдущей, ADR-109); ошибки — дословный текст
  *    ApiError якорем 'header' (IF-109).
  */
-import { ChangeDetectionStrategy, Component, OnInit, SecurityContext, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  SecurityContext,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -38,7 +46,12 @@ import { toApiError } from '../../../../shared/api-error';
 import { submitting } from '../../../../shared/loading/submitting';
 import { LabDto, PagedResult } from '../../../../shared/models';
 import { NotificationService } from '../../../../shared/notifications/notification-service';
-import { LABS_PAGE_SIZE, LabsService, LabsSortDir, LabsSortField } from '../../../../core/services/labs.service';
+import {
+  LABS_PAGE_SIZE,
+  LabsService,
+  LabsSortDir,
+  LabsSortField,
+} from '../../../../core/services/labs.service';
 
 /** Опция селекта «Семестр»: value null — «Все семестры». */
 interface SemesterOption {
@@ -54,7 +67,15 @@ interface SemesterOption {
   // В PrimeNG 20 ConfirmationService больше не providedIn: 'root' — даётся
   // здесь, его же инжектирует вложенный p-confirmdialog.
   providers: [ConfirmationService],
-  imports: [FormsModule, Button, Checkbox, ConfirmDialog, Paginator, Select, TableModule],
+  imports: [
+    FormsModule,
+    Button,
+    Checkbox,
+    ConfirmDialog,
+    Paginator,
+    Select,
+    TableModule,
+  ],
 })
 export class WorksPage implements OnInit {
   private readonly labs = inject(LabsService);
@@ -106,7 +127,10 @@ export class WorksPage implements OnInit {
   /** Опции селекта: «Все семестры» (null) + семестры с работами по возрастанию. */
   readonly semesterOptions = computed<SemesterOption[]>(() => [
     { label: 'Все семестры', value: null },
-    ...this.semesters().map((semester) => ({ label: String(semester), value: semester })),
+    ...this.semesters().map((semester) => ({
+      label: String(semester),
+      value: semester,
+    })),
   ]);
 
   /**
@@ -197,7 +221,10 @@ export class WorksPage implements OnInit {
             this.notifications.notifySuccess('Удалено');
             await this.reloadAfterRemove();
           } catch (error) {
-            this.notifications.notifyError(toApiError(error).body.message, 'header');
+            this.notifications.notifyError(
+              toApiError(error).body.message,
+              'header',
+            );
             // Аменда 5 (IF-103, remove-404): запись могла исчезнуть в другом
             // сеансе — перезагружаем текущее состояние списка (с откатом на
             // предыдущую страницу, если текущая опустела); редиректа нет.

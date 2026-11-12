@@ -26,8 +26,15 @@ const GROUP_223: GroupDto = { id: 'g-223', name: 'ИК-223', studentCount: 0 };
 const GROUP_224: GroupDto = { id: 'g-224', name: 'ИК-224', studentCount: 0 };
 
 /** ApiError в транспортной форме мока (FR-003). */
-function apiError(status: number, message: string, errors?: Record<string, string[]>): ApiError {
-  return { status, body: errors === undefined ? { message } : { message, errors } };
+function apiError(
+  status: number,
+  message: string,
+  errors?: Record<string, string[]>,
+): ApiError {
+  return {
+    status,
+    body: errors === undefined ? { message } : { message, errors },
+  };
 }
 
 class GroupsServiceFake {
@@ -75,14 +82,20 @@ describe('GroupsPage', () => {
   }
 
   function button(label: string): HTMLButtonElement {
-    const candidates = Array.from(root().querySelectorAll<HTMLButtonElement>('button'));
-    const found = candidates.find((candidate) => candidate.textContent?.trim() === label);
+    const candidates = Array.from(
+      root().querySelectorAll<HTMLButtonElement>('button'),
+    );
+    const found = candidates.find(
+      (candidate) => candidate.textContent?.trim() === label,
+    );
     expect(found).withContext(`кнопка «${label}»`).not.toBeNull();
     return found!;
   }
 
   function rowByName(name: string): HTMLTableRowElement {
-    const rows = Array.from(root().querySelectorAll<HTMLTableRowElement>('tbody tr'));
+    const rows = Array.from(
+      root().querySelectorAll<HTMLTableRowElement>('tbody tr'),
+    );
     const found = rows.find((row) => row.textContent?.includes(name));
     expect(found).withContext(`строка группы «${name}»`).not.toBeNull();
     return found!;
@@ -103,7 +116,9 @@ describe('GroupsPage', () => {
     expect(root().querySelector('h1')?.textContent?.trim()).toBe('Группы');
     expect(button('Создать группу')).toBeTruthy();
 
-    const rows = Array.from(root().querySelectorAll<HTMLTableRowElement>('tbody tr'));
+    const rows = Array.from(
+      root().querySelectorAll<HTMLTableRowElement>('tbody tr'),
+    );
     expect(rows.length).toBe(3);
     expect(rows[0]!.textContent).toContain('ИК-221');
     expect(rows[0]!.textContent).toContain('25');
@@ -112,7 +127,9 @@ describe('GroupsPage', () => {
 
     const link = rows[0]!.querySelector<HTMLAnchorElement>('a');
     expect(link?.getAttribute('href')).toBe('/groups/g-221');
-    expect(rows[0]!.querySelector('button[aria-label="Переименовать"]')).toBeTruthy();
+    expect(
+      rows[0]!.querySelector('button[aria-label="Переименовать"]'),
+    ).toBeTruthy();
     expect(rows[0]!.querySelector('button[aria-label="Удалить"]')).toBeTruthy();
   });
 
@@ -121,14 +138,21 @@ describe('GroupsPage', () => {
     await flush();
 
     expect(dialogTitle()).toBe('Создать группу');
-    expect(root().querySelector('label[for="group-create-name"]')?.textContent?.trim()).toBe(
-      'Название',
-    );
+    expect(
+      root()
+        .querySelector('label[for="group-create-name"]')
+        ?.textContent?.trim(),
+    ).toBe('Название');
     expect(button('Отмена')).toBeTruthy();
     expect(button('Создать')).toBeTruthy();
 
     groupsService.create.and.resolveTo(GROUP_224);
-    groupsService.getList.and.resolveTo([GROUP_221, GROUP_222, GROUP_223, GROUP_224]);
+    groupsService.getList.and.resolveTo([
+      GROUP_221,
+      GROUP_222,
+      GROUP_223,
+      GROUP_224,
+    ]);
     setDialogName('group-create-name', 'ИК-224');
     button('Создать').click();
     await flush();
@@ -171,7 +195,9 @@ describe('GroupsPage', () => {
     button('Создать').click();
     await flush();
 
-    expect(root().textContent).toContain('Название группы — от 1 до 100 символов');
+    expect(root().textContent).toContain(
+      'Название группы — от 1 до 100 символов',
+    );
     expect(dialogTitle()).toBe('Создать группу'); // диалог остался открытым
     expect(notifications.notifyError).not.toHaveBeenCalled();
     expect(notifications.notifySuccess).not.toHaveBeenCalled();
@@ -188,14 +214,17 @@ describe('GroupsPage', () => {
     button('Создать').click();
     await flush();
 
-    expect(root().textContent).toContain('Группа с таким названием уже существует');
+    expect(root().textContent).toContain(
+      'Группа с таким названием уже существует',
+    );
     expect(dialogTitle()).toBe('Создать группу');
     expect(notifications.notifyError).not.toHaveBeenCalled();
     expect(notifications.notifySuccess).not.toHaveBeenCalled();
   });
 
   it('AC rename-conflict: 409 при переименовании «ИК-221» в существующее имя — текст в диалоге, имя не изменено', async () => {
-    rowByName('ИК-221').querySelector<HTMLButtonElement>('button[aria-label="Переименовать"]')!
+    rowByName('ИК-221')
+      .querySelector<HTMLButtonElement>('button[aria-label="Переименовать"]')!
       .click();
     await flush();
 
@@ -214,7 +243,9 @@ describe('GroupsPage', () => {
     await flush();
 
     expect(groupsService.rename).toHaveBeenCalledWith('g-221', 'ИК-222');
-    expect(root().textContent).toContain('Группа с таким названием уже существует');
+    expect(root().textContent).toContain(
+      'Группа с таким названием уже существует',
+    );
     expect(notifications.notifySuccess).not.toHaveBeenCalled();
     const names = Array.from(root().querySelectorAll('tbody tr')).map((row) =>
       row.textContent?.trim(),
@@ -223,7 +254,8 @@ describe('GroupsPage', () => {
   });
 
   it('rename: успех — «Сохранено», диалог закрыт, список перечитан', async () => {
-    rowByName('ИК-221').querySelector<HTMLButtonElement>('button[aria-label="Переименовать"]')!
+    rowByName('ИК-221')
+      .querySelector<HTMLButtonElement>('button[aria-label="Переименовать"]')!
       .click();
     await flush();
 
@@ -242,7 +274,8 @@ describe('GroupsPage', () => {
   });
 
   it('rename: пустое имя — «Заполните поле» в диалоге, мок не вызывается', async () => {
-    rowByName('ИК-222').querySelector<HTMLButtonElement>('button[aria-label="Переименовать"]')!
+    rowByName('ИК-222')
+      .querySelector<HTMLButtonElement>('button[aria-label="Переименовать"]')!
       .click();
     await flush();
 
@@ -255,13 +288,21 @@ describe('GroupsPage', () => {
   });
 
   it('AC delete-group: подтверждение с именем группы и «Yes»/«No»; «Yes» — «Удалено», группа исчезла', async () => {
-    rowByName('ИК-222').querySelector<HTMLButtonElement>('button[aria-label="Удалить"]')!.click();
+    rowByName('ИК-222')
+      .querySelector<HTMLButtonElement>('button[aria-label="Удалить"]')!
+      .click();
     fixture.detectChanges();
 
     const message = root().querySelector('.p-confirmdialog-message');
-    expect(message?.textContent?.trim()).toBe('Вы точно хотите удалить группу ИК-222?');
-    const accept = root().querySelector<HTMLButtonElement>('.p-confirmdialog-accept-button');
-    const reject = root().querySelector<HTMLButtonElement>('.p-confirmdialog-reject-button');
+    expect(message?.textContent?.trim()).toBe(
+      'Вы точно хотите удалить группу ИК-222?',
+    );
+    const accept = root().querySelector<HTMLButtonElement>(
+      '.p-confirmdialog-accept-button',
+    );
+    const reject = root().querySelector<HTMLButtonElement>(
+      '.p-confirmdialog-reject-button',
+    );
     expect(accept?.textContent?.trim()).toBe('Yes');
     expect(reject?.textContent?.trim()).toBe('No');
 
@@ -282,10 +323,14 @@ describe('GroupsPage', () => {
   });
 
   it('delete: «No» закрывает подтверждение, мок не вызывается', async () => {
-    rowByName('ИК-222').querySelector<HTMLButtonElement>('button[aria-label="Удалить"]')!.click();
+    rowByName('ИК-222')
+      .querySelector<HTMLButtonElement>('button[aria-label="Удалить"]')!
+      .click();
     fixture.detectChanges();
 
-    root().querySelector<HTMLButtonElement>('.p-confirmdialog-reject-button')!.click();
+    root()
+      .querySelector<HTMLButtonElement>('.p-confirmdialog-reject-button')!
+      .click();
     await flush();
 
     expect(groupsService.remove).not.toHaveBeenCalled();
@@ -301,7 +346,10 @@ describe('GroupsPage', () => {
     fixture = failing;
     await flush();
 
-    expect(notifications.notifyError).toHaveBeenCalledWith('Сервер недоступен', 'header');
+    expect(notifications.notifyError).toHaveBeenCalledWith(
+      'Сервер недоступен',
+      'header',
+    );
     expect(notifications.notifySuccess).not.toHaveBeenCalled();
   });
 });

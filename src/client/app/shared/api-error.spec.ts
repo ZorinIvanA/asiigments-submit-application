@@ -6,7 +6,11 @@
 import { ApiError } from './models';
 import { NON_HTTP_ERROR_STATUS, isApiError, toApiError } from './api-error';
 
-function apiError(status: number, message: string, errors?: Record<string, string[]>): ApiError {
+function apiError(
+  status: number,
+  message: string,
+  errors?: Record<string, string[]>,
+): ApiError {
   return errors === undefined
     ? { status, body: { message } }
     : { status, body: { message, errors } };
@@ -20,13 +24,19 @@ describe('shared/api-error — isApiError/toApiError (IF-001)', () => {
 
     it('распознаёт форму с errors по полям', () => {
       expect(
-        isApiError(apiError(400, 'Данные заполнены неверно', { login: ['Заполните поле'] })),
+        isApiError(
+          apiError(400, 'Данные заполнены неверно', {
+            login: ['Заполните поле'],
+          }),
+        ),
       ).toBeTrue();
     });
 
     it('распознаёт все статусы набора IF-001', () => {
       for (const status of [400, 403, 404, 409, 500]) {
-        expect(isApiError(apiError(status, `Отказ ${status}`))).withContext(`статус ${status}`).toBeTrue();
+        expect(isApiError(apiError(status, `Отказ ${status}`)))
+          .withContext(`статус ${status}`)
+          .toBeTrue();
       }
     });
 
@@ -46,18 +56,25 @@ describe('shared/api-error — isApiError/toApiError (IF-001)', () => {
         { status: 401, body: {} },
       ];
       for (const value of notApiErrors) {
-        expect(isApiError(value)).withContext(JSON.stringify(value) ?? 'значение').toBeFalse();
+        expect(isApiError(value))
+          .withContext(JSON.stringify(value) ?? 'значение')
+          .toBeFalse();
       }
     });
 
     it('errors не-объектного типа отвергается', () => {
-      expect(isApiError({ status: 400, body: { message: 'т', errors: 'нет' } })).toBeFalse();
+      expect(
+        isApiError({ status: 400, body: { message: 'т', errors: 'нет' } }),
+      ).toBeFalse();
     });
   });
 
   describe('toApiError', () => {
     it('распознанная транспортная форма возвращается той же ссылкой', () => {
-      const error = apiError(409, 'Пользователь с таким логином уже существует');
+      const error = apiError(
+        409,
+        'Пользователь с таким логином уже существует',
+      );
       expect(toApiError(error)).toBe(error);
     });
 
@@ -79,7 +96,12 @@ describe('shared/api-error — isApiError/toApiError (IF-001)', () => {
     });
 
     it('результат toApiError всегда проходит isApiError', () => {
-      for (const value of [null, new Error('x'), { a: 1 }, 'строка'] as unknown[]) {
+      for (const value of [
+        null,
+        new Error('x'),
+        { a: 1 },
+        'строка',
+      ] as unknown[]) {
         expect(isApiError(toApiError(value))).toBeTrue();
       }
     });

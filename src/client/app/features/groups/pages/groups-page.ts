@@ -11,7 +11,12 @@
  * показываются внутри диалога (ключевые условия T-116), прочие отказы —
  * баннер под шапкой (якорь 'header') и перечитывание списка.
  */
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';

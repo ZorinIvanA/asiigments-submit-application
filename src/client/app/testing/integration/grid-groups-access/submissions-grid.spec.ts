@@ -50,9 +50,6 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
   let teacherId: string;
   let student01: string;
   let student02: string;
-  let ik221: string;
-  let ik222: string;
-  let ik223: string;
   let lab1: string;
   let lab2: string;
   let lab6: string;
@@ -64,9 +61,6 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     teacherId = env.backend.userIdByLogin('teacher');
     student01 = env.backend.userIdByLogin('student01');
     student02 = env.backend.userIdByLogin('student02');
-    ik221 = env.backend.groupIdByName('ИК-221');
-    ik222 = env.backend.groupIdByName('ИК-222');
-    ik223 = env.backend.groupIdByName('ИК-223');
     lab1 = env.backend.labId(1, 1);
     lab2 = env.backend.labId(1, 2);
     lab6 = env.backend.labId(1, 6);
@@ -90,7 +84,9 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
 
   /** Строка tbody по номеру (1-based). */
   function bodyRow(row: number): HTMLTableRowElement {
-    return root().querySelector(`tbody tr:nth-child(${row})`) as HTMLTableRowElement;
+    return root().querySelector(
+      `tbody tr:nth-child(${row})`,
+    ) as HTMLTableRowElement;
   }
 
   /**
@@ -98,9 +94,15 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
    * (структура двухуровневой шапки SCR-009). Годится для статичных гридов;
    * после удаления лабы колонки сдвигаются — используйте cellInputByHeader.
    */
-  function cellInput(row: number, labNumber: number, field: 'submit' | 'defense'): HTMLInputElement {
+  function cellInput(
+    row: number,
+    labNumber: number,
+    field: 'submit' | 'defense',
+  ): HTMLInputElement {
     const cell = field === 'submit' ? 2 * labNumber : 2 * labNumber + 1;
-    return bodyRow(row).querySelector(`td:nth-child(${cell}) input`) as HTMLInputElement;
+    return bodyRow(row).querySelector(
+      `td:nth-child(${cell}) input`,
+    ) as HTMLInputElement;
   }
 
   /**
@@ -113,13 +115,21 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     labNumber: number,
     field: 'submit' | 'defense',
   ): HTMLInputElement {
-    const headers = Array.from(root().querySelectorAll('thead tr:first-child th'));
-    const headerIndex = headers.findIndex((th) => th.textContent?.trim() === `Лаб ${labNumber}`);
+    const headers = Array.from(
+      root().querySelectorAll('thead tr:first-child th'),
+    );
+    const headerIndex = headers.findIndex(
+      (th) => th.textContent?.trim() === `Лаб ${labNumber}`,
+    );
     if (headerIndex === -1) {
-      throw new Error(`submissions-grid.spec: колонки «Лаб ${labNumber}» нет в текущем гриде`);
+      throw new Error(
+        `submissions-grid.spec: колонки «Лаб ${labNumber}» нет в текущем гриде`,
+      );
     }
     const cell = field === 'submit' ? 2 * headerIndex : 2 * headerIndex + 1;
-    return bodyRow(row).querySelector(`td:nth-child(${cell}) input`) as HTMLInputElement;
+    return bodyRow(row).querySelector(
+      `td:nth-child(${cell}) input`,
+    ) as HTMLInputElement;
   }
 
   /**
@@ -134,13 +144,19 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     text: string,
   ): void {
     const input = cellInput(row, labNumber, field);
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
     input.value = text;
     input.dispatchEvent(new Event('input'));
   }
 
   /** Пользовательский blur ячейки (коммит явной очистки / возврат к источнику). */
-  function blurCell(row: number, labNumber: number, field: 'submit' | 'defense'): void {
+  function blurCell(
+    row: number,
+    labNumber: number,
+    field: 'submit' | 'defense',
+  ): void {
     cellInput(row, labNumber, field).dispatchEvent(new FocusEvent('blur'));
   }
 
@@ -155,30 +171,41 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
       `td:nth-child(${cell}) .p-datepicker-clear-icon`,
     ) as HTMLElement | null;
     if (icon === null) {
-      throw new Error('submissions-grid.spec: кнопка × не видима (у пустой ячейки её нет)');
+      throw new Error(
+        'submissions-grid.spec: кнопка × не видима (у пустой ячейки её нет)',
+      );
     }
     icon.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   }
 
   function rangeCaption(): string {
-    return qsIn(fixture, '[data-test="range-caption"]')?.textContent?.trim() ?? '';
+    return (
+      qsIn(fixture, '[data-test="range-caption"]')?.textContent?.trim() ?? ''
+    );
   }
 
   /** Верхние заголовки «Лаб N» (th colspan=2) в порядке отображения. */
   function labGroupHeaders(): string[] {
-    return Array.from(root().querySelectorAll('thead tr:first-child th[colspan="2"]')).map(
-      (th) => th.textContent?.trim() ?? '',
-    );
+    return Array.from(
+      root().querySelectorAll('thead tr:first-child th[colspan="2"]'),
+    ).map((th) => th.textContent?.trim() ?? '');
   }
 
   /** Кнопка пагинатора по классу PrimeNG (стрелки) или тексту (номера). */
-  function paginatorButton(kind: 'next' | 'page', label?: string): HTMLButtonElement {
-    const selector = kind === 'next' ? '.p-paginator-next' : '.p-paginator-page';
+  function paginatorButton(
+    kind: 'next' | 'page',
+    label?: string,
+  ): HTMLButtonElement {
+    const selector =
+      kind === 'next' ? '.p-paginator-next' : '.p-paginator-page';
     const found = qsAllIn(fixture, selector).find(
-      (candidate) => label === undefined || candidate.textContent?.trim() === label,
+      (candidate) =>
+        label === undefined || candidate.textContent?.trim() === label,
     );
     if (found === undefined) {
-      throw new Error(`submissions-grid.spec: нет кнопки пагинатора ${kind} ${label ?? ''}`);
+      throw new Error(
+        `submissions-grid.spec: нет кнопки пагинатора ${kind} ${label ?? ''}`,
+      );
     }
     return found as HTMLButtonElement;
   }
@@ -202,7 +229,9 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     // Страница 1: 5 студентов по ФИО↑.
     const rows = root().querySelectorAll('tbody tr');
     expect(rows.length).withContext('5 студентов на странице').toBe(PAGE_SIZE);
-    expect(bodyRow(1).querySelector('td')?.textContent?.trim()).toBe('Иванов Иван Иванович 01');
+    expect(bodyRow(1).querySelector('td')?.textContent?.trim()).toBe(
+      'Иванов Иван Иванович 01',
+    );
 
     // Колонки — лабы 1..20 по number↑.
     const labs = labGroupHeaders();
@@ -213,12 +242,16 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     // Шапка двухуровневая: у КАЖДОЙ работы пара «Сдача»/«Защита», включая
     // defenseRequired=false (нечётные номера сида).
     const subHeaders = Array.from(
-      (root().querySelectorAll('thead tr')[1] as HTMLTableRowElement).querySelectorAll('th'),
+      (
+        root().querySelectorAll('thead tr')[1] as HTMLTableRowElement
+      ).querySelectorAll('th'),
     ).map((th) => th.textContent?.trim());
     expect(subHeaders.filter((text) => text === 'Сдача').length).toBe(20);
     expect(subHeaders.filter((text) => text === 'Защита').length).toBe(20);
     for (let index = 1; index <= 20; index++) {
-      expect(subHeaders[(index - 1) * 2]).withContext(`пара лабы ${index}`).toBe('Сдача');
+      expect(subHeaders[(index - 1) * 2])
+        .withContext(`пара лабы ${index}`)
+        .toBe('Сдача');
       expect(subHeaders[(index - 1) * 2 + 1]).toBe('Защита');
     }
 
@@ -227,21 +260,31 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
 
   it('TS-302: выбор 15.09.2026 шлёт update с обеими датами пары, ячейка 15.09.2026; перезагрузка и листание страниц значение сохраняют; в состоянии бэкенда updated_by — преподаватель', fakeAsync(() => {
     createPage();
-    expect(cellInput(1, 6, 'submit').value).withContext('сид: сдача лабы 6 пуста').toBe('');
+    expect(cellInput(1, 6, 'submit').value)
+      .withContext('сид: сдача лабы 6 пуста')
+      .toBe('');
 
     // Выбор даты в датапике ячейки (dateFormat дд.мм.гггг).
-    fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
+    fixture.componentInstance.onCellDateChange(
+      student01,
+      lab6,
+      'submitDate',
+      new Date(2026, 8, 15),
+    );
     env.settle(fixture, 1);
 
     // upsert: обе даты пары, вторая — актуальное значение (была пуста).
     const saved = env.backend
       .read()
       .submissions.find(
-        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+        (candidate) =>
+          candidate.studentId === student01 && candidate.labId === lab6,
       );
     expect(saved?.submitDate).toBe('2026-09-15');
     expect(saved?.defenseDate).toBeNull();
-    expect(saved?.updatedBy).withContext('updated_by — id сид-преподавателя').toBe(teacherId);
+    expect(saved?.updatedBy)
+      .withContext('updated_by — id сид-преподавателя')
+      .toBe(teacherId);
 
     expect(cellInput(1, 6, 'submit').value).toBe('15.09.2026');
 
@@ -275,11 +318,13 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     createPage();
     const updateSpy = spyOn(submissionsService, 'update').and.callThrough();
 
-    const defenseRecord = (): { submitDate: string | null; defenseDate: string | null } | undefined =>
+    const defenseRecord = ():
+      { submitDate: string | null; defenseDate: string | null } | undefined =>
       env.backend
         .read()
         .submissions.find(
-          (candidate) => candidate.studentId === student01 && candidate.labId === lab1,
+          (candidate) =>
+            candidate.studentId === student01 && candidate.labId === lab1,
         );
     const expectCleared = (calls: number): void => {
       expect(updateSpy.calls.count()).toBe(calls);
@@ -289,14 +334,23 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
         submitDate: '2026-09-01',
         defenseDate: null,
       });
-      expect(cellInput(1, 1, 'defense').value).withContext('ячейка пустая').toBe('');
+      expect(cellInput(1, 1, 'defense').value)
+        .withContext('ячейка пустая')
+        .toBe('');
       expect(root().querySelector('tbody')?.textContent).not.toContain('—');
-      expect(defenseRecord()?.submitDate).withContext('сдача не тронута').toBe('2026-09-01');
+      expect(defenseRecord()?.submitDate)
+        .withContext('сдача не тронута')
+        .toBe('2026-09-01');
       expect(defenseRecord()?.defenseDate).toBeNull();
     };
     /** Возврат защите сид-значения: альтернативные пути — из того же given. */
     const resetDefense = (): void => {
-      fixture.componentInstance.onCellDateChange(student01, lab1, 'defenseDate', new Date(2026, 8, 11));
+      fixture.componentInstance.onCellDateChange(
+        student01,
+        lab1,
+        'defenseDate',
+        new Date(2026, 8, 11),
+      );
       env.settle(fixture, 1);
       expect(defenseRecord()?.defenseDate).toBe('2026-09-11');
     };
@@ -306,7 +360,9 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     typeCell(1, 1, 'defense', '1');
     env.settle(fixture, 1);
     expect(updateSpy.calls.count()).withContext('«1» — ноль update').toBe(0);
-    expect(cellInput(1, 1, 'defense').value).withContext('ввод не затёрт').toBe('1');
+    expect(cellInput(1, 1, 'defense').value)
+      .withContext('ввод не затёрт')
+      .toBe('1');
 
     typeCell(1, 1, 'defense', '15.');
     env.settle(fixture, 1);
@@ -315,7 +371,9 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
 
     blurCell(1, 1, 'defense');
     env.settle(fixture, 1);
-    expect(updateSpy.calls.count()).withContext('blur после промежуточных — ноль update').toBe(0);
+    expect(updateSpy.calls.count())
+      .withContext('blur после промежуточных — ноль update')
+      .toBe(0);
     expect(cellInput(1, 1, 'defense').value)
       .withContext('поле откатилось к прежнему значению сервера')
       .toBe('11.09.2026');
@@ -326,7 +384,9 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     env.settle(fixture, 1);
     expect(updateSpy.calls.count()).withContext('«abc» — ноль update').toBe(0);
     expect(cellInput(1, 1, 'defense').value).toBe('abc');
-    expect(defenseRecord()?.defenseDate).withContext('запись не менялась').toBe('2026-09-11');
+    expect(defenseRecord()?.defenseDate)
+      .withContext('запись не менялась')
+      .toBe('2026-09-11');
 
     blurCell(1, 1, 'defense');
     env.settle(fixture, 1);
@@ -370,20 +430,26 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     // Персистентность: перезагрузка страницы читает сброс из бэкенда.
     fixture.destroy();
     createPage();
-    expect(cellInput(1, 1, 'defense').value).withContext('защита пуста после перезагрузки').toBe('');
-    expect(cellInput(1, 1, 'submit').value).withContext('сдача не тронута').toBe('01.09.2026');
+    expect(cellInput(1, 1, 'defense').value)
+      .withContext('защита пуста после перезагрузки')
+      .toBe('');
+    expect(cellInput(1, 1, 'submit').value)
+      .withContext('сдача не тронута')
+      .toBe('01.09.2026');
   }));
 
   it('TS-305: пагинация по 5 — стрелка и номера страниц, стр.5 «с 21 по 25 из 25», возврат на 1; порядок ФИО↑ на всех страницах', fakeAsync(() => {
     createPage();
 
-    const expectedNames = Array.from({ length: TOTAL_221 }, (_, index) =>
-      `Иванов Иван Иванович ${String(index + 1).padStart(2, '0')}`,
+    const expectedNames = Array.from(
+      { length: TOTAL_221 },
+      (_, index) =>
+        `Иванов Иван Иванович ${String(index + 1).padStart(2, '0')}`,
     );
 
     function rowNames(): string[] {
-      return Array.from(root().querySelectorAll('tbody tr td:first-child')).map((cell) =>
-        cell.textContent?.trim() ?? '',
+      return Array.from(root().querySelectorAll('tbody tr td:first-child')).map(
+        (cell) => cell.textContent?.trim() ?? '',
       );
     }
 
@@ -416,10 +482,12 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
 
     const emptyRow = qsIn(fixture, '[data-test="empty-group-row"]');
     expect(emptyRow?.textContent?.trim()).toBe('В группе нет студентов');
-    expect(emptyRow?.getAttribute('colspan')).withContext('1 + 20×2 колонки').toBe('41');
-    expect(rangeCaption()).withContext('аменда 7: подпись выводится всегда').toBe(
-      'Показать записи с 1 по 0 из 0',
-    );
+    expect(emptyRow?.getAttribute('colspan'))
+      .withContext('1 + 20×2 колонки')
+      .toBe('41');
+    expect(rangeCaption())
+      .withContext('аменда 7: подпись выводится всегда')
+      .toBe('Показать записи с 1 по 0 из 0');
   }));
 
   it('TS-307: вырожденные состояния — без работ «Нет семестров с работами», без групп «Нет групп»; таблица скрыта, ошибочных баннеров нет', fakeAsync(() => {
@@ -435,11 +503,15 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     expect(selectsA[1]?.classList.contains('p-disabled'))
       .withContext('селектор семестра пуст/disabled')
       .toBeTrue();
-    expect(qsIn(fixture, '[data-test="no-semesters-caption"]')?.textContent?.trim()).toBe(
-      'Нет семестров с работами',
-    );
-    expect(root().querySelector('p-table')).withContext('таблица скрыта').toBeNull();
-    expect(notifications.desktopMessage()).withContext('ошибочных баннеров нет').toBeNull();
+    expect(
+      qsIn(fixture, '[data-test="no-semesters-caption"]')?.textContent?.trim(),
+    ).toBe('Нет семестров с работами');
+    expect(root().querySelector('p-table'))
+      .withContext('таблица скрыта')
+      .toBeNull();
+    expect(notifications.desktopMessage())
+      .withContext('ошибочных баннеров нет')
+      .toBeNull();
     expect(notifications.mobileMessage()).toBeNull();
 
     fixture.destroy();
@@ -451,13 +523,21 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     createPage();
 
     const selectsB = Array.from(root().querySelectorAll('p-select'));
-    expect(selectsB.length).withContext('селектор семестра скрыт целиком').toBe(1);
+    expect(selectsB.length)
+      .withContext('селектор семестра скрыт целиком')
+      .toBe(1);
     expect(selectsB[0]?.classList.contains('p-disabled'))
       .withContext('селектор групп пуст/disabled')
       .toBeTrue();
-    expect(qsIn(fixture, '[data-test="no-groups-caption"]')?.textContent?.trim()).toBe('Нет групп');
-    expect(root().querySelector('p-table')).withContext('таблица скрыта').toBeNull();
-    expect(notifications.desktopMessage()).withContext('ошибочных баннеров нет').toBeNull();
+    expect(
+      qsIn(fixture, '[data-test="no-groups-caption"]')?.textContent?.trim(),
+    ).toBe('Нет групп');
+    expect(root().querySelector('p-table'))
+      .withContext('таблица скрыта')
+      .toBeNull();
+    expect(notifications.desktopMessage())
+      .withContext('ошибочных баннеров нет')
+      .toBeNull();
     expect(notifications.mobileMessage()).toBeNull();
   }));
 
@@ -480,15 +560,17 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     // запрошенной странице последнего запроса (стр.2, total 5).
     expect(labGroupHeaders()).toEqual(['Лаб 1', 'Лаб 2', 'Лаб 3']);
     expect(rangeCaption()).toBe('Показать записи с 6 по 5 из 5');
-    const rowTexts = Array.from(root().querySelectorAll('tbody tr')).map((row) =>
-      row.textContent?.trim() ?? '',
+    const rowTexts = Array.from(root().querySelectorAll('tbody tr')).map(
+      (row) => row.textContent?.trim() ?? '',
     );
-    expect(
-      rowTexts.some((text) => text.includes('Иванов Иван Иванович')),
-    ).withContext('данные других групп/семестров/страниц не мелькают').toBeFalse();
+    expect(rowTexts.some((text) => text.includes('Иванов Иван Иванович')))
+      .withContext('данные других групп/семестров/страниц не мелькают')
+      .toBeFalse();
 
     // Итог согласован: записи сдач семестра 1 в этом гриде не видны.
-    expect(root().querySelector('tbody')?.textContent).not.toContain('01.09.2026');
+    expect(root().querySelector('tbody')?.textContent).not.toContain(
+      '01.09.2026',
+    );
   }));
 
   it('TS-310: параллельное сохранение двух ячеек с отказом второй — первая сохранена, баннер «Лабораторная не найдена», грид перезагружен, обе ячейки разблокированы', fakeAsync(() => {
@@ -499,8 +581,18 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
 
     // Почти одновременное сохранение: первая ячейка (student01, лаб 6) и
     // вторая (student02, лаб 2) без ожидания завершения первой.
-    fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
-    fixture.componentInstance.onCellDateChange(student02, lab2, 'submitDate', new Date(2026, 8, 16));
+    fixture.componentInstance.onCellDateChange(
+      student01,
+      lab6,
+      'submitDate',
+      new Date(2026, 8, 15),
+    );
+    fixture.componentInstance.onCellDateChange(
+      student02,
+      lab2,
+      'submitDate',
+      new Date(2026, 8, 16),
+    );
     env.settle(fixture, 2);
 
     // Первая дата сохранена и видна; в бэкенде запись с updated_by преподавателя.
@@ -508,7 +600,8 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     const saved = env.backend
       .read()
       .submissions.find(
-        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+        (candidate) =>
+          candidate.studentId === student01 && candidate.labId === lab6,
       );
     expect(saved?.submitDate).toBe('2026-09-15');
     expect(saved?.updatedBy).toBe(teacherId);
@@ -525,31 +618,47 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     expect(labGroupHeaders().length).toBe(19);
 
     // Обе ячейки разблокированы после завершения (disabled внутреннего input).
-    expect(fixture.componentInstance.isCellSaving(student01, lab6, 'submitDate')).toBeFalse();
-    expect(fixture.componentInstance.isCellSaving(student02, lab2, 'submitDate')).toBeFalse();
+    expect(
+      fixture.componentInstance.isCellSaving(student01, lab6, 'submitDate'),
+    ).toBeFalse();
+    expect(
+      fixture.componentInstance.isCellSaving(student02, lab2, 'submitDate'),
+    ).toBeFalse();
     expect(cellInputByHeader(1, 6, 'submit').disabled).toBeFalse();
   }));
 
   it('TS-311: повторная установка той же даты — upsert: ровно одна запись пары, updated_by преподаватель, updated_at обновился, в гриде единственное значение', fakeAsync(() => {
     createPage();
 
-    fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
+    fixture.componentInstance.onCellDateChange(
+      student01,
+      lab6,
+      'submitDate',
+      new Date(2026, 8, 15),
+    );
     env.settle(fixture, 1);
     const first = env.backend
       .read()
       .submissions.find(
-        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+        (candidate) =>
+          candidate.studentId === student01 && candidate.labId === lab6,
       );
     expect(first).toBeDefined();
 
     // Повторный выбор той же даты.
-    fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
+    fixture.componentInstance.onCellDateChange(
+      student01,
+      lab6,
+      'submitDate',
+      new Date(2026, 8, 15),
+    );
     env.settle(fixture, 1);
 
     const records = env.backend
       .read()
       .submissions.filter(
-        (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+        (candidate) =>
+          candidate.studentId === student01 && candidate.labId === lab6,
       );
     expect(records.length).withContext('дубликат не создан').toBe(1);
     expect(records[0]!.updatedBy).toBe(teacherId);
@@ -557,10 +666,12 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
       .withContext('updated_at обновился (виртуальные часы волн)')
       .toBeTrue();
 
-    const valueInputs = Array.from(root().querySelectorAll('tbody tr:nth-child(1) input')).filter(
-      (input) => (input as HTMLInputElement).value === '15.09.2026',
-    );
-    expect(valueInputs.length).withContext('в гриде единственное значение').toBe(1);
+    const valueInputs = Array.from(
+      root().querySelectorAll('tbody tr:nth-child(1) input'),
+    ).filter((input) => (input as HTMLInputElement).value === '15.09.2026');
+    expect(valueInputs.length)
+      .withContext('в гриде единственное значение')
+      .toBe(1);
   }));
 
   it('TS-312: сид-сдачи в ведомости — дд.мм.гггг, пустая дата пустая ячейка без прочерка (student01 лабы 1–3, student02 лаба 1)', fakeAsync(() => {
@@ -572,10 +683,14 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     expect(cellInput(1, 2, 'submit').value).toBe('02.09.2026');
     expect(cellInput(1, 2, 'defense').value).toBe('12.09.2026');
     expect(cellInput(1, 3, 'submit').value).toBe('03.09.2026');
-    expect(cellInput(1, 3, 'defense').value).withContext('пустая дата — пустая ячейка').toBe('');
+    expect(cellInput(1, 3, 'defense').value)
+      .withContext('пустая дата — пустая ячейка')
+      .toBe('');
 
     // student02: лаб1 01.09/пусто.
-    expect(bodyRow(2).querySelector('td')?.textContent?.trim()).toBe('Иванов Иван Иванович 02');
+    expect(bodyRow(2).querySelector('td')?.textContent?.trim()).toBe(
+      'Иванов Иван Иванович 02',
+    );
     expect(cellInput(2, 1, 'submit').value).toBe('01.09.2026');
     expect(cellInput(2, 1, 'defense').value).toBe('');
 
@@ -588,7 +703,12 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     // Другой сеанс удаляет лабораторную открытой пары.
     env.backend.removeLabDirect(lab6);
 
-    fixture.componentInstance.onCellDateChange(student01, lab6, 'submitDate', new Date(2026, 8, 15));
+    fixture.componentInstance.onCellDateChange(
+      student01,
+      lab6,
+      'submitDate',
+      new Date(2026, 8, 15),
+    );
     env.settle(fixture, 2);
 
     expect(notifications.desktopMessage()).toEqual({
@@ -601,14 +721,19 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     // отражают фактическое состояние, блокировка снята.
     expect(labGroupHeaders()).not.toContain('Лаб 6');
     expect(labGroupHeaders().length).toBe(19);
-    expect(fixture.componentInstance.isCellSaving(student01, lab6, 'submitDate')).toBeFalse();
-    expect(cellInput(1, 1, 'submit').disabled).withContext('ячейки разблокированы').toBeFalse();
+    expect(
+      fixture.componentInstance.isCellSaving(student01, lab6, 'submitDate'),
+    ).toBeFalse();
+    expect(cellInput(1, 1, 'submit').disabled)
+      .withContext('ячейки разблокированы')
+      .toBeFalse();
     // Запись пары в состоянии бэкенда не появилась.
     expect(
       env.backend
         .read()
         .submissions.some(
-          (candidate) => candidate.studentId === student01 && candidate.labId === lab6,
+          (candidate) =>
+            candidate.studentId === student01 && candidate.labId === lab6,
         ),
     ).toBeFalse();
   }));
@@ -624,6 +749,8 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
       }).length,
     }));
     expect(counts.map((entry) => entry.students)).toEqual([25, 5, 0]);
-    expect(state.submissions.length).withContext('сид-сдачи: 4 записи по SCR-009/010').toBe(4);
+    expect(state.submissions.length)
+      .withContext('сид-сдачи: 4 записи по SCR-009/010')
+      .toBe(4);
   });
 });

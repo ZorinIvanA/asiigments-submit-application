@@ -13,7 +13,8 @@
 export type NotificationAnchor = 'header' | { readonly formId: string };
 
 /** Допустимые тексты уведомлений об успехе (FR-021: только эти три). */
-export type SuccessNotificationText = 'Сохранено' | 'Удалено' | 'Пароль изменён';
+export type SuccessNotificationText =
+  'Сохранено' | 'Удалено' | 'Пароль изменён';
 
 /** Ошибка — красный баннер/Toast, успех — зелёный. */
 export type NotificationSeverity = 'error' | 'success';

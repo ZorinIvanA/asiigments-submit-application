@@ -62,7 +62,9 @@ export function normalizeHttpError(error: unknown): ApiError {
 export function firstValueFromApi<T>(source: Observable<T>): Promise<T> {
   return firstValueFrom(
     source.pipe(
-      catchError((error: unknown) => throwError(() => normalizeHttpError(error))),
+      catchError((error: unknown) =>
+        throwError(() => normalizeHttpError(error)),
+      ),
     ),
   );
 }

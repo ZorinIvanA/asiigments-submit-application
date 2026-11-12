@@ -19,9 +19,7 @@ import { By } from '@angular/platform-browser';
 import { fakeAsync } from '@angular/core/testing';
 import { Tooltip } from 'primeng/tooltip';
 
-import {
-  WorksIntegrationHarness,
-} from './works-integration-harness';
+import { WorksIntegrationHarness } from './works-integration-harness';
 
 const LINK_TOOLTIP = 'Нажмите на эту кнопку чтобы добавить или изменить ссылку';
 const NOT_FOUND_MESSAGE = 'Лабораторная не найдена';
@@ -48,7 +46,11 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
   }
 
   /** Заполнение полей формы минимально валидными значениями. */
-  function fillValidForm(number: string, semester: string, content: string): void {
+  function fillValidForm(
+    number: string,
+    semester: string,
+    content: string,
+  ): void {
     harness.setInput('#lab-number', number);
     harness.openSemesterSelect();
     harness.chooseSemesterOption(semester);
@@ -60,7 +62,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     const create = spyOn(harness.labs, 'create').and.callThrough();
 
     fillValidForm('21', '1', 'Новая работа');
-    harness.native.querySelector<HTMLInputElement>('.lab-form__field--checkbox input')!.click();
+    harness.native
+      .querySelector<HTMLInputElement>('.lab-form__field--checkbox input')!
+      .click();
     harness.uiSettle();
     harness.buttonByLabel('Сохранить').click();
 
@@ -97,7 +101,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     harness.navigate(`/works/${lab1}/edit`);
     harness.flush(); // getById
     expect(harness.inputValue('#lab-number')).toBe('1');
-    expect(harness.inputValue('#lab-content')).toBe('Содержание лабораторной работы №1');
+    expect(harness.inputValue('#lab-content')).toBe(
+      'Содержание лабораторной работы №1',
+    );
 
     harness.setInput('#lab-content', 'Обновлённое содержание №1');
     harness.buttonByLabel('Сохранить').click();
@@ -115,7 +121,11 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     expect(harness.toastTexts()).toContain('Сохранено');
     expect(harness.router.url).toBe('/works');
     expect(
-      harness.rows().some((row) => harness.rowCells(row)[1] === 'Обновлённое содержание №1'),
+      harness
+        .rows()
+        .some(
+          (row) => harness.rowCells(row)[1] === 'Обновлённое содержание №1',
+        ),
     ).toBeTrue();
 
     // Отдельно: изменить поле → «Назад» — update не вызван, данные исходные.
@@ -129,7 +139,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     harness.navigate(`/works/${lab1}/edit`);
     harness.flush();
     expect(update).toHaveBeenCalledTimes(1); // второго вызова не было
-    expect(harness.inputValue('#lab-content')).toBe('Обновлённое содержание №1');
+    expect(harness.inputValue('#lab-content')).toBe(
+      'Обновлённое содержание №1',
+    );
     harness.finalize(); // таймер автозакрытия «Сохранено»
   }));
 
@@ -144,8 +156,12 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     expect(harness.router.url).toBe(`/works/${lab5}/edit`);
     expect(harness.native.querySelector('form#lab-form')).not.toBeNull();
     expect(harness.inputValue('#lab-number')).toBe('5');
-    expect(harness.inputValue('#lab-content')).toBe('Содержание лабораторной работы №5');
-    expect(harness.inputValue('#lab-url')).toBe('https://git.example.com/assignments/1/5');
+    expect(harness.inputValue('#lab-content')).toBe(
+      'Содержание лабораторной работы №5',
+    );
+    expect(harness.inputValue('#lab-url')).toBe(
+      'https://git.example.com/assignments/1/5',
+    );
   }));
 
   it('TS-216: клиентская валидация — границы полей, баннер, запрос не уходит; позитивные границы', fakeAsync(() => {
@@ -161,14 +177,18 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     harness.buttonByLabel('Сохранить').click();
     harness.uiSettle();
     expect(harness.toastTexts()).toContain(INVALID_FORM_MESSAGE);
-    expect(harness.fieldErrorText('lab-number')).toBe('Номер должен быть положительным числом');
+    expect(harness.fieldErrorText('lab-number')).toBe(
+      'Номер должен быть положительным числом',
+    );
     expect(create).not.toHaveBeenCalled();
 
     // Номер −1.
     harness.setInput('#lab-number', '-1');
     harness.buttonByLabel('Сохранить').click();
     harness.uiSettle();
-    expect(harness.fieldErrorText('lab-number')).toBe('Номер должен быть положительным числом');
+    expect(harness.fieldErrorText('lab-number')).toBe(
+      'Номер должен быть положительным числом',
+    );
     expect(create).not.toHaveBeenCalled();
 
     // Номер из одних пробелов.
@@ -190,7 +210,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     harness.setInput('#lab-content', 'х'.repeat(501));
     harness.buttonByLabel('Сохранить').click();
     harness.uiSettle();
-    expect(harness.fieldErrorText('lab-content')).toBe('Содержание — от 1 до 500 символов');
+    expect(harness.fieldErrorText('lab-content')).toBe(
+      'Содержание — от 1 до 500 символов',
+    );
     expect(create).not.toHaveBeenCalled();
 
     // Ссылка с недопустимой схемой.
@@ -229,7 +251,7 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
 
   it('TS-217: дубликат (семестр, номер) — 409 дословно, редиректа нет; своя пара не конфликтует', fakeAsync(() => {
     openNewForm();
-    const create = spyOn(harness.labs, 'create').and.callThrough();
+    spyOn(harness.labs, 'create').and.callThrough();
 
     fillValidForm('1', '1', 'Дубль пары');
     harness.buttonByLabel('Сохранить').click();
@@ -238,7 +260,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     expect(harness.toastTexts()).toContain(DUPLICATE_MESSAGE);
     expect(harness.router.url).toBe('/works/new'); // редиректа нет
     expect(
-      harness.readDb().labs.filter((lab) => lab.semester === 1 && lab.number === 1).length,
+      harness
+        .readDb()
+        .labs.filter((lab) => lab.semester === 1 && lab.number === 1).length,
     ).toBe(1); // дубль в состоянии сервера не появился
 
     // Редактирование записи №1 с неизменённой парой — конфликта нет.
@@ -302,7 +326,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     expect(harness.headerBannerTexts()).toContain(NOT_FOUND_MESSAGE);
     expect(harness.router.url).toBe('/works');
     expect(harness.native.querySelector('form#lab-form')).toBeNull();
-    expect(harness.native.querySelector('h1')!.textContent).toContain('Лабораторные работы');
+    expect(harness.native.querySelector('h1')!.textContent).toContain(
+      'Лабораторные работы',
+    );
     harness.finalize(); // таймер автозакрытия мобильного баннера
   }));
 
@@ -314,7 +340,9 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
       By.css('button[aria-label="Ссылка на задание"]'),
     )!;
     const tooltip = chain.injector.get(Tooltip, null);
-    expect(tooltip).withContext('директива Tooltip на кнопке-цепочке').not.toBeNull();
+    expect(tooltip)
+      .withContext('директива Tooltip на кнопке-цепочке')
+      .not.toBeNull();
     expect(tooltip!.getOption('tooltipLabel')).toBe(LINK_TOOLTIP);
     expect(harness.native.querySelector('#lab-url')).toBeNull();
 
@@ -350,13 +378,18 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
     harness.buttonByLabel('Сохранить').click();
     harness.flush(); // update
     harness.flush(); // редирект + загрузка /works
-    expect(harness.readDb().labs.find((lab) => lab.id === lab21)!.assignmentUrl).toBeNull();
+    expect(
+      harness.readDb().labs.find((lab) => lab.id === lab21)!.assignmentUrl,
+    ).toBeNull();
 
     harness.gotoPage(3);
     harness.flush();
-    expect(harness.rowByNumber(21).querySelector('.works-page__dash')!.textContent!.trim()).toBe(
-      '—',
-    );
+    expect(
+      harness
+        .rowByNumber(21)
+        .querySelector('.works-page__dash')!
+        .textContent!.trim(),
+    ).toBe('—');
     harness.finalize(); // таймер автозакрытия «Сохранено»
   }));
 
@@ -384,14 +417,18 @@ describe('Интеграция: форма лабораторной (FR-4.3)', (
 
     // Показан ТОЛЬКО баннер с дословным body.message (ADR-112).
     expect(harness.lastToastText()).toBe(INVALID_FORM_MESSAGE);
-    expect(harness.native.textContent).not.toContain('Номер должен быть положительным числом');
+    expect(harness.native.textContent).not.toContain(
+      'Номер должен быть положительным числом',
+    );
     // Ошибки из body.errors не логируются: сканируем JSON всех аргументов
     // всех вызовов console.* — ловит и строку, и переданный объект ошибки.
     const logged = loggers
       .flatMap((logger) => logger.calls.allArgs())
       .map((args) => JSON.stringify(args) ?? '');
     expect(
-      logged.some((entry) => entry.includes('Номер должен быть положительным числом')),
+      logged.some((entry) =>
+        entry.includes('Номер должен быть положительным числом'),
+      ),
     )
       .withContext('полевые ошибки из body.errors не должны попадать в console')
       .toBeFalse();

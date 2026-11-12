@@ -20,8 +20,12 @@ describe('API_BASE_URL — контракт IF-014 (ADR-009/ADR-014)', () => {
     expect(typeof apiBase).toBe('string');
     expect(apiBase.length).toBeGreaterThan(0);
     // Относительный префикс: запросы идут через прокси dev-сервера (FR-027).
-    expect(apiBase.startsWith('/')).withContext('относительный путь').toBeTrue();
-    expect(apiBase.endsWith('/')).withContext('без хвостового слеша').toBeFalse();
+    expect(apiBase.startsWith('/'))
+      .withContext('относительный путь')
+      .toBeTrue();
+    expect(apiBase.endsWith('/'))
+      .withContext('без хвостового слеша')
+      .toBeFalse();
   });
 
   it('переопределяется провайдером — единая точка конфигурации базового URL', () => {

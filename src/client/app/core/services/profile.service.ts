@@ -29,11 +29,15 @@ export class ProfileService {
 
   /** Профиль текущего пользователя (GET /me/profile — сид-преподаватель). */
   get(): Promise<ProfileDto> {
-    return firstValueFromApi(this.http.get<ProfileDto>(`${this.apiBase}/me/profile`));
+    return firstValueFromApi(
+      this.http.get<ProfileDto>(`${this.apiBase}/me/profile`),
+    );
   }
 
   /** Редактирование ФИО и email → обновлённый ProfileDto (PUT /me/profile). */
   update(input: ProfileUpdateInput): Promise<ProfileDto> {
-    return firstValueFromApi(this.http.put<ProfileDto>(`${this.apiBase}/me/profile`, input));
+    return firstValueFromApi(
+      this.http.put<ProfileDto>(`${this.apiBase}/me/profile`, input),
+    );
   }
 }

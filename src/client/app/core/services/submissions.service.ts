@@ -22,7 +22,11 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 
 import { API_BASE_URL } from '../api-base-url';
-import { MySubmissionsDto, Submission, SubmissionsGridDto } from '../../shared/models';
+import {
+  MySubmissionsDto,
+  Submission,
+  SubmissionsGridDto,
+} from '../../shared/models';
 import { firstValueFromApi } from '../http-errors';
 
 /** Студентов на страницу ведомости (§4.4: пагинация по 5, ADR-109). */
@@ -77,7 +81,9 @@ export class SubmissionsService {
       .set('semester', query.semester)
       .set('page', query.page);
     return firstValueFromApi(
-      this.http.get<SubmissionsGridResult>(`${this.apiBase}/submissions`, { params }),
+      this.http.get<SubmissionsGridResult>(`${this.apiBase}/submissions`, {
+        params,
+      }),
     );
   }
 
@@ -90,7 +96,9 @@ export class SubmissionsService {
    * запись.
    */
   update(params: SubmissionUpdateParams): Promise<Submission> {
-    return firstValueFromApi(this.http.put<Submission>(`${this.apiBase}/submissions`, params));
+    return firstValueFromApi(
+      this.http.put<Submission>(`${this.apiBase}/submissions`, params),
+    );
   }
 
   /**

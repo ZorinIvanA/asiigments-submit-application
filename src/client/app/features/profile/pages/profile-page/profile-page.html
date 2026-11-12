@@ -8,7 +8,9 @@
   } @else {
     @if (profile(); as profile) {
       <section class="profile-card">
-        <h2 class="profile-card__title" data-test="profile-card-title">Основные данные</h2>
+        <h2 class="profile-card__title" data-test="profile-card-title">
+          Основные данные
+        </h2>
 
         <form
           class="profile-card__form"
@@ -18,12 +20,16 @@
         >
           <div class="profile-field" data-test="login-field">
             <label class="profile-field__label">Логин</label>
-            <div class="profile-field__value" data-test="login-value">{{ profile.login }}</div>
+            <div class="profile-field__value" data-test="login-value">
+              {{ profile.login }}
+            </div>
           </div>
 
           <div class="profile-field" data-test="role-field">
             <label class="profile-field__label">Роль</label>
-            <div class="profile-field__value" data-test="role-value">{{ roleLabel() }}</div>
+            <div class="profile-field__value" data-test="role-value">
+              {{ roleLabel() }}
+            </div>
           </div>
 
           @if (profile.role === 'student') {
@@ -40,7 +46,9 @@
             [class.profile-field--invalid]="emailError() !== null"
             data-test="email-field"
           >
-            <label class="profile-field__label" for="profile-email">Email</label>
+            <label class="profile-field__label" for="profile-email"
+              >Email</label
+            >
             <input
               id="profile-email"
               class="profile-field__input"
@@ -51,7 +59,9 @@
               data-test="email-input"
             />
             @if (emailError(); as error) {
-              <div class="profile-field__error" data-test="email-error">{{ error }}</div>
+              <div class="profile-field__error" data-test="email-error">
+                {{ error }}
+              </div>
             }
           </div>
 
@@ -60,7 +70,9 @@
             [class.profile-field--invalid]="fullNameError() !== null"
             data-test="full-name-field"
           >
-            <label class="profile-field__label" for="profile-full-name">ФИО</label>
+            <label class="profile-field__label" for="profile-full-name"
+              >ФИО</label
+            >
             <input
               id="profile-full-name"
               class="profile-field__input"
@@ -70,9 +82,13 @@
               data-test="full-name-input"
             />
             @if (fullNameError(); as error) {
-              <div class="profile-field__error" data-test="full-name-error">{{ error }}</div>
+              <div class="profile-field__error" data-test="full-name-error">
+                {{ error }}
+              </div>
             } @else {
-              <div class="profile-field__hint" data-test="full-name-hint">{{ fullNameHint }}</div>
+              <div class="profile-field__hint" data-test="full-name-hint">
+                {{ fullNameHint }}
+              </div>
             }
           </div>
 
@@ -88,7 +104,10 @@
         </form>
 
         <!-- Мобильный баннер ошибок ЭТОЙ формы: клиентская валидация и 409 email. -->
-        <app-notification-anchor [formId]="profileFormId" data-test="profile-anchor" />
+        <app-notification-anchor
+          [formId]="profileFormId"
+          data-test="profile-anchor"
+        />
       </section>
     }
   }

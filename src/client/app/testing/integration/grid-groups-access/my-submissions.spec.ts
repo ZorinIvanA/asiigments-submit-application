@@ -59,7 +59,9 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
   /** Нативный select семестра страницы. */
   function semesterSelect(): HTMLSelectElement {
-    return root().querySelector('#my-submissions-semester') as HTMLSelectElement;
+    return root().querySelector(
+      '#my-submissions-semester',
+    ) as HTMLSelectElement;
   }
 
   it('TS-320: экран строго read-only — предупреждение «без группы» дословно (role=status), таблицы нет, селектор семестра активен с семестрами [1,2]', fakeAsync(() => {
@@ -69,16 +71,22 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     const warning = root().querySelector('.no-group');
     expect(warning?.getAttribute('role')).toBe('status');
     expect(warning?.textContent?.trim()).toContain(TEXT_NO_GROUP);
-    expect(root().querySelector('p-table')).withContext('таблицы нет').toBeNull();
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы нет')
+      .toBeNull();
 
     // Селектор семестра активен — работы в системе есть (сид: семестры 1 и 2).
-    const options = Array.from(semesterSelect().options).map((option) => option.text.trim());
+    const options = Array.from(semesterSelect().options).map((option) =>
+      option.text.trim(),
+    );
     expect(options).toEqual(['1', '2']);
     expect(semesterSelect().disabled).toBeFalse();
 
     // Read-only: календаря в ячейках нет, input-контролов нет (кроме
     // селектора семестра), вызовов submissions.update нет.
-    expect(root().querySelector('p-datepicker')).withContext('нет календарей').toBeNull();
+    expect(root().querySelector('p-datepicker'))
+      .withContext('нет календарей')
+      .toBeNull();
     expect(Array.from(root().querySelectorAll('input')).length)
       .withContext('нет input-контролов')
       .toBe(0);
@@ -104,8 +112,12 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     env.settle(fixture, 1);
 
     expect(getMySpy).toHaveBeenCalledWith(2);
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
-    expect(root().querySelector('p-table')).withContext('таблицы по-прежнему нет').toBeNull();
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы по-прежнему нет')
+      .toBeNull();
   }));
 
   it('TS-324: работы удалены — getMy не вызван ни разу, селектор пуст/disabled, «Нет семестров с работами» не показан (приоритет предупреждения), без баннеров', fakeAsync(() => {
@@ -117,11 +129,19 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
     openMySubmissions();
 
-    expect(getMySpy).withContext('вызов getMy с семестром вне 1..10 запрещён').not.toHaveBeenCalled();
-    expect(semesterSelect().disabled).withContext('селектор пуст/disabled').toBeTrue();
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
+    expect(getMySpy)
+      .withContext('вызов getMy с семестром вне 1..10 запрещён')
+      .not.toHaveBeenCalled();
+    expect(semesterSelect().disabled)
+      .withContext('селектор пуст/disabled')
+      .toBeTrue();
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
     expect(root().textContent).not.toContain(TEXT_NO_SEMESTERS);
-    expect(notifications.desktopMessage()).withContext('ошибочных баннеров нет').toBeNull();
+    expect(notifications.desktopMessage())
+      .withContext('ошибочных баннеров нет')
+      .toBeNull();
     expect(notifications.mobileMessage()).toBeNull();
   }));
 
@@ -133,7 +153,9 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
     openMySubmissions();
 
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
     expect(root().textContent).not.toContain(TEXT_NO_SEMESTERS);
   }));
 
@@ -143,8 +165,8 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     // Каскадное удаление работ семестра 2 между запросами (другой сеанс).
     env.backend.mutate((state) => {
       state.labs = state.labs.filter((lab) => lab.semester !== 2);
-      state.submissions = state.submissions.filter(
-        (candidate) => state.labs.some((lab) => lab.id === candidate.labId),
+      state.submissions = state.submissions.filter((candidate) =>
+        state.labs.some((lab) => lab.id === candidate.labId),
       );
     });
 
@@ -152,11 +174,19 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     semesterSelect().dispatchEvent(new Event('change'));
     env.settle(fixture, 1);
 
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
     expect(root().textContent).not.toContain(TEXT_NO_SEMESTERS);
-    expect(semesterSelect().disabled).withContext('селектор активен').toBeFalse();
-    expect(root().querySelector('p-table')).withContext('таблицы нет').toBeNull();
-    expect(notifications.desktopMessage()).withContext('ошибочного баннера нет').toBeNull();
+    expect(semesterSelect().disabled)
+      .withContext('селектор активен')
+      .toBeFalse();
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы нет')
+      .toBeNull();
+    expect(notifications.desktopMessage())
+      .withContext('ошибочного баннера нет')
+      .toBeNull();
     env.drainNotifications();
   }));
 
@@ -165,15 +195,27 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     env.breakpoints.simulate(true);
     openMySubmissions();
 
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
-    expect(root().querySelectorAll('.card').length).withContext('карточек нет').toBe(0);
-    expect(root().querySelector('p-table')).withContext('таблицы нет').toBeNull();
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
+    expect(root().querySelectorAll('.card').length)
+      .withContext('карточек нет')
+      .toBe(0);
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы нет')
+      .toBeNull();
 
     // 768px — предупреждение сохраняется, таблица не появляется.
     env.breakpoints.simulate(false);
     fixture.detectChanges();
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
-    expect(root().querySelector('p-table')).withContext('таблицы нет').toBeNull();
-    expect(semesterSelect().disabled).withContext('селектор активен').toBeFalse();
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы нет')
+      .toBeNull();
+    expect(semesterSelect().disabled)
+      .withContext('селектор активен')
+      .toBeFalse();
   }));
 });

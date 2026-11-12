@@ -99,7 +99,9 @@ describe('AppShell — оболочка консоли преподавател�
   it('кнопки «Выйти» и блока пользователя в шапке нет (анонимная консоль)', () => {
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.app-topbar__logout')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.app-topbar__logout'),
+    ).toBeNull();
     expect(fixture.nativeElement.querySelector('.app-topbar__who')).toBeNull();
   });
 
@@ -127,9 +129,9 @@ describe('AppShell — оболочка консоли преподавател�
     const host = fixture.nativeElement as HTMLElement;
     const bannerHost = host.querySelector('app-header-notification');
     expect(bannerHost).not.toBeNull();
-    expect(
-      bannerHost!.querySelector('app-notification-banner'),
-    ).withContext('баннер смонтирован').not.toBeNull();
+    expect(bannerHost!.querySelector('app-notification-banner'))
+      .withContext('баннер смонтирован')
+      .not.toBeNull();
     expect(bannerHost!.textContent).toContain('Ошибка загрузки данных');
 
     // Смещение баннера — высота шапки оболочки (переменная наследуется хостом).

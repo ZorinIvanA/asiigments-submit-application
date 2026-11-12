@@ -70,91 +70,121 @@ describe('Groups — маршрутизация на реальном дерев
     return env.waitFor(condition, what, SPEC_TIMEOUT_MS / 2);
   }
 
-  it('TS-330: список групп — колонки Название/Студентов/Действия, порядок name↑ (25/5/0), название — ссылка, клик ведёт на карточку /groups/:id', async () => {
-    await env.routingHarness!.navigateByUrl('/groups');
-    await settle();
+  it(
+    'TS-330: список групп — колонки Название/Студентов/Действия, порядок name↑ (25/5/0), название — ссылка, клик ведёт на карточку /groups/:id',
+    async () => {
+      await env.routingHarness!.navigateByUrl('/groups');
+      await settle();
 
-    expect(env.routingHarness!.routeNativeElement?.querySelector('h1')?.textContent?.trim()).toBe('Группы');
-    const headers = Array.from(root().querySelectorAll('thead th')).map((th) =>
-      th.textContent?.trim(),
-    );
-    expect(headers).toEqual(['Название', 'Студентов', 'Действия']);
+      expect(
+        env
+          .routingHarness!.routeNativeElement?.querySelector('h1')
+          ?.textContent?.trim(),
+      ).toBe('Группы');
+      const headers = Array.from(root().querySelectorAll('thead th')).map(
+        (th) => th.textContent?.trim(),
+      );
+      expect(headers).toEqual(['Название', 'Студентов', 'Действия']);
 
-    const rows = Array.from(root().querySelectorAll('tbody tr'));
-    expect(rows.length).toBe(3);
-    const names = rows.map((row) => row.querySelector('td')?.textContent?.trim());
-    const counts = rows.map((row) => row.querySelectorAll('td')[1]?.textContent?.trim() ?? '');
-    expect(names).toEqual(['ИК-221', 'ИК-222', 'ИК-223']);
-    expect(counts).toEqual(['25', '5', '0']);
+      const rows = Array.from(root().querySelectorAll('tbody tr'));
+      expect(rows.length).toBe(3);
+      const names = rows.map((row) =>
+        row.querySelector('td')?.textContent?.trim(),
+      );
+      const counts = rows.map(
+        (row) => row.querySelectorAll('td')[1]?.textContent?.trim() ?? '',
+      );
+      expect(names).toEqual(['ИК-221', 'ИК-222', 'ИК-223']);
+      expect(counts).toEqual(['25', '5', '0']);
 
-    // Название — ссылка; клик ведёт на карточку этой группы.
-    const link = rows[1]!.querySelector<HTMLAnchorElement>('a');
-    expect(link?.getAttribute('href')).toBe(`/groups/${ik222}`);
-    link!.click();
-    await waitFor(() => router().url === `/groups/${ik222}`, 'переход на карточку ИК-222');
-    await settle();
+      // Название — ссылка; клик ведёт на карточку этой группы.
+      const link = rows[1]!.querySelector<HTMLAnchorElement>('a');
+      expect(link?.getAttribute('href')).toBe(`/groups/${ik222}`);
+      link!.click();
+      await waitFor(
+        () => router().url === `/groups/${ik222}`,
+        'переход на карточку ИК-222',
+      );
+      await settle();
 
-    expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-222');
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 5');
-    expect(console.error).not.toHaveBeenCalled();
-  }, SPEC_TIMEOUT_MS);
+      expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-222');
+      expect(
+        root().querySelector('.group-page__count')?.textContent?.trim(),
+      ).toBe('Студентов: 5');
+      expect(console.error).not.toHaveBeenCalled();
+    },
+    SPEC_TIMEOUT_MS,
+  );
 
-  it('TS-338: карточка несуществующей группы — баннер «Группа не найдена», редирект на /groups', async () => {
-    await env.routingHarness!.navigateByUrl('/groups/00000000-0000-4000-8000-ffffffffffff');
-    await waitFor(() => router().url === '/groups', 'редирект на /groups');
+  it(
+    'TS-338: карточка несуществующей группы — баннер «Группа не найдена», редирект на /groups',
+    async () => {
+      await env.routingHarness!.navigateByUrl(
+        '/groups/00000000-0000-4000-8000-ffffffffffff',
+      );
+      await waitFor(() => router().url === '/groups', 'редирект на /groups');
 
-    // Баннер фиксируется СРАЗУ после редиректа (CR-003): pump/settle дожидаются
-    // микрозадач, но не 5000-мс таймера автозакрытия — уведомление живо.
-    expect(notifications.desktopMessage()).toEqual({
-      severity: 'error',
-      text: 'Группа не найдена',
-    });
+      // Баннер фиксируется СРАЗУ после редиректа (CR-003): pump/settle дожидаются
+      // микрозадач, но не 5000-мс таймера автозакрытия — уведомление живо.
+      expect(notifications.desktopMessage()).toEqual({
+        severity: 'error',
+        text: 'Группа не найдена',
+      });
 
-    await settle();
-    expect(router().url).toBe('/groups');
-    expect(root().querySelector('app-groups-page')).not.toBeNull();
-    expect(console.error).not.toHaveBeenCalled();
-  }, SPEC_TIMEOUT_MS);
+      await settle();
+      expect(router().url).toBe('/groups');
+      expect(root().querySelector('app-groups-page')).not.toBeNull();
+      expect(console.error).not.toHaveBeenCalled();
+    },
+    SPEC_TIMEOUT_MS,
+  );
 
-  it('TS-339: гонки навигации между карточками — показан состав последнего клика (ИК-222), данные ИК-221 не мелькают', async () => {
-    await env.routingHarness!.navigateByUrl('/groups');
-    await settle();
+  it(
+    'TS-339: гонки навигации между карточками — показан состав последнего клика (ИК-222), данные ИК-221 не мелькают',
+    async () => {
+      await env.routingHarness!.navigateByUrl('/groups');
+      await settle();
 
-    // Две почти одновременные навигации: вторая определяет итоговый экран.
-    const first = env.routingHarness!.navigateByUrl(`/groups/${ik221}`);
-    const second = env.routingHarness!.navigateByUrl(`/groups/${ik222}`);
-    await Promise.allSettled([first, second]);
-    await env.pump();
-    // Ждём не только URL: данные карточки ещё в полёте после смены маршрута
-    // (CR-004) — поллим заголовок и счётчик последнего клика.
-    await waitFor(
-      () =>
-        router().url === `/groups/${ik222}` &&
-        root().querySelector('h1')?.textContent?.trim() === 'ИК-222' &&
-        root().querySelector('.group-page__count')?.textContent?.trim() === 'Студентов: 5',
-      'карточка ИК-222 с заголовком и счётчиком',
-    );
-    await settle();
+      // Две почти одновременные навигации: вторая определяет итоговый экран.
+      const first = env.routingHarness!.navigateByUrl(`/groups/${ik221}`);
+      const second = env.routingHarness!.navigateByUrl(`/groups/${ik222}`);
+      await Promise.allSettled([first, second]);
+      await env.pump();
+      // Ждём не только URL: данные карточки ещё в полёте после смены маршрута
+      // (CR-004) — поллим заголовок и счётчик последнего клика.
+      await waitFor(
+        () =>
+          router().url === `/groups/${ik222}` &&
+          root().querySelector('h1')?.textContent?.trim() === 'ИК-222' &&
+          root().querySelector('.group-page__count')?.textContent?.trim() ===
+            'Студентов: 5',
+        'карточка ИК-222 с заголовком и счётчиком',
+      );
+      await settle();
 
-    // Заголовок, счётчик и таблица согласованы между собой и с ИК-222.
-    expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-222');
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 5');
-    const names = Array.from(root().querySelectorAll('tbody tr td:first-child')).map((cell) =>
-      cell.textContent?.trim() ?? '',
-    );
-    expect(names).toEqual([
-      'Иванов Иван Иванович 26',
-      'Иванов Иван Иванович 27',
-      'Иванов Иван Иванович 28',
-      'Иванов Иван Иванович 29',
-      'Иванов Иван Иванович 30',
-    ]);
-    expect(names.some((name) => name.startsWith('Иванов Иван Иванович 0')))
-      .withContext('данные ИК-221 не мелькают')
-      .toBeFalse();
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 1 по 5 из 5',
-    );
-    expect(console.error).not.toHaveBeenCalled();
-  }, SPEC_TIMEOUT_MS);
+      // Заголовок, счётчик и таблица согласованы между собой и с ИК-222.
+      expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-222');
+      expect(
+        root().querySelector('.group-page__count')?.textContent?.trim(),
+      ).toBe('Студентов: 5');
+      const names = Array.from(
+        root().querySelectorAll('tbody tr td:first-child'),
+      ).map((cell) => cell.textContent?.trim() ?? '');
+      expect(names).toEqual([
+        'Иванов Иван Иванович 26',
+        'Иванов Иван Иванович 27',
+        'Иванов Иван Иванович 28',
+        'Иванов Иван Иванович 29',
+        'Иванов Иван Иванович 30',
+      ]);
+      expect(names.some((name) => name.startsWith('Иванов Иван Иванович 0')))
+        .withContext('данные ИК-221 не мелькают')
+        .toBeFalse();
+      expect(
+        root().querySelector('.group-page__range')?.textContent?.trim(),
+      ).toBe('Показать записи с 1 по 5 из 5');
+      expect(console.error).not.toHaveBeenCalled();
+    },
+    SPEC_TIMEOUT_MS,
+  );
 });

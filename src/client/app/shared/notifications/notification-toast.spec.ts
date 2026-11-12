@@ -45,14 +45,18 @@ describe('NotificationToast', () => {
   it('ошибка на десктопе показывает Toast справа вверху с дословным текстом', async () => {
     breakpoints.simulate(false);
 
-    notifications.notifyError('Лабораторная с таким номером уже есть в семестре');
+    notifications.notifyError(
+      'Лабораторная с таким номером уже есть в семестре',
+    );
     await fixture.whenStable();
     fixture.detectChanges();
 
     const toast = fixture.nativeElement.querySelector('.p-toast');
     expect(toast).not.toBeNull();
     expect(toast!.classList).toContain('p-toast-top-right');
-    expect(toast!.textContent).toContain('Лабораторная с таким номером уже есть в семестре');
+    expect(toast!.textContent).toContain(
+      'Лабораторная с таким номером уже есть в семестре',
+    );
     expect(toast!.querySelector('.p-toast-message-error')).not.toBeNull();
   });
 

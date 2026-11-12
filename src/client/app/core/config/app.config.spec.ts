@@ -8,12 +8,11 @@
  */
 import { formatDate } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import {
-  ANIMATION_MODULE_TYPE,
-  Component,
-  LOCALE_ID,
-} from '@angular/core';
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { ANIMATION_MODULE_TYPE, Component, LOCALE_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { firstValueFrom } from 'rxjs';
@@ -67,8 +66,12 @@ describe('appConfig — конфигурация каркаса', () => {
         }
       | undefined;
     expect(preset).withContext('кастомный пресет определён').toBeTruthy();
-    expect(preset!.semantic).withContext('секция semantic из Aura').toBeDefined();
-    expect(preset!.components).withContext('секция components из Aura').toBeDefined();
+    expect(preset!.semantic)
+      .withContext('секция semantic из Aura')
+      .toBeDefined();
+    expect(preset!.components)
+      .withContext('секция components из Aura')
+      .toBeDefined();
     // definePreset не трогает primitive-секцию: она обязана совпасть с базой
     // Aura (усиление ассерта — ревью CR-002 T-109).
     expect(preset!.primitive)
@@ -146,7 +149,9 @@ describe('appConfig — HTTP-ядро (T-017)', () => {
     // Инжектор уже собран в beforeEach: если бы в конфигурации остался
     // инициализатор с HTTP-запросом (холодный старт сессии), он бы ушёл
     // при первом обращении к инжектору — а очередь запросов пуста.
-    expect(httpMock.match(() => true).length).withContext('запросов бутстрапа нет').toBe(0);
+    expect(httpMock.match(() => true).length)
+      .withContext('запросов бутстрапа нет')
+      .toBe(0);
   });
 
   it('provideHttpClient включён: HttpClient инъекцируется, API-запрос уходит без cookie-флагов', async () => {

@@ -16,7 +16,9 @@
       <ng-template pTemplate="body" let-group>
         <tr>
           <td>
-            <a class="groups-page__link" [routerLink]="['/groups', group.id]">{{ group.name }}</a>
+            <a class="groups-page__link" [routerLink]="['/groups', group.id]">{{
+              group.name
+            }}</a>
           </td>
           <td>{{ group.studentCount }}</td>
           <td class="groups-page__actions-col">
@@ -52,8 +54,16 @@
   [style]="{ width: '420px', maxWidth: 'calc(100% - 48px)' }"
 >
   <form [formGroup]="createForm" (ngSubmit)="submitCreate()">
-    <label class="groups-page__field-label" for="group-create-name">Название</label>
-    <input pInputText id="group-create-name" type="text" formControlName="name" maxlength="100" />
+    <label class="groups-page__field-label" for="group-create-name"
+      >Название</label
+    >
+    <input
+      pInputText
+      id="group-create-name"
+      type="text"
+      formControlName="name"
+      maxlength="100"
+    />
     @if (nameError(); as error) {
       <small class="groups-page__field-error">{{ error }}</small>
     }
@@ -63,7 +73,12 @@
   }
   <ng-template pTemplate="footer">
     <div class="groups-page__dialog-actions">
-      <p-button label="Отмена" variant="outlined" severity="secondary" (onClick)="cancelCreate()" />
+      <p-button
+        label="Отмена"
+        variant="outlined"
+        severity="secondary"
+        (onClick)="cancelCreate()"
+      />
       <p-button
         label="Создать"
         [loading]="createSubmit.busy()"
@@ -85,8 +100,16 @@
   [style]="{ width: '420px', maxWidth: 'calc(100% - 48px)' }"
 >
   <form [formGroup]="renameForm" (ngSubmit)="submitRename()">
-    <label class="groups-page__field-label" for="group-rename-name">Название</label>
-    <input pInputText id="group-rename-name" type="text" formControlName="name" maxlength="100" />
+    <label class="groups-page__field-label" for="group-rename-name"
+      >Название</label
+    >
+    <input
+      pInputText
+      id="group-rename-name"
+      type="text"
+      formControlName="name"
+      maxlength="100"
+    />
     @if (nameError(); as error) {
       <small class="groups-page__field-error">{{ error }}</small>
     }
@@ -96,7 +119,12 @@
   }
   <ng-template pTemplate="footer">
     <div class="groups-page__dialog-actions">
-      <p-button label="Отмена" variant="outlined" severity="secondary" (onClick)="cancelRename()" />
+      <p-button
+        label="Отмена"
+        variant="outlined"
+        severity="secondary"
+        (onClick)="cancelRename()"
+      />
       <p-button
         label="Сохранить"
         [loading]="renameSubmit.busy()"

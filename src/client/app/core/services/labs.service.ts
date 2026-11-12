@@ -37,7 +37,13 @@ import { firstValueFromApi } from '../http-errors';
 export { LABS_PAGE_SIZE } from '../../shared/models';
 
 /** Типы контракта labs — реэкспорт для страниц фичи works (T-112/T-113). */
-export type { LabInput, LabsGetListParams, LabsSortDir, LabsSortField, LabsUpdateParams };
+export type {
+  LabInput,
+  LabsGetListParams,
+  LabsSortDir,
+  LabsSortField,
+  LabsUpdateParams,
+};
 
 @Injectable({ providedIn: 'root' })
 export class LabsService {
@@ -66,32 +72,44 @@ export class LabsService {
       query = query.set('sortDir', params.sortDir);
     }
     return firstValueFromApi(
-      this.http.get<PagedResult<LabDto>>(`${this.apiBase}/labs`, { params: query }),
+      this.http.get<PagedResult<LabDto>>(`${this.apiBase}/labs`, {
+        params: query,
+      }),
     );
   }
 
   /** Лабораторная по id (GET /labs/{id}) — deep-link/refresh формы. */
   getById(id: string): Promise<LabDto> {
-    return firstValueFromApi(this.http.get<LabDto>(`${this.apiBase}/labs/${id}`));
+    return firstValueFromApi(
+      this.http.get<LabDto>(`${this.apiBase}/labs/${id}`),
+    );
   }
 
   /** Создание лабораторной (POST /labs, 201) — успех: созданная запись. */
   create(input: LabInput): Promise<LabDto> {
-    return firstValueFromApi(this.http.post<LabDto>(`${this.apiBase}/labs`, input));
+    return firstValueFromApi(
+      this.http.post<LabDto>(`${this.apiBase}/labs`, input),
+    );
   }
 
   /** Обновление лабораторной (PUT /labs/{id}, тело как у POST) — успех: обновлённая запись. */
   update(id: string, input: LabInput): Promise<LabDto> {
-    return firstValueFromApi(this.http.put<LabDto>(`${this.apiBase}/labs/${id}`, input));
+    return firstValueFromApi(
+      this.http.put<LabDto>(`${this.apiBase}/labs/${id}`, input),
+    );
   }
 
   /** Удаление лабораторной (DELETE /labs/{id} → 204); записи ведомости удаляются каскадом. */
   remove(id: string): Promise<void> {
-    return firstValueFromApi(this.http.delete<void>(`${this.apiBase}/labs/${id}`));
+    return firstValueFromApi(
+      this.http.delete<void>(`${this.apiBase}/labs/${id}`),
+    );
   }
 
   /** Семестры, в которых есть работы (GET /semesters): distinct, по возрастанию (§4.4). */
   getSemesters(): Promise<number[]> {
-    return firstValueFromApi(this.http.get<number[]>(`${this.apiBase}/semesters`));
+    return firstValueFromApi(
+      this.http.get<number[]>(`${this.apiBase}/semesters`),
+    );
   }
 }

@@ -65,7 +65,9 @@ export class StudentsService {
     }
     params = params.set('page', query.page);
     return firstValueFromApi(
-      this.http.get<PagedResult<StudentDto>>(`${this.apiBase}/students`, { params }),
+      this.http.get<PagedResult<StudentDto>>(`${this.apiBase}/students`, {
+        params,
+      }),
     );
   }
 
@@ -76,7 +78,9 @@ export class StudentsService {
    */
   setGroup(studentId: string, groupId: string | null): Promise<void> {
     return firstValueFromApi(
-      this.http.put<void>(`${this.apiBase}/students/${studentId}/group`, { groupId }),
+      this.http.put<void>(`${this.apiBase}/students/${studentId}/group`, {
+        groupId,
+      }),
     );
   }
 }

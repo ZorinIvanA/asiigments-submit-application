@@ -19,16 +19,18 @@
  * provideNoopAnimations; уведомления проверяются по сигналам
  * NotificationService с MockBreakpointObserver.
  */
-import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  fakeAsync,
+  TestBed,
+  tick,
+} from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Select } from 'primeng/select';
 
 import { GroupsService } from '../../../../core/services/groups.service';
 import { StudentsService } from '../../../../core/services/students.service';
 import { ApiError } from '../../../../shared/models';
-import {
-  NOTIFICATION_AUTO_CLOSE_MS,
-} from '../../../../shared/notifications/notification-model';
 import { NotificationService } from '../../../../shared/notifications/notification-service';
 import { GridBackendSeed } from '../../../../testing/integration/grid-groups-access/grid-backend-stub';
 import {
@@ -38,7 +40,6 @@ import {
   qsIn,
   qsAllIn,
   selectLabelOf,
-  selectModelValueOf,
 } from '../../../../testing/integration/grid-groups-access/integration-env';
 import { ACCESS_ROUTES } from '../../access.routes';
 import { AccessPage } from './access-page';
@@ -152,7 +153,10 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
   /** ФИО строк таблицы в порядке отображения. */
   function tableRowFullNames(): string[] {
     const cells = root().querySelectorAll('tbody tr td:first-child');
-    return Array.from(cells, (cell) => (cell as HTMLElement).textContent?.trim() ?? '');
+    return Array.from(
+      cells,
+      (cell) => (cell as HTMLElement).textContent?.trim() ?? '',
+    );
   }
 
   /** Селектор группы в строке с порядковым номером index. */
@@ -176,7 +180,9 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
 
   /** Ввод в поле поиска (событие input — как при наборе пользователем). */
   function typeSearch(value: string): void {
-    const input = root().querySelector<HTMLInputElement>('input[type="search"]')!;
+    const input = root().querySelector<HTMLInputElement>(
+      'input[type="search"]',
+    )!;
     input.value = value;
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -200,7 +206,9 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
   function clickConfirm(answer: 'Yes' | 'No'): void {
     // Классы p-confirmdialog-*-button PrimeNG ставит на внутренние <button>.
     const kind = answer === 'Yes' ? 'accept' : 'reject';
-    const button = qs(`button.p-confirmdialog-${kind}-button`) as HTMLButtonElement;
+    const button = qs(
+      `button.p-confirmdialog-${kind}-button`,
+    ) as HTMLButtonElement;
     button.click();
     fixture.detectChanges();
   }
@@ -213,7 +221,8 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
   /** groupId студента в состоянии бэкенда (сервер — истина). */
   function storedGroupId(userId: string): string | null {
     return (
-      env.backend.read().users.find((user) => user.id === userId)?.groupId ?? null
+      env.backend.read().users.find((user) => user.id === userId)?.groupId ??
+      null
     );
   }
 
@@ -232,11 +241,19 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
       'Иванов Иван Иванович 08',
       'Иванов Иван Иванович 09',
     ]);
-    expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 10 из 15');
+    expect(qs('.access__caption')!.textContent).toContain(
+      'Показать записи с 1 по 10 из 15',
+    );
     // «‹», «1», «2», «›»
     expect(qsAll('.access__page').length).toBe(4);
-    expect((qs('button[aria-label="Предыдущая страница"]') as HTMLButtonElement).disabled).toBeTrue();
-    expect((qs('button[aria-label="Следующая страница"]') as HTMLButtonElement).disabled).toBeFalse();
+    expect(
+      (qs('button[aria-label="Предыдущая страница"]') as HTMLButtonElement)
+        .disabled,
+    ).toBeTrue();
+    expect(
+      (qs('button[aria-label="Следующая страница"]') as HTMLButtonElement)
+        .disabled,
+    ).toBeFalse();
     expect(selectLabel(rowSelect(0))).toBe('ИК-221');
   }));
 
@@ -282,8 +299,13 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
       'Иванов Иван Иванович 13',
       'Иванов Иван Иванович 14',
     ]);
-    expect(qs('.access__caption')!.textContent).toContain('Показать записи с 11 по 15 из 15');
-    expect((qs('button[aria-label="Следующая страница"]') as HTMLButtonElement).disabled).toBeTrue();
+    expect(qs('.access__caption')!.textContent).toContain(
+      'Показать записи с 11 по 15 из 15',
+    );
+    expect(
+      (qs('button[aria-label="Следующая страница"]') as HTMLButtonElement)
+        .disabled,
+    ).toBeTrue();
     // студенты 13 и 14 без группы
     expect(selectLabel(rowSelect(3))).toBe('Без группы');
   }));
@@ -296,7 +318,11 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     clickPageButton('›');
     env.settle(fixture, 1);
     expect(getListSpy.calls.count()).toBe(2);
-    expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: '', groupId: null, page: 2 });
+    expect(getListSpy.calls.mostRecent().args[0]).toEqual({
+      search: '',
+      groupId: null,
+      page: 2,
+    });
 
     typeSearch('иванов 05');
     tick(200); // меньше дебаунса
@@ -315,8 +341,13 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     env.settle(fixture, 1); // ответ бэкенда
     // Многословный поиск (уточнение IF-105, CR-010): оба студента содержат
     // токены «иванов» и «05» в ФИО; порядок ФИО↑ сохранён
-    expect(tableRowFullNames()).toEqual(['Антонов Иванов 05', 'Иванов Иван Иванович 05']);
-    expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 2 из 2');
+    expect(tableRowFullNames()).toEqual([
+      'Антонов Иванов 05',
+      'Иванов Иван Иванович 05',
+    ]);
+    expect(qs('.access__caption')!.textContent).toContain(
+      'Показать записи с 1 по 2 из 2',
+    );
   }));
 
   it('поиск без учёта регистра: «ИВАНОВ 05» даёт тот же результат', fakeAsync(() => {
@@ -334,17 +365,26 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     });
 
     env.settle(fixture, 1); // ответ бэкенда
-    expect(tableRowFullNames()).toEqual(['Антонов Иванов 05', 'Иванов Иван Иванович 05']);
+    expect(tableRowFullNames()).toEqual([
+      'Антонов Иванов 05',
+      'Иванов Иван Иванович 05',
+    ]);
   }));
 
   it('поле поиска: type=search, maxlength=200, placeholder и кнопка очистки (SCR-013)', fakeAsync(() => {
     createPage();
 
-    const input = root().querySelector<HTMLInputElement>('input[type="search"]')!;
+    const input = root().querySelector<HTMLInputElement>(
+      'input[type="search"]',
+    )!;
     expect(input.maxLength).toBe(200);
     expect(input.getAttribute('maxlength')).toBe('200');
-    expect(input.getAttribute('placeholder')).toBe('Поиск по ФИО, логину или email');
-    expect(input.getAttribute('aria-label')).toBe('Поиск по ФИО, логину или email');
+    expect(input.getAttribute('placeholder')).toBe(
+      'Поиск по ФИО, логину или email',
+    );
+    expect(input.getAttribute('aria-label')).toBe(
+      'Поиск по ФИО, логину или email',
+    );
     expect(qs('button[aria-label="Очистить поиск"]')).not.toBeNull();
   }));
 
@@ -354,7 +394,9 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     createPage();
 
     const search = qs('.access__search')!;
-    const input = search.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const input = search.querySelector<HTMLInputElement>(
+      'input[type="search"]',
+    )!;
     const searchWidth = parseFloat(getComputedStyle(search).width);
     const inputWidth = parseFloat(getComputedStyle(input).width);
 
@@ -371,13 +413,22 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
 
     typeSearch('иванов 05');
     env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
-    expect(tableRowFullNames()).toEqual(['Антонов Иванов 05', 'Иванов Иван Иванович 05']);
+    expect(tableRowFullNames()).toEqual([
+      'Антонов Иванов 05',
+      'Иванов Иван Иванович 05',
+    ]);
 
     (qs('button[aria-label="Очистить поиск"]') as HTMLButtonElement).click();
     env.settle(fixture, 1);
 
-    expect(getListSpy.calls.mostRecent().args[0]).toEqual({ search: '', groupId: null, page: 1 });
-    expect(root().querySelector<HTMLInputElement>('input[type="search"]')!.value).toBe('');
+    expect(getListSpy.calls.mostRecent().args[0]).toEqual({
+      search: '',
+      groupId: null,
+      page: 1,
+    });
+    expect(
+      root().querySelector<HTMLInputElement>('input[type="search"]')!.value,
+    ).toBe('');
     expect(tableRowFullNames().length).toBe(10);
   }));
 
@@ -388,8 +439,13 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     env.settle(fixture, 1); // дебаунс 300 + ответ бэкенда
 
     expect(tableRowFullNames()).toEqual(['Записей нет']);
-    expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 0 из 0');
-    expect((qs('button[aria-label="Следующая страница"]') as HTMLButtonElement).disabled).toBeTrue();
+    expect(qs('.access__caption')!.textContent).toContain(
+      'Показать записи с 1 по 0 из 0',
+    );
+    expect(
+      (qs('button[aria-label="Следующая страница"]') as HTMLButtonElement)
+        .disabled,
+    ).toBeTrue();
   }));
 
   it('фильтр «Без группы»: groupId=none и page=1, только студенты без группы (AC no-group-filter)', fakeAsync(() => {
@@ -407,9 +463,14 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
       groupId: 'none',
       page: 1,
     });
-    expect(tableRowFullNames()).toEqual(['Иванов Иван Иванович 13', 'Иванов Иван Иванович 14']);
+    expect(tableRowFullNames()).toEqual([
+      'Иванов Иван Иванович 13',
+      'Иванов Иван Иванович 14',
+    ]);
     expect(selectLabel(rowSelect(0))).toBe('Без группы');
-    expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 2 из 2');
+    expect(qs('.access__caption')!.textContent).toContain(
+      'Показать записи с 1 по 2 из 2',
+    );
 
     // Снятие фильтра возвращает полный список, также на страницу 1
     clickNoGroupFilter();
@@ -548,7 +609,10 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
   }));
 
   it('ошибка справочника групп: баннер + DTO-имя группы в ячейке вместо селектора (аменда 6, CR-007 iter2)', fakeAsync(() => {
-    const failure: ApiError = { status: 500, body: { message: 'Неизвестная ошибка' } };
+    const failure: ApiError = {
+      status: 500,
+      body: { message: 'Неизвестная ошибка' },
+    };
     spyOn(groupsService, 'getList').and.rejectWith(failure);
     createPage();
 
@@ -559,7 +623,9 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     // строки рендерятся с данными DTO; селектор не рендерится — вместо
     // пустой подписи в ячейке группы DTO-шное groupName (CR-007 iter2)
     expect(tableRowFullNames().length).toBe(10);
-    expect(qs('[data-test="group-fallback"]')?.textContent?.trim()).toBe('ИК-221');
+    expect(qs('[data-test="group-fallback"]')?.textContent?.trim()).toBe(
+      'ИК-221',
+    );
     expect(root().querySelector('tbody p-select'))
       .withContext('селекторы групп скрыты в деградации')
       .toBeNull();
@@ -572,7 +638,10 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     env.backend.mutate((state) => {
       // переводим студентов 4..14 в «без группы» (всего 11 без группы)
       for (const user of state.users) {
-        if (user.login.startsWith('student') && Number(user.login.slice('student'.length)) >= 4) {
+        if (
+          user.login.startsWith('student') &&
+          Number(user.login.slice('student'.length)) >= 4
+        ) {
           user.groupId = null;
         }
       }
@@ -582,7 +651,9 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
 
     clickNoGroupFilter();
     env.settle(fixture, 1);
-    expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 10 из 11');
+    expect(qs('.access__caption')!.textContent).toContain(
+      'Показать записи с 1 по 10 из 11',
+    );
 
     clickPageButton('2');
     env.settle(fixture, 1);
@@ -599,8 +670,13 @@ describe('AccessPage (C-115, SCR-13, FR-4.6)', () => {
     expect(qs('tbody')!.textContent).not.toContain('Записей нет');
     expect(tableRowFullNames().length).toBe(10);
     expect(tableRowFullNames()[0]).toBe('Иванов Иван Иванович 04');
-    expect(qs('.access__caption')!.textContent).toContain('Показать записи с 1 по 10 из 10');
-    expect((qs('button[aria-label="Предыдущая страница"]') as HTMLButtonElement).disabled).toBeTrue();
+    expect(qs('.access__caption')!.textContent).toContain(
+      'Показать записи с 1 по 10 из 10',
+    );
+    expect(
+      (qs('button[aria-label="Предыдущая страница"]') as HTMLButtonElement)
+        .disabled,
+    ).toBeTrue();
     expect(storedGroupId(studentId(14))).toBe(GROUP_222);
   }));
 

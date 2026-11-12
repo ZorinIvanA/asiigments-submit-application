@@ -16,11 +16,11 @@ services:
       POSTGRES_PASSWORD: labsapp
       POSTGRES_DB: labsapp
     ports:
-      - "127.0.0.1:5432:5432"
+      - '127.0.0.1:5432:5432'
     volumes:
       - labsapp-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U labsapp -d labsapp"]
+      test: ['CMD-SHELL', 'pg_isready -U labsapp -d labsapp']
       interval: 5s
       timeout: 3s
       retries: 10

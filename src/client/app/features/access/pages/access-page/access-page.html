@@ -63,7 +63,9 @@
                 [ngModel]="row.groupId"
                 (ngModelChange)="onGroupChange(row, $event)"
                 [disabled]="row.saving"
-                [styleClass]="row.groupId === null ? 'access__select--no-group' : ''"
+                [styleClass]="
+                  row.groupId === null ? 'access__select--no-group' : ''
+                "
                 [ariaLabel]="'Группа студента ' + row.student.fullName"
               />
             }

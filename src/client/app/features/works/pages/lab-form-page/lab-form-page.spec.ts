@@ -25,7 +25,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormGroup } from '@angular/forms';
 import { By } from '@angular/platform-browser';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import {
+  ActivatedRoute,
+  convertToParamMap,
+  provideRouter,
+  Router,
+} from '@angular/router';
 import { Select } from 'primeng/select';
 import { Tooltip } from 'primeng/tooltip';
 import { of } from 'rxjs';
@@ -72,16 +77,27 @@ function root(fixture: ComponentFixture<LabFormPage>): HTMLElement {
   return fixture.nativeElement as HTMLElement;
 }
 
-function buttonByLabel(fixture: ComponentFixture<LabFormPage>, label: string): HTMLButtonElement {
+function buttonByLabel(
+  fixture: ComponentFixture<LabFormPage>,
+  label: string,
+): HTMLButtonElement {
   const element = root(fixture);
-  const buttons = Array.from(element.querySelectorAll<HTMLButtonElement>('button'));
-  const button = buttons.find((candidate) => (candidate.textContent ?? '').trim() === label);
+  const buttons = Array.from(
+    element.querySelectorAll<HTMLButtonElement>('button'),
+  );
+  const button = buttons.find(
+    (candidate) => (candidate.textContent ?? '').trim() === label,
+  );
   expect(button).withContext(`кнопка «${label}»`).toBeDefined();
   return button!;
 }
 
 /** Имитация ввода пользователя в поле (событие input для ReactiveForms). */
-function setInputValue(fixture: ComponentFixture<LabFormPage>, selector: string, value: string): void {
+function setInputValue(
+  fixture: ComponentFixture<LabFormPage>,
+  selector: string,
+  value: string,
+): void {
   const input = root(fixture).querySelector<HTMLInputElement>(selector);
   expect(input).withContext(selector).toBeDefined();
   input!.value = value;
@@ -92,13 +108,20 @@ function linkButton(fixture: ComponentFixture<LabFormPage>): HTMLButtonElement {
   const button = root(fixture).querySelector<HTMLButtonElement>(
     'button[aria-label="Ссылка на задание"]',
   );
-  expect(button).withContext('кнопка-цепочка «Ссылка на задание»').toBeDefined();
+  expect(button)
+    .withContext('кнопка-цепочка «Ссылка на задание»')
+    .toBeDefined();
   return button!;
 }
 
 /** Открытие панели селектора и выбор семестра кликом по опции. */
-function chooseSemester(fixture: ComponentFixture<LabFormPage>, value: number): void {
-  const select = fixture.debugElement.query(By.directive(Select))!.injector.get(Select);
+function chooseSemester(
+  fixture: ComponentFixture<LabFormPage>,
+  value: number,
+): void {
+  const select = fixture.debugElement
+    .query(By.directive(Select))!
+    .injector.get(Select);
   select.show();
   fixture.detectChanges();
   const option = Array.from(
@@ -129,7 +152,10 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
         // ActivatedRoute (rootRoute), и последний провайдер по токену выигрывает.
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap }, paramMap: of(paramMap) } as unknown as ActivatedRoute,
+          useValue: {
+            snapshot: { paramMap },
+            paramMap: of(paramMap),
+          } as unknown as ActivatedRoute,
         },
       ],
     }).compileComponents();
@@ -166,8 +192,13 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       expect(element.querySelector('form#lab-form')).not.toBeNull();
       // CR-003: метка «Ссылка на задание» рендерится только вместе с input.
       expect(element.querySelector('label[for="lab-url"]')).toBeNull();
-      expect(element.querySelectorAll('button[aria-label="Ссылка на задание"]').length).toBe(1);
-      expect(formOf(fixture.componentInstance).controls.defenseRequired.value).toBeFalse();
+      expect(
+        element.querySelectorAll('button[aria-label="Ссылка на задание"]')
+          .length,
+      ).toBe(1);
+      expect(
+        formOf(fixture.componentInstance).controls.defenseRequired.value,
+      ).toBeFalse();
       expect(formOf(fixture.componentInstance).controls.number.value).toBe('');
       expect(buttonByLabel(fixture, 'Сохранить').disabled).toBeFalse();
       expect(labs.getById).not.toHaveBeenCalled();
@@ -183,7 +214,9 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       setInputValue(fixture, '#lab-number', '7');
       chooseSemester(fixture, 3);
       setInputValue(fixture, '#lab-content', 'Содержание работы №7');
-      element.querySelector<HTMLInputElement>('.lab-form__field--checkbox input')!.click();
+      element
+        .querySelector<HTMLInputElement>('.lab-form__field--checkbox input')!
+        .click();
       fixture.detectChanges();
       linkButton(fixture).click();
       fixture.detectChanges();
@@ -267,12 +300,17 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       buttonByLabel(fixture, 'Сохранить').click();
       fixture.detectChanges();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith(INVALID_FORM_MESSAGE, {
-        formId: 'lab-form',
-      });
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        INVALID_FORM_MESSAGE,
+        {
+          formId: 'lab-form',
+        },
+      );
       expect(create).not.toHaveBeenCalled();
       expect(router.navigate).not.toHaveBeenCalled();
-      expect(root(fixture).textContent).toContain('Номер должен быть положительным числом');
+      expect(root(fixture).textContent).toContain(
+        'Номер должен быть положительным числом',
+      );
       expect(root(fixture).textContent).toContain('Заполните поле');
     });
 
@@ -297,9 +335,12 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       expect(root(fixture).textContent).toContain(
         'Ссылка должна начинаться с http:// или https://',
       );
-      expect(notifications.notifyError).toHaveBeenCalledWith(INVALID_FORM_MESSAGE, {
-        formId: 'lab-form',
-      });
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        INVALID_FORM_MESSAGE,
+        {
+          formId: 'lab-form',
+        },
+      );
       expect(create).not.toHaveBeenCalled();
     });
 
@@ -320,11 +361,16 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       fixture.detectChanges();
 
       expect(root(fixture).textContent).toContain('Семестр — число от 1 до 10');
-      expect(root(fixture).textContent).toContain('Содержание — от 1 до 500 символов');
+      expect(root(fixture).textContent).toContain(
+        'Содержание — от 1 до 500 символов',
+      );
       expect(create).not.toHaveBeenCalled();
-      expect(notifications.notifyError).toHaveBeenCalledWith(INVALID_FORM_MESSAGE, {
-        formId: 'lab-form',
-      });
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        INVALID_FORM_MESSAGE,
+        {
+          formId: 'lab-form',
+        },
+      );
     });
 
     it('conflict-409: баннер с текстом мока дословно, перехода нет', async () => {
@@ -343,9 +389,12 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       buttonByLabel(fixture, 'Сохранить').click();
       await settled(fixture);
 
-      expect(notifications.notifyError).toHaveBeenCalledWith(DUPLICATE_MESSAGE, {
-        formId: 'lab-form',
-      });
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        DUPLICATE_MESSAGE,
+        {
+          formId: 'lab-form',
+        },
+      );
       expect(notifications.notifySuccess).not.toHaveBeenCalled();
       expect(router.navigate).not.toHaveBeenCalled();
     });
@@ -363,7 +412,9 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       );
       expect(chainButton).not.toBeNull();
       const tooltip = chainButton!.injector.get(Tooltip, null);
-      expect(tooltip).withContext('директива Tooltip на кнопке-цепочке').not.toBeNull();
+      expect(tooltip)
+        .withContext('директива Tooltip на кнопке-цепочке')
+        .not.toBeNull();
       expect(tooltip!.getOption('tooltipLabel')).toBe(LINK_TOOLTIP);
 
       expect(element.querySelector('#lab-url')).toBeNull();
@@ -371,7 +422,9 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       fixture.detectChanges();
 
       expect(element.querySelector('#lab-url')).not.toBeNull();
-      expect(element.querySelector('button[aria-label="Ссылка на задание"]')).toBeNull();
+      expect(
+        element.querySelector('button[aria-label="Ссылка на задание"]'),
+      ).toBeNull();
     });
 
     it('селект «Семестр» содержит опции 1..MAX_SEMESTER (1..10)', async () => {
@@ -379,24 +432,19 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       const fixture = start();
       await settled(fixture);
 
-      const select = fixture.debugElement.query(By.directive(Select))!.injector.get(Select);
+      const select = fixture.debugElement
+        .query(By.directive(Select))!
+        .injector.get(Select);
       select.show();
       fixture.detectChanges();
 
-      const options = Array.from(root(fixture).querySelectorAll('.p-select-option'));
+      const options = Array.from(
+        root(fixture).querySelectorAll('.p-select-option'),
+      );
       expect(options.length).toBe(10);
-      expect(options.map((option) => (option.textContent ?? '').trim())).toEqual([
-        '1',
-        '2',
-        '3',
-        '4',
-        '5',
-        '6',
-        '7',
-        '8',
-        '9',
-        '10',
-      ]);
+      expect(
+        options.map((option) => (option.textContent ?? '').trim()),
+      ).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
     });
 
     it('«Назад» ведёт на /works без обращения к сервису', async () => {
@@ -428,10 +476,12 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       expect(controls.defenseRequired.value).toBeTrue();
       expect(controls.assignmentUrl.value).toBe(ASSIGNMENT_URL);
       // CR-003: метка присутствует ровно вместе с раскрытым полем.
-      expect(root(fixture).querySelector('label[for="lab-url"]')).not.toBeNull();
-      expect(root(fixture).querySelector<HTMLInputElement>('#lab-url')!.value).toBe(
-        ASSIGNMENT_URL,
-      );
+      expect(
+        root(fixture).querySelector('label[for="lab-url"]'),
+      ).not.toBeNull();
+      expect(
+        root(fixture).querySelector<HTMLInputElement>('#lab-url')!.value,
+      ).toBe(ASSIGNMENT_URL);
       expect(
         root(fixture).querySelector('button[aria-label="Ссылка на задание"]'),
       ).toBeNull();
@@ -439,7 +489,9 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
 
     it('edit-load-404: баннер «Лабораторная не найдена» и возврат на /works', async () => {
       const { labs, notifications, router, start } = setup({ id: 'missing' });
-      (labs.getById as unknown as jasmine.Spy).and.rejectWith(apiError(404, NOT_FOUND_MESSAGE));
+      (labs.getById as unknown as jasmine.Spy).and.rejectWith(
+        apiError(404, NOT_FOUND_MESSAGE),
+      );
       const fixture = start();
       await settled(fixture);
 
@@ -447,12 +499,17 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       expect(router.navigate).toHaveBeenCalledWith(['/works']);
       // Форма осталась чистой — данные не подставлены.
       expect(formOf(fixture.componentInstance).controls.number.value).toBe('');
-      expect(formOf(fixture.componentInstance).controls.semester.value).toBeNull();
+      expect(
+        formOf(fixture.componentInstance).controls.semester.value,
+      ).toBeNull();
     });
 
     it('edit без ссылки: поле URL скрыто', async () => {
       const { labs, start } = setup({ id: 'lab-1' });
-      (labs.getById as unknown as jasmine.Spy).and.resolveTo({ ...LAB, assignmentUrl: null });
+      (labs.getById as unknown as jasmine.Spy).and.resolveTo({
+        ...LAB,
+        assignmentUrl: null,
+      });
       const fixture = start();
       await settled(fixture);
 
@@ -497,16 +554,21 @@ describe('LabFormPage — форма лабораторной (T-113)', () => {
       buttonByLabel(fixture, 'Сохранить').click();
       await settled(fixture);
 
-      expect(notifications.notifyError).toHaveBeenCalledWith(DUPLICATE_MESSAGE, {
-        formId: 'lab-form',
-      });
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        DUPLICATE_MESSAGE,
+        {
+          formId: 'lab-form',
+        },
+      );
       expect(router.navigate).not.toHaveBeenCalled();
     });
 
     it('edit-save-404: запись удалена после загрузки — баннер без formId, /works, submitting сброшен', async () => {
       const { labs, notifications, router, start } = setup({ id: 'lab-1' });
       (labs.getById as unknown as jasmine.Spy).and.resolveTo({ ...LAB });
-      const update = spyOn(labs, 'update').and.rejectWith(apiError(404, NOT_FOUND_MESSAGE));
+      const update = spyOn(labs, 'update').and.rejectWith(
+        apiError(404, NOT_FOUND_MESSAGE),
+      );
       const fixture = start();
       await settled(fixture);
 

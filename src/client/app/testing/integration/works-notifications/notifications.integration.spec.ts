@@ -20,9 +20,7 @@
 import { fakeAsync, tick } from '@angular/core/testing';
 
 import { NOTIFICATION_AUTO_CLOSE_MS } from '../../../shared/notifications/notification-model';
-import {
-  WorksIntegrationHarness,
-} from './works-integration-harness';
+import { WorksIntegrationHarness } from './works-integration-harness';
 
 const NOT_FOUND_MESSAGE = 'Лабораторная не найдена';
 const DUPLICATE_MESSAGE = 'Лабораторная с таким номером уже есть в семестре';
@@ -119,8 +117,11 @@ describe('Интеграция: уведомления на экранах works
       // На границе «5 с минус 1 мс» уведомление ещё видно, на «5 с» — исчезло.
       tick(NOTIFICATION_AUTO_CLOSE_MS - 1);
       harness.uiSettle();
-      expect(harness.notifications.isMobile() ? harness.headerBannerTexts() : harness.toastTexts())
-        .toContain(NOT_FOUND_MESSAGE);
+      expect(
+        harness.notifications.isMobile()
+          ? harness.headerBannerTexts()
+          : harness.toastTexts(),
+      ).toContain(NOT_FOUND_MESSAGE);
       tick(1);
       harness.uiSettle();
       expect(harness.headerBannerTexts()).not.toContain(NOT_FOUND_MESSAGE);
@@ -165,7 +166,9 @@ describe('Интеграция: уведомления на экранах works
     triggerRemove404();
     expect(harness.headerBannerTexts()).toContain(NOT_FOUND_MESSAGE);
     document
-      .querySelector<HTMLButtonElement>('app-header-notification .app-notification-banner__close')!
+      .querySelector<HTMLButtonElement>(
+        'app-header-notification .app-notification-banner__close',
+      )!
       .click();
     harness.uiSettle();
     expect(harness.headerBannerTexts()).not.toContain(NOT_FOUND_MESSAGE);
@@ -184,8 +187,12 @@ describe('Интеграция: уведомления на экранах works
     submitDuplicateForm();
     expect(harness.formAnchorBannerTexts()).toContain(DUPLICATE_MESSAGE);
     expect(harness.headerBannerTexts()).toEqual([]); // НЕ под шапкой
-    const anchorUnderForm = harness.native.querySelector('#lab-form ~ app-notification-anchor')!;
-    expect(anchorUnderForm.querySelector('.app-notification-banner')).not.toBeNull();
+    const anchorUnderForm = harness.native.querySelector(
+      '#lab-form ~ app-notification-anchor',
+    )!;
+    expect(
+      anchorUnderForm.querySelector('.app-notification-banner'),
+    ).not.toBeNull();
 
     // remove-404 списка → inline-баннер под шапкой (якорь 'header'):
     // две волны — монтирование /works и его стартовая загрузка.
@@ -204,9 +211,9 @@ describe('Интеграция: уведомления на экранах works
     expect(harness.headerBannerTexts()).toEqual([]); // inline больше не используется
     const toast = document.querySelector('.p-toast')!;
     expect(toast.classList).toContain('p-toast-top-right');
-    expect(document.querySelector('.p-toast-summary')!.textContent!.trim()).toBe(
-      NOT_FOUND_MESSAGE,
-    );
+    expect(
+      document.querySelector('.p-toast-summary')!.textContent!.trim(),
+    ).toBe(NOT_FOUND_MESSAGE);
     harness.finalize(); // таймер автозакрытия тоста ошибки
   }));
 
@@ -240,7 +247,9 @@ describe('Интеграция: уведомления на экранах works
     harness.flush(3); // remove → getList → getSemesters
     expect(harness.lastToastText()).toBe('Удалено');
     expect(document.querySelector('.p-toast-message-success')).not.toBeNull();
-    expect(document.querySelector('.p-toast')!.classList).toContain('p-toast-top-right');
+    expect(document.querySelector('.p-toast')!.classList).toContain(
+      'p-toast-top-right',
+    );
 
     harness.navigate('/works/new');
     harness.setInput('#lab-number', '30');
@@ -267,7 +276,9 @@ describe('Интеграция: уведомления на экранах works
     expect(harness.formAnchorBannerTexts()).toEqual([]);
     expect(harness.headerBannerTexts()).toContain('Сохранено');
     expect(
-      document.querySelector('app-header-notification .app-notification-banner--success'),
+      document.querySelector(
+        'app-header-notification .app-notification-banner--success',
+      ),
     ).not.toBeNull();
 
     // «Удалено» на мобильном — тоже под шапкой: экран уже /works после

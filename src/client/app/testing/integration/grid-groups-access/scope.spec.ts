@@ -30,7 +30,8 @@ import { MySubmissionsPage } from '../../../features/my-submissions/pages/my-sub
 import { SubmissionsPage } from '../../../features/submissions/pages/submissions-page';
 import { GridAccessEnv, openSelect, pickOption } from './integration-env';
 
-type AnyPage = GroupsPage | GroupPage | AccessPage | SubmissionsPage | MySubmissionsPage;
+type AnyPage =
+  GroupsPage | GroupPage | AccessPage | SubmissionsPage | MySubmissionsPage;
 
 describe('Границы скоупа v1 на экранах батча (TS-390, FR-4.4/4.5/4.6)', () => {
   let env: GridAccessEnv;
@@ -45,7 +46,10 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
   beforeEach(() => {
     paramMap = new BehaviorSubject(convertToParamMap({ id: 'not-mounted' }));
     env = GridAccessEnv.setup({
-      providers: [provideRouter([]), { provide: ActivatedRoute, useValue: { paramMap } }],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { paramMap } },
+      ],
     });
     notifications = env.notifications;
     studentsService = env.inject(StudentsService);
@@ -68,10 +72,12 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
     // импорта пользователей и восстановления групп.
     fixture = env.mount(GroupsPage);
     env.settle(fixture, 1);
-    const groupsActions = Array.from(root().querySelectorAll('tbody tr button')).map((button) =>
-      button.getAttribute('aria-label'),
+    const groupsActions = Array.from(
+      root().querySelectorAll('tbody tr button'),
+    ).map((button) => button.getAttribute('aria-label'));
+    expect(new Set(groupsActions)).toEqual(
+      new Set(['Переименовать', 'Удалить']),
     );
-    expect(new Set(groupsActions)).toEqual(new Set(['Переименовать', 'Удалить']));
     expect(root().textContent).not.toContain('Импорт');
     expect(root().textContent).not.toContain('Восстанов');
     expect(root().textContent).not.toContain('Импортировать');
@@ -81,8 +87,8 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
     paramMap.next(convertToParamMap({ id: ik221 }));
     fixture = env.mount(GroupPage);
     env.settle(fixture, 2);
-    const cardActions = Array.from(root().querySelectorAll('tbody button')).map((button) =>
-      button.textContent?.trim(),
+    const cardActions = Array.from(root().querySelectorAll('tbody button')).map(
+      (button) => button.textContent?.trim(),
     );
     expect(new Set(cardActions)).toEqual(new Set(['Исключить из группы']));
     expect(root().textContent).not.toContain('Импорт');
@@ -96,9 +102,15 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
     env.settle(fixture, 2);
     const updateSpy = spyOn(submissionsService, 'update').and.callThrough();
     const myRoot = root();
-    expect(myRoot.querySelector('p-datepicker')).withContext('календарей нет').toBeNull();
-    expect(myRoot.querySelector('input')).withContext('полей ввода нет').toBeNull();
-    expect(myRoot.querySelectorAll('button').length).withContext('кнопок действий нет').toBe(0);
+    expect(myRoot.querySelector('p-datepicker'))
+      .withContext('календарей нет')
+      .toBeNull();
+    expect(myRoot.querySelector('input'))
+      .withContext('полей ввода нет')
+      .toBeNull();
+    expect(myRoot.querySelectorAll('button').length)
+      .withContext('кнопок действий нет')
+      .toBe(0);
     myRoot.querySelectorAll('tbody td')[1]?.dispatchEvent(new Event('click'));
     env.flushNgModel(fixture);
     expect(updateSpy).not.toHaveBeenCalled();
@@ -108,17 +120,20 @@ describe('Границы скоупа v1 на экранах батча (TS-390,
     fixture = env.mount(AccessPage);
     env.settle(fixture, 2);
     const setGroupSpy = spyOn(studentsService, 'setGroup').and.callThrough();
-    const page4 = Array.from(root().querySelectorAll<HTMLButtonElement>('.access__page')).find(
-      (candidate) => candidate.textContent?.trim() === '4',
-    );
+    const page4 = Array.from(
+      root().querySelectorAll<HTMLButtonElement>('.access__page'),
+    ).find((candidate) => candidate.textContent?.trim() === '4');
     page4!.click();
     env.settle(fixture, 1);
-    const firstRowSelect = root().querySelector<HTMLElement>('tbody tr p-select');
+    const firstRowSelect =
+      root().querySelector<HTMLElement>('tbody tr p-select');
     openSelect(fixture, firstRowSelect!);
     pickOption(fixture, 'ИК-221');
     env.settle(fixture, 2); // setGroup + перезагрузка страницы
     expect(setGroupSpy).toHaveBeenCalled();
-    expect(notifications.desktopMessage()).withContext('успехов на /access нет (аменда 6)').toBeNull();
+    expect(notifications.desktopMessage())
+      .withContext('успехов на /access нет (аменда 6)')
+      .toBeNull();
     expect(notifications.mobileMessage()).toBeNull();
     fixture.destroy();
 

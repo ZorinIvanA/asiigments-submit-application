@@ -23,7 +23,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { Router } from '@angular/router';
 
-import { LabsService, LabsGetListParams } from '../../../../core/services/labs.service';
+import {
+  LabsService,
+  LabsGetListParams,
+} from '../../../../core/services/labs.service';
 import { ApiError, Lab, LabDto, PagedResult } from '../../../../shared/models';
 import { NotificationService } from '../../../../shared/notifications/notification-service';
 import { WorksPage } from './works-page';
@@ -38,8 +41,10 @@ class LabsServiceStub {
 }
 
 class NotificationServiceStub {
-  notifyError = jasmine.createSpy<NotificationService['notifyError']>('notifyError');
-  notifySuccess = jasmine.createSpy<NotificationService['notifySuccess']>('notifySuccess');
+  notifyError =
+    jasmine.createSpy<NotificationService['notifyError']>('notifyError');
+  notifySuccess =
+    jasmine.createSpy<NotificationService['notifySuccess']>('notifySuccess');
 }
 
 class RouterStub {
@@ -76,7 +81,11 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     );
   }
 
-  function makePage(items: LabDto[], total: number, page: number): PagedResult<LabDto> {
+  function makePage(
+    items: LabDto[],
+    total: number,
+    page: number,
+  ): PagedResult<LabDto> {
     return { items, total, page, pageSize: 10 };
   }
 
@@ -149,23 +158,33 @@ describe('WorksPage — список лабораторных /works (T-112)', (
   }
 
   function rowCells(row: HTMLTableRowElement): string[] {
-    return Array.from(row.querySelectorAll('td')).map((td) => (td.textContent ?? '').trim());
+    return Array.from(row.querySelectorAll('td')).map((td) =>
+      (td.textContent ?? '').trim(),
+    );
   }
 
   function openConfirmDialog(row: HTMLTableRowElement): void {
-    const trash = row.querySelector<HTMLButtonElement>('button[aria-label="Удалить"]');
+    const trash = row.querySelector<HTMLButtonElement>(
+      'button[aria-label="Удалить"]',
+    );
     expect(trash).withContext('кнопка «Удалить» не найдена').not.toBeNull();
     trash!.click();
   }
 
   // Диалог телепортируется в document.body (appendTo 'body' в PrimeNG 20).
   function confirmMessage(): string {
-    return document.body.querySelector('.p-confirmdialog-message')?.textContent ?? '';
+    return (
+      document.body.querySelector('.p-confirmdialog-message')?.textContent ?? ''
+    );
   }
 
   function dialogButton(kind: 'accept' | 'reject'): HTMLButtonElement {
-    const button = document.body.querySelector<HTMLButtonElement>(`button.p-confirmdialog-${kind}-button`);
-    expect(button).withContext(`кнопка «${kind}» диалога не найдена`).not.toBeNull();
+    const button = document.body.querySelector<HTMLButtonElement>(
+      `button.p-confirmdialog-${kind}-button`,
+    );
+    expect(button)
+      .withContext(`кнопка «${kind}» диалога не найдена`)
+      .not.toBeNull();
     return button!;
   }
 
@@ -192,8 +211,12 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       await createAndSettle();
 
-      expect(native.querySelector('h1')!.textContent).toBe('Лабораторные работы');
-      expect(native.querySelector('.works-page__head button')!.textContent).toContain('Добавить…');
+      expect(native.querySelector('h1')!.textContent).toBe(
+        'Лабораторные работы',
+      );
+      expect(
+        native.querySelector('.works-page__head button')!.textContent,
+      ).toContain('Добавить…');
       expect(labs.getList).toHaveBeenCalledWith({
         semester: null,
         page: 1,
@@ -216,7 +239,9 @@ describe('WorksPage — список лабораторных /works (T-112)', (
         { label: '2', value: 2 },
         { label: '5', value: 5 },
       ]);
-      expect(native.querySelector('.p-select-label')!.textContent).toContain('Все семестры');
+      expect(native.querySelector('.p-select-label')!.textContent).toContain(
+        'Все семестры',
+      );
     });
   });
 
@@ -226,16 +251,23 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     });
 
     it('выбор семестра 2 → getList {semester: 2, page: 1}, таблица перезагружена', async () => {
-      const semester2 = makeLab({ number: 21, semester: 2, content: 'Семестр 2, работа 21' });
-      labs.getList.and.returnValues(resolved(makePage(makeLabs(10), 12, 1)), resolved(makePage([semester2], 1, 1)));
+      const semester2 = makeLab({
+        number: 21,
+        semester: 2,
+        content: 'Семестр 2, работа 21',
+      });
+      labs.getList.and.returnValues(
+        resolved(makePage(makeLabs(10), 12, 1)),
+        resolved(makePage([semester2], 1, 1)),
+      );
 
       await createAndSettle();
 
       (native.querySelector('p-select') as HTMLElement).click();
       await settle();
-      const option = Array.from(native.querySelectorAll('.p-select-option')).find(
-        (item) => (item.textContent ?? '').trim() === '2',
-      );
+      const option = Array.from(
+        native.querySelectorAll('.p-select-option'),
+      ).find((item) => (item.textContent ?? '').trim() === '2');
       expect(option).withContext('опция «2» не найдена').toBeDefined();
       (option as HTMLElement).click();
       await settle();
@@ -246,7 +278,9 @@ describe('WorksPage — список лабораторных /works (T-112)', (
         sortField: 'semester',
         sortDir: 'asc',
       });
-      expect(native.querySelector('tbody')!.textContent).toContain('Семестр 2, работа 21');
+      expect(native.querySelector('tbody')!.textContent).toContain(
+        'Семестр 2, работа 21',
+      );
     });
 
     it('возврат к «Все семестры» → getList {semester: null, page: 1}', async () => {
@@ -260,16 +294,20 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       (native.querySelector('p-select') as HTMLElement).click();
       await settle();
-      (Array.from(native.querySelectorAll('.p-select-option')).find(
-        (item) => (item.textContent ?? '').trim() === '2',
-      ) as HTMLElement).click();
+      (
+        Array.from(native.querySelectorAll('.p-select-option')).find(
+          (item) => (item.textContent ?? '').trim() === '2',
+        ) as HTMLElement
+      ).click();
       await settle();
 
       (native.querySelector('p-select') as HTMLElement).click();
       await settle();
-      (Array.from(native.querySelectorAll('.p-select-option')).find(
-        (item) => (item.textContent ?? '').trim() === 'Все семестры',
-      ) as HTMLElement).click();
+      (
+        Array.from(native.querySelectorAll('.p-select-option')).find(
+          (item) => (item.textContent ?? '').trim() === 'Все семестры',
+        ) as HTMLElement
+      ).click();
       await settle();
 
       expect(labs.getList).toHaveBeenCalledWith({
@@ -371,11 +409,15 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
     it('листание на последнюю неполную страницу: getList {page: 2}, «с 11 по 12 из 12»', async () => {
       const tail = [makeLab({ number: 11 }), makeLab({ number: 12 })];
-      labs.getList.and.returnValues(resolved(makePage(makeLabs(10), 12, 1)), resolved(makePage(tail, 12, 2)));
+      labs.getList.and.returnValues(
+        resolved(makePage(makeLabs(10), 12, 1)),
+        resolved(makePage(tail, 12, 2)),
+      );
 
       await createAndSettle();
 
-      const pageLinks = native.querySelectorAll<HTMLButtonElement>('.p-paginator-page');
+      const pageLinks =
+        native.querySelectorAll<HTMLButtonElement>('.p-paginator-page');
       expect(pageLinks.length).toBeGreaterThanOrEqual(2);
       pageLinks[1]!.click();
       await settle();
@@ -402,10 +444,16 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       await createAndSettle();
 
-      const rows = Array.from(native.querySelectorAll<HTMLTableRowElement>('tbody tr'));
-      const link = rows[0]!.querySelector<HTMLAnchorElement>('a.works-page__assignment');
+      const rows = Array.from(
+        native.querySelectorAll<HTMLTableRowElement>('tbody tr'),
+      );
+      const link = rows[0]!.querySelector<HTMLAnchorElement>(
+        'a.works-page__assignment',
+      );
       expect(link).not.toBeNull();
-      expect(link!.getAttribute('href')).toBe('https://git.example.com/assignments/1/5');
+      expect(link!.getAttribute('href')).toBe(
+        'https://git.example.com/assignments/1/5',
+      );
       expect(link!.getAttribute('target')).toBe('_blank');
       expect(link!.getAttribute('rel')).toBe('noopener noreferrer');
       expect(link!.textContent!.trim()).toBe('git.example.com/assignments/1/5');
@@ -427,14 +475,22 @@ describe('WorksPage — список лабораторных /works (T-112)', (
       expect(component.assignmentHref('https://ok.example.com/a')).toBe(
         'https://ok.example.com/a',
       );
-      expect(component.assignmentLabel('https://ok.example.com/a')).toBe('ok.example.com/a');
-      expect(component.assignmentLabel('http://ok.example.com/b')).toBe('ok.example.com/b');
+      expect(component.assignmentLabel('https://ok.example.com/a')).toBe(
+        'ok.example.com/a',
+      );
+      expect(component.assignmentLabel('http://ok.example.com/b')).toBe(
+        'ok.example.com/b',
+      );
     });
   });
 
   it('«Нужна защита» — read-only чекбокс с состоянием записи (FR-011)', async () => {
     labs.getList.and.resolveTo(
-      makePage([makeLab({ number: 1, defenseRequired: true }), makeLab({ number: 2 })], 2, 1),
+      makePage(
+        [makeLab({ number: 1, defenseRequired: true }), makeLab({ number: 2 })],
+        2,
+        1,
+      ),
     );
 
     await createAndSettle();
@@ -447,8 +503,12 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     // делаем два контрольных прогона.
     fixture.detectChanges();
     fixture.detectChanges();
-    expect(native.querySelector('p-checkbox[data-p-checked="true"]')).not.toBeNull();
-    expect(native.querySelector('p-checkbox[data-p-checked="false"]')).not.toBeNull();
+    expect(
+      native.querySelector('p-checkbox[data-p-checked="true"]'),
+    ).not.toBeNull();
+    expect(
+      native.querySelector('p-checkbox[data-p-checked="false"]'),
+    ).not.toBeNull();
     for (const checkbox of Array.from(checkboxes)) {
       expect(checkbox.getAttribute('data-p-disabled')).toBe('true');
     }
@@ -466,9 +526,12 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
     async function openDialogOnTargetRow(): Promise<HTMLTableRowElement> {
       await createAndSettle();
-      const rows = Array.from(native.querySelectorAll<HTMLTableRowElement>('tbody tr'));
+      const rows = Array.from(
+        native.querySelectorAll<HTMLTableRowElement>('tbody tr'),
+      );
       const targetRow = rows.find(
-        (candidate) => (candidate.querySelector('td')?.textContent ?? '').trim() === '2',
+        (candidate) =>
+          (candidate.querySelector('td')?.textContent ?? '').trim() === '2',
       );
       expect(targetRow).withContext('строка №2 не найдена').toBeDefined();
       openConfirmDialog(targetRow!);
@@ -479,7 +542,9 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     it('текст с №N и №M дословно, кнопки «Yes»/«No», список заблокирован', async () => {
       await openDialogOnTargetRow();
 
-      expect(confirmMessage()).toBe('Вы точно хотите удалить лабораторную №2 в семестре №1?');
+      expect(confirmMessage()).toBe(
+        'Вы точно хотите удалить лабораторную №2 в семестре №1?',
+      );
       expect(dialogButton('accept').textContent!.trim()).toBe('Yes');
       expect(dialogButton('reject').textContent!.trim()).toBe('No');
 
@@ -501,8 +566,23 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     });
 
     it('«Yes» — remove вызван, «Удалено», список перезагружен и разблокирован', async () => {
-      const initial = makePage([makeLab({ number: 1, semester: 1 }), target, makeLab({ number: 3, semester: 1 })], 3, 1);
-      const afterRemove = makePage([makeLab({ number: 1, semester: 1 }), makeLab({ number: 3, semester: 1 })], 2, 1);
+      const initial = makePage(
+        [
+          makeLab({ number: 1, semester: 1 }),
+          target,
+          makeLab({ number: 3, semester: 1 }),
+        ],
+        3,
+        1,
+      );
+      const afterRemove = makePage(
+        [
+          makeLab({ number: 1, semester: 1 }),
+          makeLab({ number: 3, semester: 1 }),
+        ],
+        2,
+        1,
+      );
       labs.getList.and.returnValues(resolved(initial), resolved(afterRemove));
       labs.remove.and.resolveTo(undefined);
 
@@ -526,11 +606,15 @@ describe('WorksPage — список лабораторных /works (T-112)', (
       dialogButton('accept').click();
       await settle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Лабораторная не найдена', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        'Лабораторная не найдена',
+        'header',
+      );
       expect(notifications.notifySuccess).not.toHaveBeenCalled();
       // Аменда 5: после неудачного remove текущая страница перезагружена.
       expect(labs.getList).toHaveBeenCalledTimes(2);
-      const reloadCall = labs.getList.calls.mostRecent().args[0] as LabsGetListParams;
+      const reloadCall = labs.getList.calls.mostRecent()
+        .args[0] as LabsGetListParams;
       expect(reloadCall.page).toBe(1);
       expect(native.querySelectorAll('tbody tr').length).toBe(3);
       expect(listElement().classList).not.toContain('works-page__list--locked');
@@ -545,24 +629,33 @@ describe('WorksPage — список лабораторных /works (T-112)', (
       const page2 = makePage([lone], 11, 2);
       const emptyPage2 = makePage([], 10, 2);
       const page1After = makePage(makeLabs(10), 10, 1);
-      labs.getList.and.returnValues(resolved(initial), resolved(page2), resolved(emptyPage2), resolved(page1After));
+      labs.getList.and.returnValues(
+        resolved(initial),
+        resolved(page2),
+        resolved(emptyPage2),
+        resolved(page1After),
+      );
       labs.remove.and.resolveTo(undefined);
 
       await createAndSettle();
 
-      const pageLinks = native.querySelectorAll<HTMLButtonElement>('.p-paginator-page');
+      const pageLinks =
+        native.querySelectorAll<HTMLButtonElement>('.p-paginator-page');
       pageLinks[1]!.click();
       await settle();
       expect(native.querySelectorAll('tbody tr').length).toBe(1);
 
-      openConfirmDialog(native.querySelector('tbody tr') as HTMLTableRowElement);
+      openConfirmDialog(
+        native.querySelector('tbody tr') as HTMLTableRowElement,
+      );
       await settle();
 
       dialogButton('accept').click();
       await settle();
 
       expect(labs.remove).toHaveBeenCalledWith(lone.id);
-      const lastCall = labs.getList.calls.mostRecent().args[0] as LabsGetListParams;
+      const lastCall = labs.getList.calls.mostRecent()
+        .args[0] as LabsGetListParams;
       expect(lastCall.page).toBe(1);
       expect(native.querySelectorAll('tbody tr').length).toBe(10);
       expect(reportText()).toBe('Показать записи с 1 по 10 из 10');
@@ -580,13 +673,13 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     labs.remove.and.resolveTo(undefined);
 
     await createAndSettle();
-    expect(fixture.componentInstance.semesterOptions().map((option) => option.value)).toEqual([
-      null,
-      1,
-      2,
-    ]);
+    expect(
+      fixture.componentInstance.semesterOptions().map((option) => option.value),
+    ).toEqual([null, 1, 2]);
 
-    const rows = Array.from(native.querySelectorAll<HTMLTableRowElement>('tbody tr'));
+    const rows = Array.from(
+      native.querySelectorAll<HTMLTableRowElement>('tbody tr'),
+    );
     const secondRow = rows.find(
       (row) => (row.querySelector('td')?.textContent ?? '').trim() === '7',
     );
@@ -597,10 +690,9 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     await settle();
 
     expect(labs.remove).toHaveBeenCalledWith(lastOfSecond.id);
-    expect(fixture.componentInstance.semesterOptions().map((option) => option.value)).toEqual([
-      null,
-      1,
-    ]);
+    expect(
+      fixture.componentInstance.semesterOptions().map((option) => option.value),
+    ).toEqual([null, 1]);
     expect(labs.getSemesters).toHaveBeenCalledTimes(2);
   });
 
@@ -620,9 +712,11 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
     (native.querySelector('p-select') as HTMLElement).click();
     await settle();
-    (Array.from(native.querySelectorAll('.p-select-option')).find(
-      (item) => (item.textContent ?? '').trim() === '2',
-    ) as HTMLElement).click();
+    (
+      Array.from(native.querySelectorAll('.p-select-option')).find(
+        (item) => (item.textContent ?? '').trim() === '2',
+      ) as HTMLElement
+    ).click();
     await settle();
     expect(labs.getList).toHaveBeenCalledWith({
       semester: 2,
@@ -637,17 +731,17 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     await settle();
 
     expect(labs.remove).toHaveBeenCalledWith(secondSemester.id);
-    const lastCall = labs.getList.calls.mostRecent().args[0] as LabsGetListParams;
+    const lastCall = labs.getList.calls.mostRecent()
+      .args[0] as LabsGetListParams;
     expect(lastCall).toEqual({
       semester: null,
       page: 1,
       sortField: 'semester',
       sortDir: 'asc',
     });
-    expect(fixture.componentInstance.semesterOptions().map((option) => option.value)).toEqual([
-      null,
-      1,
-    ]);
+    expect(
+      fixture.componentInstance.semesterOptions().map((option) => option.value),
+    ).toEqual([null, 1]);
     expect(notifications.notifyError).not.toHaveBeenCalled();
   });
 
@@ -658,7 +752,9 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       await createAndSettle();
 
-      expect(native.querySelector('.works-page__empty')!.textContent).toContain('Записей нет');
+      expect(native.querySelector('.works-page__empty')!.textContent).toContain(
+        'Записей нет',
+      );
       expect(reportText()).toBe('Показать записи с 1 по 0 из 0');
       // Пустой getSemesters: единственная опция «Все семестры», селектор активен.
       expect(fixture.componentInstance.semesterOptions()).toEqual([
@@ -671,7 +767,10 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       await createAndSettle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Ошибка сервера', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        'Ошибка сервера',
+        'header',
+      );
       expect(notifications.notifySuccess).not.toHaveBeenCalled();
     });
 
@@ -681,7 +780,10 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       await createAndSettle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Ошибка сервера', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        'Ошибка сервера',
+        'header',
+      );
       expect(native.querySelectorAll('tbody tr').length).toBe(1);
     });
   });
@@ -693,13 +795,21 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       await createAndSettle();
 
-      (native.querySelector('.works-page__head button') as HTMLButtonElement).click();
+      (
+        native.querySelector('.works-page__head button') as HTMLButtonElement
+      ).click();
       expect(router.navigateByUrl).toHaveBeenCalledWith('/works/new');
 
       (
-        native.querySelector('button[aria-label="Редактировать"]') as HTMLButtonElement
+        native.querySelector(
+          'button[aria-label="Редактировать"]',
+        ) as HTMLButtonElement
       ).click();
-      expect(router.navigate).toHaveBeenCalledWith(['/works', first.id, 'edit']);
+      expect(router.navigate).toHaveBeenCalledWith([
+        '/works',
+        first.id,
+        'edit',
+      ]);
     });
 
     it('иконки-кнопки имеют title-тултипы по макету SCR-007', async () => {
@@ -707,7 +817,9 @@ describe('WorksPage — список лабораторных /works (T-112)', (
 
       await createAndSettle();
 
-      expect(native.querySelector('p-button[title="Редактировать"]')).not.toBeNull();
+      expect(
+        native.querySelector('p-button[title="Редактировать"]'),
+      ).not.toBeNull();
       expect(native.querySelector('p-button[title="Удалить"]')).not.toBeNull();
     });
   });

@@ -50,7 +50,9 @@ const GROUPS: GroupDto[] = [
 ];
 
 /** Страница студентов ИК-221: 5 строк, порядок fullName↑ задаёт мок. */
-function makeStudents(prefix = 'Иванов Иван Иванович '): Array<{ id: string; fullName: string }> {
+function makeStudents(
+  prefix = 'Иванов Иван Иванович ',
+): Array<{ id: string; fullName: string }> {
   return Array.from({ length: 5 }, (_, index) => ({
     id: `student-${index + 1}`,
     fullName: `${prefix}${String(index + 1).padStart(2, '0')}`,
@@ -58,7 +60,11 @@ function makeStudents(prefix = 'Иванов Иван Иванович '): Array
 }
 
 /** Работы семестра 1: номера 1..20; у лабы 3 защита не требуется. */
-function makeLabs(): Array<{ id: string; number: number; defenseRequired: boolean }> {
+function makeLabs(): Array<{
+  id: string;
+  number: number;
+  defenseRequired: boolean;
+}> {
   return Array.from({ length: LABS_COUNT }, (_, index) => ({
     id: `lab-${index + 1}`,
     number: index + 1,
@@ -67,13 +73,25 @@ function makeLabs(): Array<{ id: string; number: number; defenseRequired: boolea
 }
 
 /** Ответ getGrid по умолчанию: первая страница, total 25 (AC defaults). */
-function makeGrid(overrides: Partial<SubmissionsGridResult> = {}): SubmissionsGridResult {
+function makeGrid(
+  overrides: Partial<SubmissionsGridResult> = {},
+): SubmissionsGridResult {
   return {
     students: makeStudents(),
     labs: makeLabs(),
     submissions: [
-      { studentId: STUDENT_1, labId: LAB_1, submitDate: '2026-09-01', defenseDate: '2026-09-11' },
-      { studentId: STUDENT_1, labId: LAB_6, submitDate: null, defenseDate: '2026-09-25' },
+      {
+        studentId: STUDENT_1,
+        labId: LAB_1,
+        submitDate: '2026-09-01',
+        defenseDate: '2026-09-11',
+      },
+      {
+        studentId: STUDENT_1,
+        labId: LAB_6,
+        submitDate: null,
+        defenseDate: '2026-09-25',
+      },
     ],
     total: 25,
     page: 1,
@@ -105,17 +123,22 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     notifications = null;
     nextGrid = makeGrid();
     breakpoints = new MockBreakpointObserver();
-    groupsServiceSpy = jasmine.createSpyObj<GroupsService>('GroupsService', ['getList']);
-    labsServiceSpy = jasmine.createSpyObj<LabsService>('LabsService', ['getSemesters']);
-    submissionsServiceSpy = jasmine.createSpyObj<SubmissionsService>('SubmissionsService', [
-      'getGrid',
-      'update',
+    groupsServiceSpy = jasmine.createSpyObj<GroupsService>('GroupsService', [
+      'getList',
     ]);
+    labsServiceSpy = jasmine.createSpyObj<LabsService>('LabsService', [
+      'getSemesters',
+    ]);
+    submissionsServiceSpy = jasmine.createSpyObj<SubmissionsService>(
+      'SubmissionsService',
+      ['getGrid', 'update'],
+    );
     groupsServiceSpy.getList.and.resolveTo(GROUPS);
     labsServiceSpy.getSemesters.and.resolveTo([1, 2]);
     submissionsServiceSpy.getGrid.and.callFake(() => Promise.resolve(nextGrid));
-    submissionsServiceSpy.update.and.callFake((params: SubmissionUpdateParams) =>
-      Promise.resolve(makeSubmission(params)),
+    submissionsServiceSpy.update.and.callFake(
+      (params: SubmissionUpdateParams) =>
+        Promise.resolve(makeSubmission(params)),
     );
 
     TestBed.configureTestingModule({
@@ -143,7 +166,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
    * для перерисовки внутренних состояний p-select/p-datepicker
    * (ngModel/value приходят с запаздыванием на один проход CD).
    */
-  async function settle(fixture: ComponentFixture<SubmissionsPage>): Promise<void> {
+  async function settle(
+    fixture: ComponentFixture<SubmissionsPage>,
+  ): Promise<void> {
     fixture.detectChanges();
     for (let tick = 0; tick < 8; tick++) {
       await Promise.resolve();
@@ -172,18 +197,29 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
   }
 
   function selectLabel(root: HTMLElement, index: number): string {
-    return selects(root)[index]?.querySelector('.p-select-label')?.textContent?.trim() ?? '';
+    return (
+      selects(root)
+        [index]?.querySelector('.p-select-label')
+        ?.textContent?.trim() ?? ''
+    );
   }
 
   /** Строка tbody по номеру (1-based). */
   function bodyRow(root: HTMLElement, row: number): HTMLTableRowElement {
-    return root.querySelector(`tbody tr:nth-child(${row})`) as HTMLTableRowElement;
+    return root.querySelector(
+      `tbody tr:nth-child(${row})`,
+    ) as HTMLTableRowElement;
   }
 
   /**
    * input ячейки даты: td 1 — студент, у лабы k сдача — td 2k, защита — 2k+1.
    */
-  function cellInput(root: HTMLElement, row: number, labNumber: number, field: 'submit' | 'defense'): HTMLInputElement {
+  function cellInput(
+    root: HTMLElement,
+    row: number,
+    labNumber: number,
+    field: 'submit' | 'defense',
+  ): HTMLInputElement {
     const cell = field === 'submit' ? 2 * labNumber : 2 * labNumber + 1;
     return bodyRow(root, row).querySelector(
       `td:nth-child(${cell}) input`,
@@ -192,7 +228,8 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
 
   function rangeCaption(root: HTMLElement): string {
     return (
-      root.querySelector('[data-test="range-caption"]')?.textContent?.trim() ?? ''
+      root.querySelector('[data-test="range-caption"]')?.textContent?.trim() ??
+      ''
     );
   }
 
@@ -209,7 +246,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     text: string,
   ): void {
     const input = cellInput(root, row, labNumber, field);
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
     input.value = text;
     input.dispatchEvent(new Event('input'));
   }
@@ -221,7 +260,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     labNumber: number,
     field: 'submit' | 'defense',
   ): void {
-    cellInput(root, row, labNumber, field).dispatchEvent(new FocusEvent('blur'));
+    cellInput(root, row, labNumber, field).dispatchEvent(
+      new FocusEvent('blur'),
+    );
   }
 
   it('defaults: группа — первая по порядку мока (ИК-221), семестр — наименьший (1), getGrid страницы 1; 5 студентов, работы 1..20', async () => {
@@ -241,9 +282,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const rows = root.querySelectorAll('tbody tr');
     expect(rows.length).withContext('страница студентов — 5 строк').toBe(5);
 
-    const headerLabs = Array.from(root.querySelectorAll('thead tr:first-child th')).map(
-      (th) => th.textContent?.trim(),
-    );
+    const headerLabs = Array.from(
+      root.querySelectorAll('thead tr:first-child th'),
+    ).map((th) => th.textContent?.trim());
     expect(headerLabs[0]).toBe('Студент');
     expect(headerLabs.length).toBe(1 + LABS_COUNT);
     expect(headerLabs[1]).toBe('Лаб 1');
@@ -274,8 +315,12 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
       (headerRows[1] as HTMLTableRowElement).querySelectorAll('th'),
     ).map((th) => th.textContent?.trim());
     expect(subHeaders.length).toBe(LABS_COUNT * 2);
-    expect(subHeaders.filter((text) => text === 'Сдача').length).toBe(LABS_COUNT);
-    expect(subHeaders.filter((text) => text === 'Защита').length).toBe(LABS_COUNT);
+    expect(subHeaders.filter((text) => text === 'Сдача').length).toBe(
+      LABS_COUNT,
+    );
+    expect(subHeaders.filter((text) => text === 'Защита').length).toBe(
+      LABS_COUNT,
+    );
     expect(subHeaders.slice(4, 6)).toEqual(['Сдача', 'Защита']); // пара лабы 3
   });
 
@@ -294,7 +339,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const fixture = await createPage();
     const page = fixture.componentInstance;
 
-    const cells = fixture.debugElement.queryAll(By.directive(SubmissionDateCell));
+    const cells = fixture.debugElement.queryAll(
+      By.directive(SubmissionDateCell),
+    );
     expect(cells.length)
       .withContext('5 студентов × 20 работ × 2 колонки')
       .toBe(200);
@@ -350,7 +397,10 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const root: HTMLElement = fixture.nativeElement;
 
     submissionsServiceSpy.update.and.returnValue(
-      Promise.reject({ status: 400, body: { message: 'Данные заполнены неверно' } }),
+      Promise.reject({
+        status: 400,
+        body: { message: 'Данные заполнены неверно' },
+      }),
     );
 
     // Непустая ячейка: '01.09.2026' → '15.09.2026' → 400 → возврат '01.09.2026'.
@@ -420,7 +470,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const icon = bodyRow(root, 1).querySelector(
       'td:nth-child(3) .p-datepicker-clear-icon',
     ) as HTMLElement | null;
-    expect(icon).withContext('кнопка × видима у заполненной ячейки').not.toBeNull();
+    expect(icon)
+      .withContext('кнопка × видима у заполненной ячейки')
+      .not.toBeNull();
     icon!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await settle(fixture);
 
@@ -463,16 +515,20 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
       .withContext('чужие ячейки доступны (RSK-006)')
       .toBeFalse();
 
-    releaseSave(makeSubmission({
-      studentId: STUDENT_1,
-      labId: LAB_6,
-      submitDate: '2026-09-15',
-      defenseDate: '2026-09-25',
-    }));
+    releaseSave(
+      makeSubmission({
+        studentId: STUDENT_1,
+        labId: LAB_6,
+        submitDate: '2026-09-15',
+        defenseDate: '2026-09-25',
+      }),
+    );
     await settle(fixture);
 
     expect(page.isCellSaving(STUDENT_1, LAB_6, 'submitDate')).toBeFalse();
-    expect(savingInput.disabled).withContext('ячейка разблокирована').toBeFalse();
+    expect(savingInput.disabled)
+      .withContext('ячейка разблокирована')
+      .toBeFalse();
     expect(savingInput.value).withContext('коммит применён').toBe('15.09.2026');
   });
 
@@ -492,12 +548,14 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
 
     expect(submissionsServiceSpy.update).toHaveBeenCalledTimes(1);
 
-    releaseSave(makeSubmission({
-      studentId: STUDENT_1,
-      labId: LAB_6,
-      submitDate: '2026-09-15',
-      defenseDate: '2026-09-25',
-    }));
+    releaseSave(
+      makeSubmission({
+        studentId: STUDENT_1,
+        labId: LAB_6,
+        submitDate: '2026-09-15',
+        defenseDate: '2026-09-25',
+      }),
+    );
     await settle(fixture);
   });
 
@@ -508,15 +566,20 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const callsBefore = submissionsServiceSpy.getGrid.calls.count();
 
     submissionsServiceSpy.update.and.returnValue(
-      Promise.reject({ status: 400, body: { message: 'Данные заполнены неверно' } }),
+      Promise.reject({
+        status: 400,
+        body: { message: 'Данные заполнены неверно' },
+      }),
     );
     typeCellDate(root, 1, 6, 'submit', '15.09.2026');
     await settle(fixture);
 
-    expect(notifications?.desktopMessage()).withContext('десктоп: Toast справа вверху').toEqual({
-      severity: 'error',
-      text: 'Данные заполнены неверно',
-    });
+    expect(notifications?.desktopMessage())
+      .withContext('десктоп: Toast справа вверху')
+      .toEqual({
+        severity: 'error',
+        text: 'Данные заполнены неверно',
+      });
     expect(submissionsServiceSpy.getGrid.calls.count())
       .withContext('сервер — истина: грид перезагружен')
       .toBe(callsBefore + 1);
@@ -534,7 +597,10 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const root: HTMLElement = fixture.nativeElement;
 
     submissionsServiceSpy.update.and.returnValue(
-      Promise.reject({ status: 404, body: { message: 'Лабораторная не найдена' } }),
+      Promise.reject({
+        status: 404,
+        body: { message: 'Лабораторная не найдена' },
+      }),
     );
     typeCellDate(root, 1, 6, 'submit', '15.09.2026');
     await settle(fixture);
@@ -635,15 +701,19 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     expect(selects(root)[0].classList.contains('p-disabled'))
       .withContext('селектор группы заблокирован')
       .toBeTrue();
-    expect(root.querySelector('[data-test="no-groups-caption"]')?.textContent?.trim()).toBe(
-      'Нет групп',
-    );
+    expect(
+      root
+        .querySelector('[data-test="no-groups-caption"]')
+        ?.textContent?.trim(),
+    ).toBe('Нет групп');
     // Макет SCR-009 (ревью CR-002 T-114): в состоянии «Нет групп» в тулбаре
     // остаётся только селектор группы, элемент семестра не рендерится.
     expect(selects(root).length).withContext('селектор семестра скрыт').toBe(1);
     expect(root.textContent).not.toContain('Семестр');
     expect(root.querySelector('[data-test="no-semesters-caption"]')).toBeNull();
-    expect(root.querySelector('p-table')).withContext('таблица не отображается').toBeNull();
+    expect(root.querySelector('p-table'))
+      .withContext('таблица не отображается')
+      .toBeNull();
     expect(submissionsServiceSpy.getGrid).not.toHaveBeenCalled();
   });
 
@@ -651,7 +721,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const fixture = await createPage();
     const page = fixture.componentInstance;
     const root: HTMLElement = fixture.nativeElement;
-    expect(page.loading()).withContext('после первичной загрузки — false').toBeFalse();
+    expect(page.loading())
+      .withContext('после первичной загрузки — false')
+      .toBeFalse();
 
     let releaseGrid!: (grid: SubmissionsGridResult) => void;
     submissionsServiceSpy.getGrid.and.returnValue(
@@ -669,7 +741,9 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     await settle(fixture);
 
     expect(page.loading()).withContext('после ответа — false').toBeFalse();
-    expect(root.querySelector('.p-datatable-mask')).withContext('маска скрыта').toBeNull();
+    expect(root.querySelector('.p-datatable-mask'))
+      .withContext('маска скрыта')
+      .toBeNull();
   });
 
   it('no-semesters: селектор семестра disabled, подпись «Нет семестров с работами», таблица скрыта', async () => {
@@ -677,15 +751,21 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
     const fixture = await createPage();
     const root: HTMLElement = fixture.nativeElement;
 
-    expect(selectLabel(root, 0)).withContext('группы при этом доступны').toBe('ИК-221');
+    expect(selectLabel(root, 0))
+      .withContext('группы при этом доступны')
+      .toBe('ИК-221');
     expect(selects(root)[0].classList.contains('p-disabled')).toBeFalse();
     expect(selects(root)[1].classList.contains('p-disabled'))
       .withContext('селектор семестра заблокирован')
       .toBeTrue();
     expect(
-      root.querySelector('[data-test="no-semesters-caption"]')?.textContent?.trim(),
+      root
+        .querySelector('[data-test="no-semesters-caption"]')
+        ?.textContent?.trim(),
     ).toBe('Нет семестров с работами');
-    expect(root.querySelector('p-table')).withContext('таблица не отображается').toBeNull();
+    expect(root.querySelector('p-table'))
+      .withContext('таблица не отображается')
+      .toBeNull();
     expect(submissionsServiceSpy.getGrid).not.toHaveBeenCalled();
   });
 

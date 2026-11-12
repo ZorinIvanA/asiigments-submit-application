@@ -19,11 +19,21 @@ import { RouterTestingHarness } from '@angular/router/testing';
 
 import { MockBreakpointObserver } from '../../../testing/mock-breakpoint-observer';
 import { ACCESS_ROUTES, AccessPage } from '../../features/access/access.routes';
-import { GroupPage, GROUPS_ROUTES, GroupsPage } from '../../features/groups/groups.routes';
+import {
+  GroupPage,
+  GROUPS_ROUTES,
+  GroupsPage,
+} from '../../features/groups/groups.routes';
 import { MY_SUBMISSIONS_ROUTES } from '../../features/my-submissions/my-submissions.routes';
 import { MySubmissionsPage } from '../../features/my-submissions/pages/my-submissions-page';
-import { ProfilePage, PROFILE_ROUTES } from '../../features/profile/profile.routes';
-import { SubmissionsPage, SUBMISSIONS_ROUTES } from '../../features/submissions/submissions.routes';
+import {
+  ProfilePage,
+  PROFILE_ROUTES,
+} from '../../features/profile/profile.routes';
+import {
+  SubmissionsPage,
+  SUBMISSIONS_ROUTES,
+} from '../../features/submissions/submissions.routes';
 import { WORKS_ROUTES } from '../../features/works/works.routes';
 import { LabFormPage } from '../../features/works/pages/lab-form-page/lab-form-page';
 import { WorksPage } from '../../features/works/pages/works-page/works-page';
@@ -52,7 +62,8 @@ function leaf(path: string): Route {
   const nodes = flatten(routes).filter(
     (node) =>
       node.path === path &&
-      (node.route.component !== undefined || node.route.loadComponent !== undefined),
+      (node.route.component !== undefined ||
+        node.route.loadComponent !== undefined),
   );
   expect(nodes.length).withContext(`ровно один лист ${path}`).toBe(1);
   return nodes[0].route;
@@ -68,15 +79,13 @@ class SubmissionsServiceStub {
 }
 
 class ProfileServiceStub {
-  get = jasmine
-    .createSpy<ProfileService['get']>('get')
-    .and.resolveTo({
-      login: 'teacher',
-      email: 'teacher@example.com',
-      fullName: 'Сидоров Семён Семёнович',
-      role: 'teacher',
-      groupName: null,
-    });
+  get = jasmine.createSpy<ProfileService['get']>('get').and.resolveTo({
+    login: 'teacher',
+    email: 'teacher@example.com',
+    fullName: 'Сидоров Семён Семёнович',
+    role: 'teacher',
+    groupName: null,
+  });
 }
 
 describe('app.routes — структура дерева консоли преподавателя (T-119)', () => {
@@ -100,12 +109,16 @@ describe('app.routes — структура дерева консоли преп
     for (const row of table) {
       const route = leaf(row.path);
       if (row.lazy) {
-        expect(route.loadComponent).withContext(`${row.path}: loadComponent`).toBeDefined();
-        expect(await route.loadComponent!()).withContext(`${row.path}: класс страницы`).toBe(
-          MySubmissionsPage,
-        );
+        expect(route.loadComponent)
+          .withContext(`${row.path}: loadComponent`)
+          .toBeDefined();
+        expect(await route.loadComponent!())
+          .withContext(`${row.path}: класс страницы`)
+          .toBe(MySubmissionsPage);
       } else {
-        expect(route.component).withContext(`${row.path}: компонент`).toBe(row.component);
+        expect(route.component)
+          .withContext(`${row.path}: компонент`)
+          .toBe(row.component);
       }
     }
   });
@@ -130,23 +143,35 @@ describe('app.routes — структура дерева консоли преп
   it('корень и wildcard «**» — редирект на /works (домашний экран консоли)', () => {
     const nodes = flatten(routes);
     const roots = nodes.filter(
-      (node) => (node.path === '' || node.path === '/**') && node.route.redirectTo !== undefined,
+      (node) =>
+        (node.path === '' || node.path === '/**') &&
+        node.route.redirectTo !== undefined,
     );
-    expect(roots.map((node) => node.path)).withContext('редирект-узлы').toEqual(['', '/**']);
+    expect(roots.map((node) => node.path))
+      .withContext('редирект-узлы')
+      .toEqual(['', '/**']);
     for (const root of roots) {
-      expect(root.route.redirectTo).withContext(`redirect ${root.path}`).toBe('works');
-      expect(root.route.component).withContext(`${root.path} — componentless`).toBeUndefined();
+      expect(root.route.redirectTo)
+        .withContext(`redirect ${root.path}`)
+        .toBe('works');
+      expect(root.route.component)
+        .withContext(`${root.path} — componentless`)
+        .toBeUndefined();
     }
   });
 
   it('все маршруты фич — внутри оболочки AppShell, canActivate в дереве нет', () => {
     const nodes = flatten(routes);
-    const shell = nodes.find((node) => node.route.component === AppShell)!.route;
+    const shell = nodes.find(
+      (node) => node.route.component === AppShell,
+    )!.route;
     expect(shell.path).toBe('');
     expect(shell.canActivate).withContext('guards удалены').toBeUndefined();
 
     // Все листья фич — потомки оболочки (в дереве ровно один AppShell).
-    const shellNodes = nodes.filter((node) => node.route.component === AppShell);
+    const shellNodes = nodes.filter(
+      (node) => node.route.component === AppShell,
+    );
     expect(shellNodes.length).withContext('ровно одна оболочка').toBe(1);
     for (const featurePath of [
       '/works',
@@ -159,12 +184,16 @@ describe('app.routes — структура дерева консоли преп
       '/access',
       '/profile',
     ]) {
-      expect(leaf(featurePath)).withContext(`${featurePath} — лист дерева`).toBeDefined();
+      expect(leaf(featurePath))
+        .withContext(`${featurePath} — лист дерева`)
+        .toBeDefined();
     }
 
     // Ни один узел дерева не несёт canActivate (guards удалены целиком).
     for (const node of nodes) {
-      expect(node.route.canActivate).withContext(`canActivate ${node.path}`).toBeUndefined();
+      expect(node.route.canActivate)
+        .withContext(`canActivate ${node.path}`)
+        .toBeUndefined();
     }
   });
 
@@ -191,7 +220,9 @@ describe('app.routes — структура дерева консоли преп
     ];
     for (const [name, list] of originals) {
       for (const route of list) {
-        expect(route.canActivate).withContext(`${name}: ${route.path} без canActivate`).toBeUndefined();
+        expect(route.canActivate)
+          .withContext(`${name}: ${route.path} без canActivate`)
+          .toBeUndefined();
       }
     }
   });
@@ -205,7 +236,12 @@ describe('app.routes — smoke-навигация по скомпонованн�
     spyOn(console, 'error');
 
     labs = new LabsServiceStub();
-    labs.getList.and.resolveTo({ items: [], total: 0, page: 1, pageSize: LABS_PAGE_SIZE });
+    labs.getList.and.resolveTo({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: LABS_PAGE_SIZE,
+    });
     labs.getSemesters.and.resolveTo([]);
 
     TestBed.configureTestingModule({
@@ -237,9 +273,9 @@ describe('app.routes — smoke-навигация по скомпонованн�
     await harness.navigateByUrl('/');
     expect(currentUrl()).toBe('/works');
     await settle();
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
-      'Лабораторные работы',
-    );
+    expect(
+      harness.routeNativeElement?.querySelector('h1')?.textContent,
+    ).toContain('Лабораторные работы');
     expect(labs.getList).toHaveBeenCalled();
     expect(console.error).not.toHaveBeenCalled();
   });
