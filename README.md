@@ -93,6 +93,64 @@ dotnet test tests/integration/B-01                    # одна зона (пр�
 # все зоны: tests/integration/B-01…B-22, по одной на батч кейсов
 ```
 
+## CI/CD (GitHub Actions + Amvera)
+
+Три этапа, каждый — свой воркфлоу в [`.github/workflows/`](.github/workflows/):
+
+| Этап                             | Триггер              | Что происходит                                                                                                         |
+| -------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 1. Юнит-тесты (`unit.yml`)       | пуш любой ветки      | Karma-тесты клиента (ChromeHeadless) + xUnit-тесты API (in-memory)                                                     |
+| 2. PR в master (`pr-checks.yml`) | pull request         | этап 1 + интеграционные зоны B-01…B-23 (B-23 — на service-контейнере PostgreSQL 16) + зоны клиента B-17/B-18 + линтеры |
+| 3. Деплой (`deploy.yml`)         | только ручной запуск | схема БД → push снапшота ветки в git-репозиторий Amvera → сборка и выкат                                               |
+
+Этап 2 — обязательные checks: в настройках репозитория (Settings → Branches →
+branch protection для `master`) включить _Require status checks to pass before
+merging_ и выбрать статусы `client-unit`, `api-unit`, `integration-zones`,
+`integration-b23`, `integration-angular`, `lint-client`, `lint-api` — без них PR
+слить нельзя.
+
+Линтеры: клиент — ESLint (angular-eslint + typescript-eslint, включая шаблоны) и
+Prettier (`.prettierrc.json`, singleQuote; проверка `npm run format:check`), API —
+`dotnet format` по `.editorconfig` (для C# отступ 4). Линтеры охватывают код
+приложения (`src/client`, `src/api`); зоны `tests/` — замороженные артефакты
+сданных лаб, их проверяют прогоны тестов.
+
+### Деплой: один контейнер в Amvera
+
+Образ собирает Amvera по [`Dockerfile`](Dockerfile) из корня (конфиг —
+[`amvera.yml`](amvera.yml)): стадия node собирает клиент → стадия dotnet sdk
+публикует API со статикой клиента в `wwwroot` → runtime `aspnet:8.0`, Kestrel
+слушает 80-й порт и отдаёт и `/api/v1`, и SPA. Ручной запуск `deploy` пушит
+снапшот ветки в `git.amvera.ru` (force-push в отслеживаемую ветку `master`),
+Amvera пересобирает и выкатывает контейнер. Перед этим джоба `db-schema`
+применяет идемпотентные `02_schema.sql` + `03_seed_demo.sql` к управляемой
+PostgreSQL Amvera по внешнему SSL-хосту.
+
+Разовая настройка:
+
+1. В Amvera создать проект «Приложение» (способ загрузки — Git, отслеживаемая
+   ветка `master`) и сервис PostgreSQL; для СУБД создать внешнее доменное имя
+   (тип POSTGRES).
+2. В проекте Amvera задать секрет `Storage__ConnectionString` — подключение к
+   СУБД по внутреннему хосту `amvera-<user>-cnpg-<pg-project>-rw` (в Production
+   валидатор требует явную строку подключения).
+3. В GitHub (Settings → Secrets and variables → Actions) задать секреты для
+   `deploy.yml`:
+
+| Секрет               | Значение                                                         |
+| -------------------- | ---------------------------------------------------------------- |
+| `AMVERA_TOKEN`       | токен аккаунта Amvera (Настройки профиля → Токены)               |
+| `AMVERA_USER`        | имя пользователя Amvera                                          |
+| `AMVERA_PROJECT`     | имя проекта-приложения в Amvera                                  |
+| `AMVERA_PG_HOST`     | внешний хост PostgreSQL (`<project>-<user>.db-msk0.amvera.tech`) |
+| `AMVERA_PG_DB`       | имя базы данных                                                  |
+| `AMVERA_PG_USER`     | пользователь базы                                                |
+| `AMVERA_PG_PASSWORD` | пароль базы                                                      |
+
+4. Запустить воркфлоу `deploy` (Actions → deploy → Run workflow, ветка
+   `master`). После сборки приложение доступно на
+   `https://<project>-<user>.amvera.io`; здоровье — `GET /health`.
+
 ## Демо-учётки и данные
 
 Данные живут в PostgreSQL (применяются скриптами `src/api/db/`, сид приложения
@@ -103,10 +161,10 @@ Development «письма» восстановления пароля не от
 
 ### Демо-учётки
 
-| Логин | Пароль | Роль | Группа |
-| --- | --- | --- | --- |
-| `teacher` | `teacher123!` | преподаватель | — |
-| `studentNN`, NN = 01…32 | `student123!` | студент | 01–25 → ИК-221, 26–30 → ИК-222, 31–32 — без группы |
+| Логин                   | Пароль        | Роль          | Группа                                             |
+| ----------------------- | ------------- | ------------- | -------------------------------------------------- |
+| `teacher`               | `teacher123!` | преподаватель | —                                                  |
+| `studentNN`, NN = 01…32 | `student123!` | студент       | 01–25 → ИК-221, 26–30 → ИК-222, 31–32 — без группы |
 
 Логин/пароль преподавателя и включение демо-набора настраиваются переменными
 `Seed__TeacherLogin`, `Seed__TeacherPassword`, `Seed__DemoData` (полная таблица

@@ -1,0 +1,70 @@
+# Этап 3 CD: деплой в Amvera — только ручным запуском (workflow_dispatch).
+#
+# Цепочка: применить схему БД (идемпотентные скрипты по внешнему SSL-хосту
+# управляемой PostgreSQL Amvera) → запушить снапшот выбранной ветки в
+# git-репозиторий проекта Amvera → Amvera сам собирает Dockerfile и деплоит.
+# Тесты здесь не гоняем: качество ветки гарантирует PR-гейт (pr-checks.yml).
+#
+# Необходимые секреты репозитория (Settings → Secrets and variables → Actions):
+#   AMVERA_TOKEN      — токен аккаунта Amvera (Настройки профиля → Токены)
+#   AMVERA_USER       — имя пользователя Amvera (часть git-URL и хостов БД)
+#   AMVERA_PROJECT    — имя проекта-приложения в Amvera (ветка master)
+#   AMVERA_PG_HOST    — внешний хост PostgreSQL (домен типа POSTGRES,
+#                       например labs-pg-<user>.db-msk0.amvera.tech)
+#   AMVERA_PG_DB      — имя базы данных
+#   AMVERA_PG_USER    — пользователь базы
+#   AMVERA_PG_PASSWORD — пароль базы
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Ветка для деплоя (снапшот уйдёт в Amvera)'
+        required: true
+        default: 'master'
+        type: string
+
+# Деплои не гоним параллельно: новый запуск ждёт завершения предыдущего.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  # Схема и демо-данные — до пуше кода: деплой не стартует, если БД недоступна.
+  db-schema:
+    name: db-schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Применить 02_schema.sql и 03_seed_demo.sql (идемпотентно)
+        run: |
+          psql "postgresql://${{ secrets.AMVERA_PG_USER }}:${{ secrets.AMVERA_PG_PASSWORD }}@${{ secrets.AMVERA_PG_HOST }}:5432/${{ secrets.AMVERA_PG_DB }}?sslmode=require" \
+            -v ON_ERROR_STOP=1 \
+            -f src/api/db/02_schema.sql \
+            -f src/api/db/03_seed_demo.sql
+
+  # Снапшот ветки → git-репозиторий Amvera. Пуш в отслеживаемую ветку master
+  # запускает сборку Dockerfile и выкатку контейнера. Force-push держит
+  # репозиторий Amvera зеркалом ветки (без расходящейся истории).
+  push-amvera:
+    name: push-amvera
+    needs: db-schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Push снапшота ветки в git.amvera.ru
+        run: |
+          git remote add amvera "https://${{ secrets.AMVERA_USER }}:${{ secrets.AMVERA_TOKEN }}@git.amvera.ru/${{ secrets.AMVERA_USER }}/${{ secrets.AMVERA_PROJECT }}.git"
+          git push --force amvera HEAD:master
+
+      - name: Ссылка на сборку в Amvera
+        run: |
+          echo "Сборка запущена: https://amvera.ru/${{ secrets.AMVERA_USER }}/${{ secrets.AMVERA_PROJECT }}"
+          echo "После сборки приложение: https://${{ secrets.AMVERA_PROJECT }}-${{ secrets.AMVERA_USER }}.amvera.io (проверить /health)"

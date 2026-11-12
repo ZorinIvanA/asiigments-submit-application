@@ -1,0 +1,136 @@
+# Этап 2 CI: Pull Request в master — полный гейт слияния.
+#
+# Юнит + интеграционные тесты + линтер. Имена джоб (unit / client-unit,
+# integration-zones, integration-b23, integration-angular, lint-client,
+# lint-api) — это статусы для branch protection master: пока не пройдены,
+# PR слить нельзя (Settings → Branches → Require status checks).
+name: pr-checks
+
+on:
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
+
+jobs:
+  # Юнит-тесты — тот же прогон, что и на этапе 1 (переиспользование воркфлоу).
+  unit:
+    uses: ./.github/workflows/unit.yml
+
+  # Интеграционные зоны API: каждая зона — отдельный csproj со своим
+  # WebApplicationFactory (in-memory хранилище, БД не нужна). B-23 вынесен
+  # в джобу integration-b23 — ему нужна живая PostgreSQL.
+  integration-zones:
+    name: integration-zones
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Интеграционные зоны B-01…B-22 (dotnet test по каждой)
+        run: |
+          for proj in $(find tests/integration -name '*.csproj' -not -path '*B-23*' | sort); do
+            echo "::group::dotnet test $proj"
+            dotnet test "$proj" --nologo
+            echo "::endgroup::"
+          done
+
+  # B-23 — сквозные проверки на реальной PostgreSQL: зона хардкодит строку
+  # подключения 127.0.0.1:5434 (labsapp/labsapp/labsapp), поэтому service
+  # container отображает хостовый порт 5434 на 5432 контейнера — код зоны
+  # не трогаем. Схема и демо-данные применяются идемпотентными скриптами.
+  integration-b23:
+    name: integration-b23
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: labsapp
+          POSTGRES_PASSWORD: labsapp
+          POSTGRES_DB: labsapp
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U labsapp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Схема и демо-данные (02/03 — идемпотентные скрипты)
+        run: |
+          psql "postgresql://labsapp:labsapp@127.0.0.1:5434/labsapp" \
+            -v ON_ERROR_STOP=1 \
+            -f src/api/db/02_schema.sql \
+            -f src/api/db/03_seed_demo.sql
+
+      - name: Интеграционная зона B-23 (реальная БД)
+        run: dotnet test tests/integration/B-23 --nologo
+
+  # Интеграционные зоны клиента (B-17/B-18) — отдельные karma-проекты.
+  integration-angular:
+    name: integration-angular
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Зоны клиента B-17 и B-18 (Karma, ChromeHeadless)
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: |
+          npm ci
+          npx ng test --project integration-b17 --watch=false --browsers=ChromeHeadlessNoSandbox
+          npx ng test --project integration-b18 --watch=false --browsers=ChromeHeadlessNoSandbox
+
+  # Линтер клиента: ESLint (статанализ + шаблоны) + Prettier (форматирование)
+  # + прод-сборка (strict-шаблоны и бюджеты как дополнительный статический гейт).
+  lint-client:
+    name: lint-client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: ESLint
+        run: |
+          npm ci
+          npm run lint
+      - name: Prettier (проверка форматирования)
+        run: npm run format:check
+      - name: Прод-сборка клиента
+        run: npm run build
+
+  # Линтер API: dotnet format по .editorconfig (отступ [*.cs] = 4; сборка
+  # с TreatWarningsAsErrors дополнительно запрещает предупреждения).
+  lint-api:
+    name: lint-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: dotnet format --verify-no-changes
+        run: dotnet format src/api/LabsApp.sln --verify-no-changes
