@@ -1,0 +1,16 @@
+# Не попадает в docker-контекст: кэши, артефакты сборки и каталоги,
+# которые образу не нужны (клиент собирается из src/client, API — из src/api).
+.git
+.github
+.angular
+.pipeline
+.vscode
+node_modules
+dist
+coverage
+tests
+docs
+design
+.gitignore
+.dockerignore
+*.md

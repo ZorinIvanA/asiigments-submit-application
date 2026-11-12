@@ -1,0 +1,13 @@
+# Конфигурация проекта Amvera: собираем Dockerfile из корня репозитория
+# (multi-stage: node → dotnet sdk → aspnet runtime, см. Dockerfile).
+# Способ загрузки — git-репозиторий Amvera, куда код пушит воркфлоу
+# .github/workflows/deploy.yml (ручной запуск).
+meta:
+  environment: docker
+  toolchain:
+    name: docker
+
+run:
+  # Kestrel слушает 80 (ASPNETCORE_URLS в Dockerfile) — наружу Amvera
+  # отдаёт HTTPS-домен проекта сам.
+  containerPort: 80
