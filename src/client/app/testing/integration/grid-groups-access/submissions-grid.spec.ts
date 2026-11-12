@@ -1,9 +1,10 @@
 /**
  * Интеграционные спеки ведомости преподавателя /submissions (батч 3, FR-4.4,
  * SCR-009): реальные SubmissionsPage + core-сервисы на реальном HTTP-ядре
- * (HttpClient, без интерцептора) поверх программируемого
+ * (HttpClient + authInterceptor) поверх программируемого
  * HttpTestingController-бэкенда GridBackendStub с сидом зоны; серверная
- * аутентификации нет — бэкенд всегда отвечает от имени сид-преподавателя.
+ * сессия teacher — serverSession (признак сессии — память AuthService,
+ * FR-092).
  *
  * Покрываемые согласованные сценарии (scenarios.batch3.json, automation:
  * automated): TS-301 (дефолты), TS-302 (датапик: upsert обеих дат), TS-303
@@ -70,6 +71,7 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
     lab1 = env.backend.labId(1, 1);
     lab2 = env.backend.labId(1, 2);
     lab6 = env.backend.labId(1, 6);
+    env.serverSession('teacher');
   });
 
   afterEach(() => {
@@ -241,7 +243,7 @@ describe('SubmissionsPage — интеграция с реальным HTTP-яд
       );
     expect(saved?.submitDate).toBe('2026-09-15');
     expect(saved?.defenseDate).toBeNull();
-    expect(saved?.updatedBy).withContext('updated_by — id сид-преподавателя').toBe(teacherId);
+    expect(saved?.updatedBy).withContext('updated_by — id преподавателя сессии').toBe(teacherId);
 
     expect(cellInput(1, 6, 'submit').value).toBe('15.09.2026');
 

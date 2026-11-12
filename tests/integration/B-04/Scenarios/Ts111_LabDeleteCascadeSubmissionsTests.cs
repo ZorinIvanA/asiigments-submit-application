@@ -32,7 +32,7 @@ public sealed class Ts111_LabDeleteCascadeSubmissionsTests(B04LabsWebAppFactory 
         var student = await B04DomainSeed.AddStudentAsync(users, "b04-ts111-student", group.Id);
         var lab = await B04DomainSeed.AddLabAsync(labs, semester: 3, number: 7);
 
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         using var created = await client.PutAsJsonAsync("/api/v1/submissions", new
         {

@@ -37,9 +37,10 @@ describe('Интеграция: список лабораторных /works (FR
     localStorage.clear();
   });
 
-  /** Монтирование и открытие /works с загруженным сидом (анонимно). */
+  /** Монтирование, сессия teacher и открытие /works с загруженным сидом. */
   function openWorks(): void {
     harness.attach();
+    harness.loginTeacher();
     harness.navigate('/works');
     harness.flush(); // getList + getSemesters параллельно
   }

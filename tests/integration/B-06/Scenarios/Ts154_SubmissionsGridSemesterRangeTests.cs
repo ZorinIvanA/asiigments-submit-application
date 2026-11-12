@@ -39,7 +39,7 @@ public sealed class Ts154_SubmissionsGridSemesterRangeTests : IClassFixture<B06S
         Assert.Equal(
             LabsOptions.DefaultMaxSemester,
             _factory.Services.GetRequiredService<IOptions<LabsOptions>>().Value.MaxSemester);
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when/then: semester=0 (ниже 1) — 400, не 200 с пустыми массивами.
         using var belowRange = await B06SubmissionsApi.GetGridAsync(client, _groupId, semester: "0", page: "1");

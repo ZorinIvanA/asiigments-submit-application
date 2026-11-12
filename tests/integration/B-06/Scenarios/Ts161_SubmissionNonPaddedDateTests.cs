@@ -35,10 +35,10 @@ public sealed class Ts161_SubmissionNonPaddedDateTests : IClassFixture<B06Submis
     [Fact]
     public async Task PutSubmissionWithNonPaddedDate_Returns400WithDateError()
     {
-        // given: анонимный клиент; пара student05×1.4 свободна (валидные studentId/labId).
+        // given: teacher-сессия; пара student05×1.4 свободна (валидные studentId/labId).
         Assert.Null(await _factory.Services.GetRequiredService<ISubmissionRepository>()
             .GetByStudentAndLabAsync(_studentId, _labId));
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /submissions с непаддированной датой '2026-9-5'.
         using var response = await B06SubmissionsApi.PutSubmissionAsync(

@@ -1,5 +1,5 @@
-<!-- Страница «Профиль» (/profile) — макет SCR-014: карточка-форма
-     «Основные данные» со своим якорем мобильных уведомлений. -->
+<!-- Страница «Профиль» (/profile) — макет SCR-014: две карточки-формы,
+     у каждой свой якорь мобильных уведомлений (AR-017). -->
 <div class="profile-page">
   <h1 class="profile-page__title" data-test="page-title">Профиль</h1>
 
@@ -87,8 +87,109 @@
           </div>
         </form>
 
-        <!-- Мобильный баннер ошибок ЭТОЙ формы: клиентская валидация и 409 email. -->
+        <!-- Мобильный баннер ошибок ЭТОЙ формы: клиентская валидация и 409 email (AR-017). -->
         <app-notification-anchor [formId]="profileFormId" data-test="profile-anchor" />
+      </section>
+
+      <section class="profile-card">
+        <h2 class="profile-card__title" data-test="password-card-title">Смена пароля</h2>
+
+        <div class="profile-requirements" data-test="password-requirements">
+          <b class="profile-requirements__title" data-test="password-requirements-title">
+            {{ passwordRequirementsTitle }}
+          </b>
+          <span data-test="password-requirements-text">{{ passwordRequirements }}</span>
+        </div>
+
+        <form
+          class="profile-card__form"
+          [formGroup]="passwordForm"
+          (ngSubmit)="changePassword()"
+          data-test="password-form"
+        >
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="currentPasswordError() !== null"
+            data-test="current-password-field"
+          >
+            <label class="profile-field__label" for="profile-current-password">
+              Текущий пароль
+            </label>
+            <input
+              id="profile-current-password"
+              class="profile-field__input"
+              type="password"
+              pInputText
+              formControlName="currentPassword"
+              autocomplete="current-password"
+              data-test="current-password-input"
+            />
+            @if (currentPasswordError(); as error) {
+              <div class="profile-field__error" data-test="current-password-error">
+                {{ error }}
+              </div>
+            }
+          </div>
+
+          <div aria-hidden="true"></div>
+
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="newPasswordError() !== null"
+            data-test="new-password-field"
+          >
+            <label class="profile-field__label" for="profile-new-password">Новый пароль</label>
+            <input
+              id="profile-new-password"
+              class="profile-field__input"
+              type="password"
+              pInputText
+              formControlName="password"
+              autocomplete="new-password"
+              data-test="new-password-input"
+            />
+            @if (newPasswordError(); as error) {
+              <div class="profile-field__error" data-test="new-password-error">{{ error }}</div>
+            }
+          </div>
+
+          <div
+            class="profile-field"
+            [class.profile-field--invalid]="repeatPasswordError() !== null"
+            data-test="repeat-password-field"
+          >
+            <label class="profile-field__label" for="profile-repeat-password">
+              Повторите пароль
+            </label>
+            <input
+              id="profile-repeat-password"
+              class="profile-field__input"
+              type="password"
+              pInputText
+              formControlName="confirmPassword"
+              autocomplete="new-password"
+              data-test="repeat-password-input"
+            />
+            @if (repeatPasswordError(); as error) {
+              <div class="profile-field__error" data-test="repeat-password-error">
+                {{ error }}
+              </div>
+            }
+          </div>
+
+          <div class="profile-card__actions">
+            <p-button
+              type="submit"
+              label="Сменить пароль"
+              [loading]="changePasswordState.busy()"
+              [disabled]="changePasswordState.busy()"
+              data-test="password-submit"
+            />
+          </div>
+        </form>
+
+        <!-- Мобильный баннер ошибок ЭТОЙ формы: «Неверный текущий пароль» и валидация (AR-017). -->
+        <app-notification-anchor [formId]="passwordFormId" data-test="password-anchor" />
       </section>
     }
   }

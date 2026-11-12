@@ -29,7 +29,7 @@ public sealed class Ts113_LabSortFallbackSecondaryAscTests(B04LabsWebAppFactory 
         await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 2);
         await B04DomainSeed.AddLabAsync(labs, semester: 2, number: 1);
         await B04DomainSeed.AddLabAsync(labs, semester: 2, number: 2);
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: sortField/sortDir вне словаря.
         using var fallback = await client.GetAsync("/api/v1/labs?sortField=garbage&sortDir=garbage");

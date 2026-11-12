@@ -691,14 +691,14 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
 
   it('ошибка загрузки селекторов: notifyError якорем "header", таблица скрыта', async () => {
     groupsServiceSpy.getList.and.returnValue(
-      Promise.reject({ status: 500, body: { message: 'Ошибка сервера' } }),
+      Promise.reject({ status: 403, body: { message: 'Доступ запрещён' } }),
     );
     const fixture = await createPage();
     const root: HTMLElement = fixture.nativeElement;
 
     expect(notifications?.desktopMessage()).toEqual({
       severity: 'error',
-      text: 'Ошибка сервера',
+      text: 'Доступ запрещён',
     });
     expect(root.querySelector('p-table')).toBeNull();
     expect(submissionsServiceSpy.getGrid).not.toHaveBeenCalled();

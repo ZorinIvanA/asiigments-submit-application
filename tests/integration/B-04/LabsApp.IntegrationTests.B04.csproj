@@ -2,7 +2,7 @@
 
   <!--
     Интеграционные тесты батча B-04 (спека v2.2, пересборка кейсов): лабораторные —
-    список/CRUD/семестр (TS-105..TS-118, FR-017/FR-021) и студенты —
+    список/CRUD/семестр (TS-105..TS-118, FR-017/FR-021/FR-022) и студенты —
     многословный поиск (TS-129, FR-020). Зона батча: tests/integration/B-04.
     Реализация (src/api) не изменяется: LabsApp остаётся net8.0 (FR-001); зона ссылается
     на него ProjectReference и не включается в solution src/api — батчи пишут зоны
@@ -51,7 +51,7 @@
     content для LabInput спека не фиксирует), Ts109/Ts110/Ts111 → Ts097 (контракт
     PUT: самоконфликт 200, чужая пара 409, невалидное тело 400 раньше 404,
     несуществующий id 404), Ts112 → Ts099 (каскад удаления и DELETE-404),
-    Ts113 → Ts100 (роли 403/401; оба файла удалены при де-авторизации), Ts129 → Ts107 зоны B-05 (многословный поиск
+    Ts113 → Ts100 (роли 403/401), Ts129 → Ts107 зоны B-05 (многословный поиск
     студентов, зона-владелец tests/integration/B-05). Утверждение оракула
     «content:'   ' → 'Заполните поле'» старого Ts116 противоречит словарю
     (lab.content — текст нарушения ДЛИНЫ; пустое — required только в клиентском
@@ -71,13 +71,6 @@
     до/после DELETE (CR-001) — сильная каскад-проверка более не привязана
     к староволновым файлам. Критерий закрытия: dotnet build зоны — 0 ошибок,
     dotnet test зоны зелёный.
-
-    Дополнение раунда де-авторизации (аутентификация удалена из src/api/LabsApp):
-    сценарии ролевой матрицы 401/403 (Ts100, Ts112, Ts113 — «student 403,
-    анонимно 401») удалены вместе с минт-сессиями ITokenService (MintedSessions);
-    доменные кейсы ходят анонимно («текущий пользователь» — сид-преподаватель,
-    Seed__TeacherLogin). Файл Ts113_LabRolesTests (староволновой, целиком
-    ролевой) удалён из зоны — исключение из компиляции снято.
   -->
   <ItemGroup>
     <Compile Remove="Scenarios\Ts105_LabCreateEmptyUrlTests.cs" />
@@ -88,6 +81,7 @@
     <Compile Remove="Scenarios\Ts110_LabPutForeignPairConflictTests.cs" />
     <Compile Remove="Scenarios\Ts111_LabPutUnknownIdTests.cs" />
     <Compile Remove="Scenarios\Ts112_LabDeleteCascadeTests.cs" />
+    <Compile Remove="Scenarios\Ts113_LabRolesTests.cs" />
     <Compile Remove="Scenarios\Ts114_LabNumberValidationTests.cs" />
     <Compile Remove="Scenarios\Ts115_LabNumberStringTests.cs" />
     <Compile Remove="Scenarios\Ts116_LabContentBoundaryTests.cs" />

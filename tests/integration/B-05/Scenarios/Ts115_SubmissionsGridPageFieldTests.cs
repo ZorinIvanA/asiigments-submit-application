@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-115 (P0, happy_path; FR-021 AC «Поле page присутствует в ответе», AR-003)
 /// «Ведомость: поле page присутствует в ответе».
-/// given: ИК-221, 25 студентов, семестр 1 (демо-сид FR-004); анонимный доступ (текущий пользователь — сид-преподаватель).
+/// given: ИК-221, 25 студентов, семестр 1 (демо-сид FR-004); сессия teacher.
 /// when:  GET /submissions?groupId=&lt;ИК-221&gt;&amp;semester=1&amp;page=2
 /// then:  200; тело содержит поля students, labs, submissions, total И page=2
 ///        (клиентское DTO {students,labs,submissions,total} — подмножество полей
@@ -20,9 +20,9 @@ public sealed class Ts115_SubmissionsGridPageFieldTests : IClassFixture<B05WebAp
     [Fact]
     public async Task SecondPage_BodyContainsClientFieldsAndPage2()
     {
-        // given: ИК-221; анонимный запрос (текущий пользователь — сид-преподаватель).
+        // given: ИК-221; teacher авторизован.
         var ik221 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-221");
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: вторая страница ведомости.
         using var response = await client.GetAsync(

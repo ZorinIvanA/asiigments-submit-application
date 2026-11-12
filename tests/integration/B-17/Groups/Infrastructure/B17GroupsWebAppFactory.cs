@@ -6,9 +6,10 @@ namespace LabsApp.IntegrationTests.B17.Groups.Infrastructure;
 
 /// <summary>
 /// Тестовый хост сценариев групп батча B-17 (зона tests/integration/B-17/Groups).
-/// Окружение — Development. Аутентификации в приложении нет: все эндпоинты
-/// публичны, «текущий пользователь» — засеянный преподаватель
-/// (Seed__TeacherLogin). Seed__DemoData задаётся ЯВНО производной фикстурой.
+/// Окружение — Development; секреты Auth__JwtKey/Seed__TeacherPassword
+/// зафиксированы, Auth__Pbkdf2Iterations=1000 — тестовое умолчание спеки
+/// (FR-027: малые итерации KDF в тестовом хосте); Seed__DemoData задаётся ЯВНО
+/// производной фикстурой.
 ///
 /// Данные given кейсов — демо-сид спеки (<see cref="B17GroupsDemoDataFactory"/>:
 /// Seed__DemoData=true точно воспроизводит src/client/app/mock/seed.ts — группы
@@ -28,6 +29,12 @@ namespace LabsApp.IntegrationTests.B17.Groups.Infrastructure;
 /// </summary>
 public class B17GroupsWebAppFactory : WebApplicationFactory<Program>
 {
+    /// <summary>Ключ подписи JWT тестового хоста (FR-008: ≥32 символа).</summary>
+    public const string TestJwtKey = "b17-groups-integration-test-jwt-signing-key-0123456789abcdef";
+
+    /// <summary>Пароль сид-преподавателя фикстуры (значение непусто для хэширования сида).</summary>
+    public const string TestTeacherPassword = "b17-groups-teacher-password1!";
+
     /// <summary>Демо-набор включён (true: ИК-221/222/223 + student01..32) или пустое хранилище.</summary>
     protected virtual bool SeedDemoData => false;
 
@@ -53,6 +60,9 @@ public class B17GroupsWebAppFactory : WebApplicationFactory<Program>
         // фабрики попадают в аргументы точки входа до запуска Program, поэтому
         // ключи передаются с разделителем ':' ('__'-иерархию создаёт только
         // провайдер переменных окружения).
+        builder.UseSetting("Auth:JwtKey", TestJwtKey);
+        builder.UseSetting("Auth:Pbkdf2Iterations", "1000");
+        builder.UseSetting("Seed:TeacherPassword", TestTeacherPassword);
         builder.UseSetting("Seed:DemoData", SeedDemoData ? "true" : "false");
     }
 }

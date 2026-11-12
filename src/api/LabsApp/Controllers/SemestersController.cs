@@ -1,5 +1,6 @@
 using LabsApp.Domain.Entities;
 using LabsApp.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LabsApp.Controllers;
@@ -7,9 +8,12 @@ namespace LabsApp.Controllers;
 /// <summary>
 /// Контроллер перечня семестров (C-007, IF-009, FR-018): GET /api/v1/semesters →
 /// 200 int[] — различные номера семестров, по которым есть хотя бы одна работа,
-/// по возрастанию.
+/// по возрастанию. Доступ — любая аутентифицированная роль (student/teacher);
+/// анонимно — 401 «Не авторизован» от схемы аутентификации (Challenge, ADR-003);
+/// роль дополнительно не проверяется (FR-022: role=user).
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api/v1/semesters")]
 public sealed class SemestersController(ILabRepository labs) : ControllerBase
 {

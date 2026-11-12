@@ -1,0 +1,40 @@
+<div class="auth-page">
+  <form class="auth-card" [attr.id]="formId" [formGroup]="form" (ngSubmit)="submit()">
+    <h1 class="auth-card__title">Восстановление пароля</h1>
+    <p class="auth-card__step">Шаг 1 из 3</p>
+
+    <div class="field" [class.field--invalid]="errorTextOf('email') !== null">
+      <label for="email-input">Email</label>
+      <input
+        id="email-input"
+        type="email"
+        pInputText
+        formControlName="email"
+        autocomplete="email"
+      />
+      @if (errorTextOf('email'); as text) {
+        <div class="field__error">{{ text }}</div>
+      }
+    </div>
+
+    <div class="auth-card__actions">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        label="Отмена"
+        [disabled]="submitState.busy()"
+        (click)="cancel()"
+      ></button>
+      <button
+        pButton
+        type="submit"
+        label="Отправить код"
+        [loading]="submitState.busy()"
+        [disabled]="submitState.busy()"
+      ></button>
+    </div>
+
+    <app-notification-anchor [formId]="formId" />
+  </form>
+</div>

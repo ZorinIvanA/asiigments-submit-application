@@ -2,17 +2,20 @@
  * Конфигурация приложения (appConfig) — единый набор провайдеров бутстрапа:
  * маршруты, русская локаль, зона детекции изменений, асинхронные анимации,
  * тема PrimeNG Aura с кастомизацией design-токенов по макетам
- * (AppThemePreset, ADR-108) и HTTP-ядро (анонимная консоль преподавателя:
- * без интерцептора аутентификации и стартовой фазы сессии).
+ * (AppThemePreset, ADR-108), HTTP-ядро с интерцептором аутентификации
+ * (C-013, FR-091/FR-092) и холодный старт сессии в фазе APP_INITIALIZER
+ * (AuthService.initSession, FR-092).
  *
  * Относится к core/config по NFR-003 («сервисы и конфиг»).
  */
 import { registerLocaleData } from '@angular/common';
 import localeRu from '@angular/common/locales/ru';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   ApplicationConfig,
   LOCALE_ID,
+  inject,
+  provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
 } from '@angular/core';
@@ -23,6 +26,8 @@ import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
 import { providePrimeNG } from 'primeng/config';
 
+import { authInterceptor } from '../auth-interceptor';
+import { AuthService } from '../services/auth.service';
 import { routes } from './app.routes';
 import { PRIME_NG_RU } from './primeng-ru';
 
@@ -109,10 +114,18 @@ export const appConfig: ApplicationConfig = {
       },
       translation: PRIME_NG_RU,
     }),
-    // HTTP-ядро (T-017): HttpClient без интерцептора — приложение работает
-    // анонимно, все эндпоинты публичны и всегда обслуживают сид-преподавателя.
-    // Базовый префикс API_BASE_URL предоставляется фабрикой токена
-    // (core/api-base-url.ts, ADR-009) — явный провайдер не нужен.
-    provideHttpClient(),
+    // HTTP-ядро (T-017, контракт IF-014, FR-091/FR-092): HttpClient с
+    // функциональным интерцептором аутентификации — withCredentials на
+    // API-запросах, дедуплицированный 401 → POST /auth/refresh → повтор
+    // один раз. Базовый префикс API_BASE_URL предоставляется фабрикой
+    // токена (core/api-base-url.ts, ADR-009) — явный провайдер не нужен.
+    provideHttpClient(withInterceptors([authInterceptor])),
+    // Холодный старт сессии (FR-092, IF-014): инициализатор выполняется в
+    // фазе APP_INITIALIZER ДО первого решения guard'а — initSession
+    // (GET /auth/me) наполняет кэш currentUser при валидных cookie;
+    // 401/сеть — анонимный старт без необработанных исключений (редирект
+    // определяют guards). Мок-инициализатор прежней реализации удалён
+    // вместе с мок-слоем (FR-026(1), T-022/T-023).
+    provideAppInitializer(() => inject(AuthService).initSession()),
   ],
 };

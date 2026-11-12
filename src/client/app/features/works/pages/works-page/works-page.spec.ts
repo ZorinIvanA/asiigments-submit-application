@@ -667,21 +667,21 @@ describe('WorksPage — список лабораторных /works (T-112)', (
     });
 
     it('ошибка getList — notifyError дословно с якорем «header»', async () => {
-      labs.getList.and.rejectWith(apiError(500, 'Ошибка сервера'));
+      labs.getList.and.rejectWith(apiError(403, 'Доступ запрещён'));
 
       await createAndSettle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Ошибка сервера', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith('Доступ запрещён', 'header');
       expect(notifications.notifySuccess).not.toHaveBeenCalled();
     });
 
     it('ошибка getSemesters — notifyError, список всё равно загружен', async () => {
-      labs.getSemesters.and.rejectWith(apiError(500, 'Ошибка сервера'));
+      labs.getSemesters.and.rejectWith(apiError(403, 'Доступ запрещён'));
       labs.getList.and.resolveTo(makePage(makeLabs(1), 1, 1));
 
       await createAndSettle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Ошибка сервера', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith('Доступ запрещён', 'header');
       expect(native.querySelectorAll('tbody tr').length).toBe(1);
     });
   });

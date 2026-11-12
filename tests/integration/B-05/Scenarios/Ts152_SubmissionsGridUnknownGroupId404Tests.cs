@@ -8,7 +8,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-152 (P0, negative; FR-021 AC «Нет группы — 404») «Ведомость: неизвестная
 /// группа — 404».
 /// given: группы с указанным groupId не существует (случайный uuid — проверка по
-///        шву хранилища); анонимный доступ (текущий пользователь — сид-преподаватель).
+///        шву хранилища); сессия teacher.
 /// when:  GET /submissions?groupId=&lt;случайный-uuid&gt;&amp;semester=1&amp;page=1
 /// then:  404 'Группа не найдена'.
 /// </summary>
@@ -21,10 +21,10 @@ public sealed class Ts152_SubmissionsGridUnknownGroupId404Tests : IClassFixture<
     [Fact]
     public async Task UnknownGroupId_Returns404GroupNotFound()
     {
-        // given: группа с таким uuid в хранилище отсутствует; анонимный запрос (текущий пользователь — сид-преподаватель).
+        // given: группа с таким uuid в хранилище отсутствует; teacher авторизован.
         var unknownGroupId = Guid.NewGuid();
         Assert.Null(await _factory.Services.GetRequiredService<IGroupRepository>().GetByIdAsync(unknownGroupId));
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: ведомость по неизвестной группе.
         using var response = await client.GetAsync(

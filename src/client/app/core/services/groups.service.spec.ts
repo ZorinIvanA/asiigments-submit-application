@@ -2,9 +2,8 @@
  * Юнит-тесты GroupsService (C-014, FR-091) — все вызовы через
  * HttpTestingController (конвенция URL — ADR-014: ожидаемые URL строятся из
  * TestBed.inject(API_BASE_URL), литералы префикса запрещены).
- * Производственная цепочка — реальный HttpClient (без интерцептора:
- * приложение анонимно, все эндпоинты публичны; отказы нормализует сам
- * сервис — http-errors.ts):
+ * Производственная цепочка — реальный authInterceptor (withCredentials,
+ * нормализация отказов в ApiError, дедуплицированный refresh):
  *  - getList → GET /groups → GroupDto[];
  *  - create → POST /groups с телом {name} → 201 GroupDto;
  *  - rename → PUT /groups/{id} с телом {name} (id в пути, не в теле);
@@ -14,11 +13,12 @@
  *  - отказы 403/400+errors/409/404 — реджект ApiError той же формы
  *    (баннеры body.message и полевые errors работают без изменений).
  */
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
+import { authInterceptor } from '../auth-interceptor';
 import { API_BASE_URL } from '../api-base-url';
 import { ApiError, GroupDto, PagedResult, StudentDto } from '../../shared/models';
 import { GROUPS_PAGE_SIZE, GroupsService } from './groups.service';
@@ -49,7 +49,7 @@ describe('GroupsService — домен групп поверх HttpClient (FR-09
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
         provideRouter([]),
       ],
@@ -71,6 +71,9 @@ describe('GroupsService — домен групп поверх HttpClient (FR-09
       const request = httpMock.expectOne(`${apiBase}/groups`);
       expect(request.request.method).toBe('GET');
       expect(request.request.body).withContext('у GET тела нет').toBeNull();
+      expect(request.request.withCredentials)
+        .withContext('cookie-аутентификация — withCredentials (FR-091)')
+        .toBeTrue();
       request.flush([GROUP_221]);
 
       await expectAsync(pending).toBeResolvedTo([GROUP_221]);

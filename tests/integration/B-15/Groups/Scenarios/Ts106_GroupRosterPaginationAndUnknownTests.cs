@@ -34,7 +34,7 @@ public sealed class Ts106_GroupRosterPaginationAndUnknownTests : IClassFixture<B
     public async Task GetRosterPage3_ReturnsLastFiveStudentsOf25()
     {
         // given: сессия teacher; id группы с 25 студентами (ИК-221).
-        using var client = B15GroupsSession.CreateClient(_factory);
+        using var client = B15GroupsSession.CreateTeacher(_factory);
         var ik221Id = await B15GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=3.
@@ -76,7 +76,7 @@ public sealed class Ts106_GroupRosterPaginationAndUnknownTests : IClassFixture<B
     public async Task GetRosterOfUnknownGroup_ReturnsNotFound()
     {
         // given: сессия teacher; группы с указанным uuid не существует.
-        using var client = B15GroupsSession.CreateClient(_factory);
+        using var client = B15GroupsSession.CreateTeacher(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: GET /groups/<несуществующий-uuid>/students.

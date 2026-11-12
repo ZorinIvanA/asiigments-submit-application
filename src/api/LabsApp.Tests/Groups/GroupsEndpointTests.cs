@@ -1,6 +1,8 @@
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using LabsApp.Auth;
 using LabsApp.Controllers;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting;
@@ -60,14 +62,14 @@ internal static class GroupsEndpointHarness
     {
         var teacher = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
-        return CreateAnonymousClient(factory);
+        return CreateSessionClient(factory, teacher.Id, UserRoles.Teacher);
     }
 
     public static async Task<HttpClient> CreateStudentClient(TestWebAppFactory factory)
     {
         var student = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("student01");
         Assert.NotNull(student);
-        return CreateAnonymousClient(factory);
+        return CreateSessionClient(factory, student.Id, UserRoles.Student);
     }
 
     public static HttpClient CreateAnonymousClient(TestWebAppFactory factory) =>
@@ -128,6 +130,18 @@ internal static class GroupsEndpointHarness
     public static string[] ErrorOf(JsonElement errors, string field) =>
         [.. errors.GetProperty(field).EnumerateArray().Select(item => item.GetString() ?? string.Empty)];
 
+    private static HttpClient CreateSessionClient(TestWebAppFactory factory, Guid userId, string role)
+    {
+        var token = factory.Services
+            .GetRequiredService<ITokenService>()
+            .IssueAccessToken(userId, role);
+
+        var client = CreateAnonymousClient(factory);
+        client.DefaultRequestHeaders.Add(
+            "Cookie",
+            $"{AuthCoreDefaults.AccessTokenCookieName}={token}");
+        return client;
+    }
 }
 
 /// <summary>
@@ -164,6 +178,27 @@ public sealed class GroupsListEndpointTests(GroupsApiFixture fixture) : IClassFi
         Assert.Equal(new[] { 25, 5, 0 }, counts);
     }
 
+    [Fact]
+    public async Task List_Student_Returns403ForbiddenEnvelope()
+    {
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
+
+        using var response = await client.GetAsync(GroupsEndpointHarness.GroupsEndpoint);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await GroupsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task List_Anonymous_Returns401Envelope()
+    {
+        using var client = GroupsEndpointHarness.CreateAnonymousClient(_factory);
+
+        using var response = await client.GetAsync(GroupsEndpointHarness.GroupsEndpoint);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Не авторизован", await GroupsEndpointHarness.MessageAsync(response));
+    }
 }
 
 /// <summary>
@@ -726,6 +761,94 @@ public sealed class GroupsStudentsEndpointTests(GroupsApiFixture fixture) : ICla
 }
 
 /// <summary>
+/// FR-022 (представитель группы groups*): анонимно — 401, student — 403,
+/// причём роль проверяется раньше валидации тела (400) и существования записи
+/// (404); teacher — статус по бизнес-правилам.
+/// </summary>
+public sealed class GroupsRolesEndpointTests(GroupsApiFixture fixture) : IClassFixture<GroupsApiFixture>
+{
+    private readonly TestWebAppFactory _factory = fixture.Factory;
+
+    [Fact]
+    public async Task Post_Student_Returns403AndDoesNotCreate()
+    {
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
+
+        using var response = await client.PostAsync(
+            GroupsEndpointHarness.GroupsEndpoint,
+            GroupsEndpointHarness.Json("""{"name":"Студенческая-группа"}"""));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await GroupsEndpointHarness.MessageAsync(response));
+        Assert.Null(await GroupsEndpointHarness.Groups(_factory).GetByNameAsync("студенческая-группа"));
+    }
+
+    [Fact]
+    public async Task Post_StudentBrokenJson_403Before400()
+    {
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
+
+        // Роль проверяется раньше разбора тела: битый JSON не превращает отказ в 400.
+        using var response = await client.PostAsync(
+            GroupsEndpointHarness.GroupsEndpoint,
+            GroupsEndpointHarness.Json("""{"name": broken"""));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await GroupsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Put_StudentNonexistentIdInvalidBody_403Before400And404()
+    {
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
+
+        // Роль раньше валидации тела (400) и поиска записи (404).
+        using var response = await client.PutAsync(
+            $"{GroupsEndpointHarness.GroupsEndpoint}/{Guid.NewGuid()}",
+            GroupsEndpointHarness.Json("""{"name":""}"""));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await GroupsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Delete_StudentNonexistentId_403Before404()
+    {
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
+
+        using var response = await client.DeleteAsync(
+            $"{GroupsEndpointHarness.GroupsEndpoint}/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await GroupsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Students_Student_Returns403()
+    {
+        var group = await GroupsEndpointHarness.GroupByNameAsync(_factory, "ИК-221");
+        using var client = await GroupsEndpointHarness.CreateStudentClient(_factory);
+
+        using var response = await client.GetAsync(
+            $"{GroupsEndpointHarness.GroupsEndpoint}/{group.Id}/students");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await GroupsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task GetList_Teacher_BusinessStatus()
+    {
+        using var client = await GroupsEndpointHarness.CreateTeacherClient(_factory);
+
+        using var response = await client.GetAsync(GroupsEndpointHarness.GroupsEndpoint);
+
+        // Своей ролью — не 401/403, а статус по бизнес-правилам (200).
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+}
+
+/// <summary>
 /// Юнит-ветка 409-фолбэка PUT (IF-015 CONFLICT): гонка двух переименований на одно
 /// имя не воспроизводима через публичный API детерминированно — pre-check
 /// GetByName перекрывает её; атомарная замена репозитория сигнализирует конфликт
@@ -767,9 +890,12 @@ public sealed class GroupsUpdateRaceConflictUnitTests
             storage.Users,
             new FakeTimeProvider());
 
+        var teacher = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.Role, UserRoles.Teacher) },
+            "TestAuth"));
         controller.ControllerContext = new ControllerContext
         {
-            HttpContext = new DefaultHttpContext(),
+            HttpContext = new DefaultHttpContext { User = teacher },
         };
         controller.ControllerContext.HttpContext.Request.Body = new MemoryStream(
             Encoding.UTF8.GetBytes("""{"name":"Переименование-гонки"}"""));

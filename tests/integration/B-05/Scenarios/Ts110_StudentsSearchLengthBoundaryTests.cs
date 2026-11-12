@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-110 (P0, boundary; FR-020 AC «Поиск длиннее 200», FR-023) «Студенты:
 /// граница длины поиска 200/201».
-/// given: анонимный доступ (текущий пользователь — сид-преподаватель).
+/// given: сессия teacher.
 /// when:  GET /students?search=&lt;ровно 200 символов&gt;; GET /students?search=&lt;201 символ&gt;.
 /// then:  первый — 200 (фильтр применяется); второй — 400 'Данные заполнены неверно'
 ///        + errors.search=['Поиск — не более 200 символов'].
@@ -19,8 +19,8 @@ public sealed class Ts110_StudentsSearchLengthBoundaryTests : IClassFixture<B05W
     [Fact]
     public async Task SearchOfExactly200Chars_IsAcceptedAndFilterApplies()
     {
-        // given: анонимный запрос (текущий пользователь — сид-преподаватель).
-        using var client = HostClients.Create(_factory);
+        // given: teacher авторизован.
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search ровно 200 символов (ни один сид-студент не содержит её).
         var search = Uri.EscapeDataString(new string('x', 200));
@@ -37,8 +37,8 @@ public sealed class Ts110_StudentsSearchLengthBoundaryTests : IClassFixture<B05W
     [Fact]
     public async Task SearchOf201Chars_IsRejectedWithFieldError()
     {
-        // given: анонимный запрос (текущий пользователь — сид-преподаватель).
-        using var client = HostClients.Create(_factory);
+        // given: teacher авторизован.
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search из 201 символа.
         var search = Uri.EscapeDataString(new string('и', 201));

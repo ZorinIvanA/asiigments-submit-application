@@ -1,0 +1,84 @@
+// Общие стили страниц фичи auth (ревью CR-004 T-110): карточка 400px по
+// центру страницы #F1F5F9, поля 44px, пара кнопок шага, подпись/подсветка
+// полей — единый источник по образцу styles/_breakpoint.scss; подключение
+// — @use '../auth-shared' в стилях страницы. Специфичные блоки (kicker,
+// подписи шагов, требования к паролю и т.п.) остаются в стилях страниц;
+// часть общих блоков используется подмножеством пяти экранов.
+@use '../../../../styles/breakpoint' as bp;
+
+:host {
+  display: block;
+}
+
+.auth-page {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 48px 24px;
+  background: var(--p-surface-ground, #f1f5f9);
+
+  @include bp.mobile {
+    padding: 24px 16px;
+  }
+}
+
+.auth-card {
+  width: 400px;
+  max-width: 100%;
+  padding: 32px;
+  background: var(--p-surface-card, #ffffff);
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.field {
+  margin: 0 0 16px;
+
+  label {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--p-text-color, #1e293b);
+  }
+
+  // Поля 44px — токен макетов (ADR-108).
+  input {
+    width: 100%;
+    height: 44px;
+  }
+}
+
+.field__hint {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--p-text-muted-color, #64748b);
+}
+
+.field__error {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--p-red-500, #dc2626);
+}
+
+.field--invalid input {
+  border-color: var(--p-red-500, #dc2626);
+  background: var(--p-red-50, #fef2f2);
+}
+
+// Пара кнопок шага: «Отмена» (вторичная) и действие (первичная),
+// равной ширины в одну строку; на узких экранах переносятся.
+.auth-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  button {
+    flex: 1 1 0;
+    height: 44px;
+  }
+}

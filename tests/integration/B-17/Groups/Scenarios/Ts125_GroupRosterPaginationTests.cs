@@ -28,7 +28,7 @@ public sealed class Ts125_GroupRosterPaginationTests : IClassFixture<B17GroupsDe
     public async Task GetRosterPage3_ReturnsLastFiveStudentsOf25()
     {
         // given: сессия teacher; id группы ИК-221.
-        using var client = B17GroupsSession.CreateClient(_factory);
+        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B17GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=3.
@@ -65,7 +65,7 @@ public sealed class Ts125_GroupRosterPaginationTests : IClassFixture<B17GroupsDe
     public async Task GetRosterWithNonNumericPage_NormalizesToPage1()
     {
         // given: сессия teacher; id группы ИК-221.
-        using var client = B17GroupsSession.CreateClient(_factory);
+        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B17GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=abc.

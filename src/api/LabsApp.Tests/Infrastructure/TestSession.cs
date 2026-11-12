@@ -1,3 +1,4 @@
+using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -12,6 +13,9 @@ namespace LabsApp.Tests.Infrastructure;
 /// </summary>
 public sealed record TestUserSeed
 {
+    /// <summary>Пароль DI-сидируемых пользователей по умолчанию (правила пароля FR-006 соблюдены).</summary>
+    public const string DefaultPassword = "Passw0rd!";
+
     private const string DefaultFullName = "Тест Тестович Тестов";
 
     /// <summary>Логин; null — уникальный «{роль}-{8 hex}».</summary>
@@ -30,28 +34,45 @@ public sealed record TestUserSeed
     /// </summary>
     public string? GroupName { get; init; }
 
+    /// <summary>Пароль учётки (хэшируется хэшером хоста, метка seed — ADR-007).</summary>
+    public string Password { get; init; } = DefaultPassword;
+
     internal string ResolveFullName() => FullName ?? DefaultFullName;
 }
 
 /// <summary>
-/// Сквозной хелпер тестовых пользователей (ADR-015, T-006 — единый хелпер волны
-/// контроллеров): пользователь сеется напрямую в IUserRepository из
-/// factory.Services; клиент — анонимный (аутентификации нет). Сессия владеет
-/// клиентом — Dispose освобождает его.
+/// Сквозная тестовая сессия (ADR-015, T-006 — единый хелпер волны контроллеров):
+/// пользователь сеется напрямую в IUserRepository из factory.Services (пароль —
+/// настоящий IPasswordHasher.Hash, метка seed), access-JWT минтится
+/// ITokenService.IssueAccessToken (реальный компонент C-004) и предустанавливается
+/// заголовком Cookie клиента и в контейнере <see cref="Cookies"/> по имени-константе
+/// AuthCoreDefaults. POST /auth/login для создания сессии НЕ используется (ADR-015:
+/// волна доменных задач исполняется параллельно с задачей login-эндпойнта).
+/// Клиент — без авто-редиректов (точные статусы) и без автоматического
+/// cookie-контейнера: сценарий переносит cookie сам через
+/// <see cref="TestCookieContainer.CaptureFrom"/>/<see cref="TestCookieContainer.ApplyTo"/>.
+/// Сессия владеет клиентом — Dispose освобождает его.
 /// </summary>
 public sealed class TestSession : IDisposable
 {
-    private TestSession(User user, HttpClient client)
+    private TestSession(User user, HttpClient client, TestCookieContainer cookies)
     {
         User = user;
         Client = client;
+        Cookies = cookies;
     }
 
     /// <summary>Сидированная запись пользователя (копия-снимок из репозитория).</summary>
     public User User { get; }
 
-    /// <summary>Клиент сценария (анонимный).</summary>
+    /// <summary>Клиент с предустановленной access-cookie сессии.</summary>
     public HttpClient Client { get; }
+
+    /// <summary>
+    /// Cookie-контейнер сессии: предзаполнен access-cookie; сценарии auth-потоков
+    /// (refresh/logout) дополняют его через CaptureFrom ответов.
+    /// </summary>
+    public TestCookieContainer Cookies { get; }
 
     /// <summary>
     /// Фиксирует RemoteIpAddress соединения для всех запросов клиента (IP-шов,
@@ -66,11 +87,11 @@ public sealed class TestSession : IDisposable
     // Фабрики сессий (ADR-015: CreateStudent/CreateTeacher)
     // ------------------------------------------------------------------
 
-    /// <summary>Клиент сценария с DI-сидом студента.</summary>
+    /// <summary>Сессия студента: DI-сид + минт access-cookie (без POST /auth/login).</summary>
     public static Task<TestSession> CreateStudent(WebApplicationFactory<Program> factory, TestUserSeed? seed = null) =>
         Create(factory, UserRoles.Student, seed);
 
-    /// <summary>Клиент сценария с DI-сидом преподавателя.</summary>
+    /// <summary>Сессия преподавателя: DI-сид + минт access-cookie (без POST /auth/login).</summary>
     public static Task<TestSession> CreateTeacher(WebApplicationFactory<Program> factory, TestUserSeed? seed = null)
     {
         if (seed?.GroupName is not null)
@@ -87,11 +108,11 @@ public sealed class TestSession : IDisposable
     // DI-сид без сессии (given «существующий пользователь» login-веток и т.п.)
     // ------------------------------------------------------------------
 
-    /// <summary>DI-сид студента без создания клиента.</summary>
+    /// <summary>DI-сид студента без создания клиента (пароль — настоящий хэш хоста).</summary>
     public static Task<User> SeedStudent(WebApplicationFactory<Program> factory, TestUserSeed? seed = null) =>
         Seed(factory, UserRoles.Student, seed);
 
-    /// <summary>DI-сид преподавателя без создания клиента.</summary>
+    /// <summary>DI-сид преподавателя без создания клиента (пароль — настоящий хэш хоста).</summary>
     public static Task<User> SeedTeacher(WebApplicationFactory<Program> factory, TestUserSeed? seed = null)
     {
         if (seed?.GroupName is not null)
@@ -113,8 +134,30 @@ public sealed class TestSession : IDisposable
             AllowAutoRedirect = false,
             HandleCookies = false,
         });
+        var cookies = new TestCookieContainer();
+        MintAccessCookie(factory, client, cookies, user);
 
-        return new TestSession(user, client);
+        return new TestSession(user, client, cookies);
+    }
+
+    /// <summary>
+    /// Минт access-cookie (ADR-015): ITokenService.IssueAccessToken(userId, role,
+    /// login) — прод-форма с login (канал subject, аменда CR-001/ADR-044);
+    /// значение кладётся в заголовок Cookie клиента и в контейнер по имени
+    /// AuthCoreDefaults.AccessTokenCookieName (единый источник с ICookieService).
+    /// </summary>
+    private static void MintAccessCookie(
+        WebApplicationFactory<Program> factory,
+        HttpClient client,
+        TestCookieContainer cookies,
+        User user)
+    {
+        var jwt = factory.Services.GetRequiredService<ITokenService>()
+            .IssueAccessToken(user.Id, user.Role, user.Login);
+        client.DefaultRequestHeaders.Add(
+            "Cookie",
+            $"{AuthCoreDefaults.AccessTokenCookieName}={jwt}");
+        cookies.Set(AuthCoreDefaults.AccessTokenCookieName, jwt);
     }
 
     private static async Task<User> Seed(WebApplicationFactory<Program> factory, string role, TestUserSeed? seed)
@@ -125,6 +168,7 @@ public sealed class TestSession : IDisposable
         var services = factory.Services;
         var users = services.GetRequiredService<IUserRepository>();
         var groups = services.GetRequiredService<IGroupRepository>();
+        var hasher = services.GetRequiredService<IPasswordHasher>();
         var timeProvider = services.GetRequiredService<TimeProvider>();
 
         var login = seed.Login ?? $"{role}-{Guid.NewGuid().ToString("N")[..8]}";
@@ -137,7 +181,9 @@ public sealed class TestSession : IDisposable
             Id = Guid.NewGuid(),
             Login = login,
             Email = seed.Email ?? $"{login}@example.com",
-            PasswordHash = "!",
+            // Метка 'seed' (ADR-007): DI-сид тестовых учёток — та же статья KDF,
+            // что и сид-хэши SeedRunner.
+            PasswordHash = hasher.Hash(seed.Password, KdfCallers.Seed),
             FullName = seed.ResolveFullName(),
             Role = role,
             GroupId = groupId,

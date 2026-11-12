@@ -18,7 +18,7 @@ public sealed class Ts108_LabContentBoundaryTests(B04LabsWebAppFactory factory)
     [Fact]
     public async Task TS108_PostLabContentExactly500Chars_IsCreated()
     {
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: content длиной ровно 500 символов.
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new
@@ -37,7 +37,7 @@ public sealed class Ts108_LabContentBoundaryTests(B04LabsWebAppFactory factory)
     [Fact]
     public async Task TS108_PostLabContent501Chars_ReturnsLengthError()
     {
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: content длиной 501 символ.
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new
@@ -57,7 +57,7 @@ public sealed class Ts108_LabContentBoundaryTests(B04LabsWebAppFactory factory)
     [Fact]
     public async Task TS108_PostLabWhitespaceOnlyContent_ReturnsRequiredError()
     {
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: content из одних пробелов (пустое после трима — required).
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

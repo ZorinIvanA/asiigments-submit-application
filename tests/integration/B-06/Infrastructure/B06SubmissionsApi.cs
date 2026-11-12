@@ -11,7 +11,7 @@ public static class B06SubmissionsApi
 {
     public const string SubmissionsEndpoint = "/api/v1/submissions";
     public const string MeSubmissionsEndpoint = "/api/v1/me/submissions";
-    public const string LabsEndpoint = "/api/v1/labs";
+    public const string LabsEndpoint = ApiRequests.LabsEndpoint;
     public const string StudentsEndpoint = "/api/v1/students";
 
     /// <summary>GET /submissions?groupId=&amp;semester=&amp;page= — все параметры сырыми строками.</summary>

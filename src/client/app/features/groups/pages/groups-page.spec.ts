@@ -296,12 +296,12 @@ describe('GroupsPage', () => {
   it('отказ getList при загрузке — уведомление с якорем header (IF-109)', async () => {
     // Новый fixture с отказом начальной загрузки: пересобираем TestBed-статус
     // через собственный createComponent — заглушка уже заменена ниже.
-    groupsService.getList.and.rejectWith(apiError(500, 'Сервер недоступен'));
+    groupsService.getList.and.rejectWith(apiError(401, 'Не авторизован'));
     const failing = TestBed.createComponent(GroupsPage);
     fixture = failing;
     await flush();
 
-    expect(notifications.notifyError).toHaveBeenCalledWith('Сервер недоступен', 'header');
+    expect(notifications.notifyError).toHaveBeenCalledWith('Не авторизован', 'header');
     expect(notifications.notifySuccess).not.toHaveBeenCalled();
   });
 });
