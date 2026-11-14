@@ -1,0 +1,80 @@
+// Гостевая оболочка (§4.8, VS-006, фикс VBUG-004): топбар в стиле шапки
+// AppShell — высота 56px публикуется переменной --app-header-height,
+// цвета и размеры — токены темы (ADR-108) с запасными значениями макетов.
+// Контент не ограничивается колонкой AppShell: страницы auth сами центрируют
+// карточку 400px и держат фон страницы (features/auth/pages/_auth-shared).
+@use '../../../styles/breakpoint' as bp;
+
+:host {
+  --app-header-height: 56px;
+
+  display: block;
+  min-height: 100vh;
+}
+
+.guest-topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: var(--app-header-height);
+  padding: 0 24px;
+  background: var(--p-surface-card, #fff);
+  border-bottom: 1px solid var(--p-surface-border, #e2e8f0);
+}
+
+.guest-topbar__brand {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--p-text-color, #1e293b);
+  white-space: nowrap;
+}
+
+.guest-topbar__tabs {
+  display: flex;
+  gap: 4px;
+  height: 100%;
+}
+
+.guest-topbar__tab {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--p-text-muted-color, #475569);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+
+  &:hover {
+    background: var(--p-surface-50, #f8fafc);
+  }
+
+  &.guest-topbar__tab--active {
+    color: var(--p-primary-color, #4f46e5);
+    border-bottom-color: var(--p-primary-color, #4f46e5);
+  }
+}
+
+// Мобильная ширина (OQ-005) — как у AppShell: высота топбара сохраняется,
+// вкладки скроллятся горизонтально (полоса скролла скрыта — сами вкладки
+// видимы целиком при прокрутке).
+@include bp.mobile {
+  .guest-topbar {
+    gap: 12px;
+    padding: 0 var(--page-padding, 12px);
+  }
+
+  .guest-topbar__tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .guest-topbar__tab {
+    white-space: nowrap;
+  }
+}

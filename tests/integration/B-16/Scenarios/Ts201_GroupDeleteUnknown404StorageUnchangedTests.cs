@@ -27,7 +27,7 @@ public sealed class Ts201_GroupDeleteUnknown404StorageUnchangedTests : IClassFix
     {
         // given: сессия teacher; случайный uuid; снимок перечня групп хранилища
         // (демо-сид: ИК-221, ИК-222, ИК-223).
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
         var unknownId = Guid.NewGuid();
         var groupsRepo = _factory.Services.GetRequiredService<IGroupRepository>();
         var namesBefore = await B16GroupsApi.StoredGroupNamesAsync(groupsRepo);

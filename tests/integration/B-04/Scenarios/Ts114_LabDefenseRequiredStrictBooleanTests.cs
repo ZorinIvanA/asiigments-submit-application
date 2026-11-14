@@ -22,7 +22,7 @@ public sealed class Ts114_LabDefenseRequiredStrictBooleanTests(B04LabsWebAppFact
     public async Task TS114_PostLabWithNonBooleanDefenseRequired_RejectedAndNotCreated()
     {
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when/then (1): defenseRequired='yes' (строка вместо boolean) — 400;
         // работа с парой (1,501) не создана.

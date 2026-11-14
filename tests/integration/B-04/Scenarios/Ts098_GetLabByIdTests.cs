@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B04.Scenarios;
 
 /// <summary>
 /// TS-098 (P1, happy_path; FR-017) «Лабораторные: GET по id — 200 LabDto / 404».
-/// given: существует работа L (DI-сид; анонимный доступ — текущий пользователь, сид-преподаватель); несуществующий uuid известен.
+/// given: существует работа L (DI-сид, сессия teacher); несуществующий uuid известен.
 /// when:  GET /labs/{L.id}; GET /labs/&lt;несуществующий-uuid&gt;.
 /// then:  200 LabDto с полями id, semester, number, content, assignmentUrl,
 ///        defenseRequired; 404 'Лабораторная не найдена'.
@@ -22,7 +22,7 @@ public sealed class Ts098_GetLabByIdTests(B04LabsWebAppFactory factory) : IClass
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         var lab = await B04DomainSeed.AddLabAsync(labs, semester: 2, number: 8);
 
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: GET /labs/{L.id}.
         using var found = await client.GetAsync($"/api/v1/labs/{lab.Id}");

@@ -1,0 +1,19 @@
+<header class="guest-topbar">
+  <span class="guest-topbar__brand">Сдача лабораторных</span>
+  <nav class="guest-topbar__tabs" aria-label="Разделы">
+    @for (item of navItems; track item.path) {
+      <a
+        class="guest-topbar__tab"
+        [routerLink]="item.path"
+        routerLinkActive="guest-topbar__tab--active"
+        ariaCurrentWhenActive="page"
+        >{{ item.label }}</a
+      >
+    }
+  </nav>
+</header>
+
+<!-- Страницы auth сами центрируют карточку и держат фон (auth-shared). -->
+<main class="guest-shell__content">
+  <router-outlet />
+</main>

@@ -24,8 +24,8 @@ public sealed class Ts004_SwaggerExcludedFromFallbackTests
     [InlineData("/swagger")]
     public async Task GetSwaggerRoutes_InProduction_ReturnEnvelopeNotFoundNeverIndexHtml(string path)
     {
-        // given: wwwroot/index.html существует; среда Production (валидную строку
-        // подключения хранилища задаёт фабрика по умолчанию).
+        // given: wwwroot/index.html существует; среда Production (валидные секреты
+        // задаёт фабрика по умолчанию).
         using var factory = new B01WebAppFactory(Environments.Production, null);
         using var client = HostClients.Create(factory);
 

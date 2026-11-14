@@ -1,9 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Интеграционные тесты батча B-06 (домен сдач/ведомости, «свои сдачи», работы,
-    студенты, NFR-005; auth-сценарии TS-026..TS-045 удалены вместе с аутентификацией
-    приложения — все эндпоинты анонимны, текущий пользователь — сид-преподаватель).
+    Интеграционные тесты батча B-06 (аутентификация/авторизация и регистрация:
+    TS-026..TS-032, TS-038..TS-045 — FR-011, FR-012, NFR-010).
     Зона батча: tests/integration/B-06. Реализация (src/api) не изменяется: LabsApp
     остаётся net8.0 (FR-001); зона ссылается на него ProjectReference и не включается
     в solution src/api — батчи пишут зоны параллельно (образец — зоны B-01..B-07;
@@ -15,8 +14,8 @@
     PipeWriter.UnflushedBytes, требуемый System.Text.Json фреймворка 9/10.
     Проверяемое поведение — HTTP-контракты /api/v1, не зависящие от TFM тестового хоста.
 
-    Microsoft.Extensions.TimeProvider.Testing — FakeTimeProvider хоста волны сдач
-    (детерминированное «updatedAt новее прежнего» относительно метки сид-сдач,
+    Microsoft.Extensions.TimeProvider.Testing — FakeTimeProvider кейса TS-031
+    (детерминированный перевод бизнес-времени на Auth__AccessTtlMinutes+1 минуту,
     глоссарий TimeProvider / ADR-010).
   -->
 

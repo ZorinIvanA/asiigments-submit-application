@@ -47,7 +47,7 @@ public sealed class Ts148_SubmissionUpsertResetDatesTests : IClassFixture<B06Sub
         Assert.Equal(new DateOnly(2026, 9, 11), seedRecord.DefenseDate);
         var previousUpdatedAt = seedRecord.UpdatedAt;
 
-        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherClientAsync(_factory);
+        var (client, teacherId) = await B06SubmissionsSessions.CreateTeacherSession(_factory);
         using var _client = client;
 
         // when: PUT /submissions с обеими датами null (сброс).

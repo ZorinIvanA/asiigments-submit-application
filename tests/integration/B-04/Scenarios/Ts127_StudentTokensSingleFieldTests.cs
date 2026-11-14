@@ -18,7 +18,7 @@ public sealed class Ts127_StudentTokensSingleFieldTests(B04DemoSeedWebAppFactory
     [Fact]
     public async Task TS127_GetStudentsSearchTokensAcrossFields_ReturnsEmpty()
     {
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: токены из разных полей ('иванов' — fullName, email-адрес — email).
         var search = Uri.EscapeDataString("иванов student01@example.com");

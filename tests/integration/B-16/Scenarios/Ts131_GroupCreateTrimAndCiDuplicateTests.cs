@@ -26,7 +26,7 @@ public sealed class Ts131_GroupCreateTrimAndCiDuplicateTests : IClassFixture<B16
     public async Task PostGroup_TrimsName_ThenLowercaseDuplicateConflicts()
     {
         // given: сессия teacher; группы ИК-224 не существует.
-        using var client = B16GroupsSession.CreateClient(_factory);
+        using var client = await B16GroupsSession.CreateTeacherAsync(_factory);
 
         // when: POST /groups {name:'  ИК-224  '}.
         using var created = await B16GroupsApi.PostGroupAsync(client, "  ИК-224  ");

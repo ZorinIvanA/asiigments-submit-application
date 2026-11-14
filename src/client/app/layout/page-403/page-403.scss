@@ -1,0 +1,52 @@
+// Страница 403 (OQ-004: макета нет — минимальная карточка в стиле
+// макетов): колонка по центру, карточка с радиусом 8px (токен макетов).
+:host {
+  display: block;
+  padding: 48px var(--page-padding, 24px);
+}
+
+.page-403 {
+  display: flex;
+  justify-content: center;
+}
+
+.page-403__card {
+  width: 420px;
+  max-width: 100%;
+  padding: 32px 24px;
+  border: 1px solid var(--p-surface-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--p-surface-card, #fff);
+  text-align: center;
+}
+
+.page-403__title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--p-text-color, #1e293b);
+}
+
+.page-403__text {
+  margin: 0 0 24px;
+  color: var(--p-text-muted-color, #475569);
+}
+
+.page-403__home {
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--p-primary-color, #4f46e5);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--p-primary-hover-color, #4338ca);
+  }
+}

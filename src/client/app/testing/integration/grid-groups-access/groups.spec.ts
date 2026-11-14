@@ -1,10 +1,10 @@
 /**
  * Интеграционные спеки раздела «Группы» (батч 3, FR-4.5, SCR-011/012):
  * реальные GroupsPage/GroupPage + core-сервисы на реальном HTTP-ядре
- * (HttpClient, без интерцептора) поверх программируемого
- * HttpTestingController-бэкенда GridBackendStub с сидом зоны;
- * аутентификации нет — бэкенд всегда отвечает от имени сид-преподавателя.
- * Карточка группы монтируется на настоящем ActivatedRoute-параметре
+ * (HttpClient + authInterceptor) поверх программируемого
+ * HttpTestingController-бэкенда GridBackendStub с сидом зоны; серверная
+ * сессия teacher — serverSession/loginAs (признак сессии — память AuthService,
+ * FR-092). Карточка группы монтируется на настоящем ActivatedRoute-параметре
  * (paramMap).
  *
  * Сценарии (automation: automated): TS-331 (создание группы), TS-332
@@ -63,6 +63,7 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     studentsService = env.inject(StudentsService);
     submissionsService = env.inject(SubmissionsService);
     ik221 = env.backend.groupIdByName('ИК-221');
+    env.serverSession('teacher');
   });
 
   afterEach(() => {
@@ -410,7 +411,8 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
       }
     }
 
-    // /my-submissions консоли — предупреждение вместо таблицы (группы нет).
+    // /my-submissions студента 26 — предупреждение вместо таблицы.
+    env.loginAs('student26');
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2); // getSemesters + getMy
     expect(root().querySelector('.no-group')?.textContent).toContain(

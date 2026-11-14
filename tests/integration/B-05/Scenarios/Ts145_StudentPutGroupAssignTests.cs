@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// <summary>
 /// TS-145 (P0, happy_path; FR-020 AC «Перевод в группу») «Студенты: включение
 /// в группу (PUT group)».
-/// given: student31 без группы; ИК-223 существует; анонимный доступ (текущий пользователь — сид-преподаватель).
+/// given: student31 без группы; ИК-223 существует; сессия teacher.
 /// when:  PUT /api/v1/students/{id31}/group {groupId:&lt;ИК-223.id&gt;}; затем
 ///        GET /groups/{ИК-223.id}/students
 /// then:  204; студент появляется в составе ИК-223.
@@ -19,11 +19,11 @@ public sealed class Ts145_StudentPutGroupAssignTests : IClassFixture<B05WebAppFa
     [Fact]
     public async Task PutGroupUuid_AppearsInIk223Roster()
     {
-        // given: student31 без группы; ИК-223 существует; анонимный запрос (текущий пользователь — сид-преподаватель).
+        // given: student31 без группы; ИК-223 существует; teacher авторизован.
         var student31 = await B05SeedLookup.StudentByLoginAsync(_factory, "student31");
         Assert.Null(student31.GroupId);
         var ik223 = await B05SeedLookup.GroupByNameAsync(_factory, "ИК-223");
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: включение student31 в ИК-223.
         using var put = await client.PutAsJsonAsync(

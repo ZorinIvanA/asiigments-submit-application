@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// TS-203 «Студенты: страница правее последней» (boundary, P1, FR-020).
 ///
 /// given: в выборке 32 студента сида при pageSize=10 (демо-набор: student01..student32);
-///        анонимный клиент.
+///        сессия teacher.
 /// when:  GET /api/v1/students?page=99.
 /// then:  200; items=[]; total=32; page=99; pageSize=10 — пустые items при корректном
 ///        total (FR-020: «page нормализуется как в FR-017»; FR-017 «страница правее
@@ -21,8 +21,8 @@ public sealed class Ts203_StudentsPageBeyondLastTests : IClassFixture<B06Submiss
     [Fact]
     public async Task GetStudentsPageBeyondLast_ReturnsEmptyItemsWithCorrectTotal()
     {
-        // given: анонимный клиент; демо-набор с 32 студентами.
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        // given: сессия teacher; демо-набор с 32 студентами.
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: GET /students?page=99.
         using var response = await B06SubmissionsApi.GetStudentsPageAsync(client, page: "99");

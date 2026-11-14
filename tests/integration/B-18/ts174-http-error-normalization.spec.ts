@@ -8,36 +8,22 @@
  *         (ProfileService.update → PUT /me/profile);
  * then  — сервис отвергается ApiError {status:409,
  *         body:{message:'Пользователь с таким email уже существует'}}
- *         — страницы показывают баннер без изменений (нормализация —
- *         normalizeHttpError из http-errors.ts в цепочке HttpClient;
- *         аутентификации в приложении нет: authInterceptor и сессии
- *         удалены, интерцептор нормализации ошибок подключён в спеке
- *         как производственная цепочка normalizeHttpError).
+ *         — страницы показывают баннер без изменений
+ *         (существующий http-errors.ts в производственной цепочке
+ *         authInterceptor).
  *
- * Реальные компоненты: ProfileService + normalizeHttpError (http-errors).
+ * Реальные компоненты: ProfileService + authInterceptor + http-errors.
  * Конвенция URL — ADR-014 (URL из TestBed.inject(API_BASE_URL)).
  */
-import {
-  HttpInterceptorFn,
-  provideHttpClient,
-  withInterceptors,
-} from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { catchError, throwError } from 'rxjs';
+import { provideRouter } from '@angular/router';
 
+import { authInterceptor } from '../../../src/client/app/core/auth-interceptor';
 import { API_BASE_URL } from '../../../src/client/app/core/api-base-url';
-import { normalizeHttpError } from '../../../src/client/app/core/http-errors';
 import { ProfileService } from '../../../src/client/app/core/services/profile.service';
 import { ApiError } from '../../../src/client/app/shared/models';
-
-/**
- * Интерцептор нормализации ошибок (без auth-веток): тот же
- * normalizeHttpError, что был в производственной цепочке authInterceptor;
- * идемпотентен для готовых ApiError — сервисные нормализации не ломаются.
- */
-const httpErrorInterceptor: HttpInterceptorFn = (req, next) =>
-  next(req).pipe(catchError((error: unknown) => throwError(() => normalizeHttpError(error))));
 
 describe('TS-174: нормализация HTTP-ошибок в ApiError (FR-091)', () => {
   let httpMock: HttpTestingController;
@@ -47,8 +33,9 @@ describe('TS-174: нормализация HTTP-ошибок в ApiError (FR-091
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(withInterceptors([httpErrorInterceptor])),
+        provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
+        provideRouter([]),
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);

@@ -1,0 +1,41 @@
+// Страница входа (SCR-001): карточка 400px по центру страницы #F1F5F9;
+// при ширине окна < 768px — карточка во всю ширину при компактных
+// отступах страницы (FR-022, макет mobile). Общие блоки карточки и полей
+// — в pages/_auth-shared.scss (ревью CR-004 T-110). Токены темы — из
+// providePrimeNG (ADR-108), с запасными значениями макетов.
+@use '../auth-shared';
+
+.auth-card__kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--p-primary-color, #4f46e5);
+}
+
+.auth-card__title {
+  margin: 0 0 24px;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--p-text-color, #1e293b);
+}
+
+.auth-card__submit {
+  width: 100%;
+  height: 44px;
+}
+
+.auth-card__links {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+
+  a {
+    color: var(--p-primary-hover-color, #4338ca);
+    font-weight: 600;
+    text-decoration: none;
+  }
+}

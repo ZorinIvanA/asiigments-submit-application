@@ -7,14 +7,14 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 /// TS-121 «Форма тела ошибок: строго {message, errors?} без лишних полей»
 /// (nfr, FR-024, NFR-007).
 ///
-/// given: анонимный доступ (текущий пользователь — сид-преподаватель); демо-сид
-///        (работа (1,1) существует).
+/// given: teacher авторизован; демо-сид (работа (1,1) существует).
 /// when:  POST /api/v1/labs {number:0, semester:1, content:'x', assignmentUrl:null,
 ///        defenseRequired:false} (400); POST /api/v1/labs {number:1, semester:1, ...}
-///        (409); GET /api/v1/labs/{нуль-uuid} (404).
+///        (409); GET /api/v1/labs без cookie (401); GET /api/v1/labs/{нуль-uuid}
+///        с cookie (404).
 /// then:  тело 400 — объект ровно с ключами message и errors; message='Данные
 ///        заполнены неверно'; каждое значение errors — непустой массив строк
-///        (русские тексты); тела 409 и 404 — объект ровно {message} с
+///        (русские тексты); тела 409, 401, 404 — объект ровно {message} с
 ///        соответствующим дословным текстом словаря, без errors и дополнительных
 ///        полей. FR-024: «Тело любой ошибки API — JSON {message: string,
 ///        errors?: {поле: string[]}}…»; AC «Форма тела ошибки валидации»,
@@ -32,8 +32,8 @@ public sealed class Ts121_ErrorBodyShapeTests : IClassFixture<B05WebAppFactory>
     [Fact]
     public async Task Validation400_BodyIsExactlyMessageAndErrorsWithRussianTexts()
     {
-        // given: анонимный доступ (текущий пользователь — сид-преподаватель).
-        using var client = HostClients.Create(_factory);
+        // given: teacher авторизован.
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: POST /api/v1/labs с невалидным number:0 (остальные поля валидны).
         using var response = await client.PostAsJsonAsync(LabsEndpoint, new
@@ -68,8 +68,8 @@ public sealed class Ts121_ErrorBodyShapeTests : IClassFixture<B05WebAppFactory>
     [Fact]
     public async Task Conflict409_BodyIsExactlyDictionaryMessage()
     {
-        // given: анонимный доступ; демо-сид — работа (1,1) существует.
-        using var client = HostClients.Create(_factory);
+        // given: teacher авторизован; демо-сид — работа (1,1) существует.
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
         // when: POST /api/v1/labs с дублирующей парой (1,1).
         using var response = await client.PostAsJsonAsync(LabsEndpoint, new
@@ -89,12 +89,29 @@ public sealed class Ts121_ErrorBodyShapeTests : IClassFixture<B05WebAppFactory>
     }
 
     [Fact]
+    public async Task Unauthorized401_BodyIsExactlyDictionaryMessage()
+    {
+        // given: teacher авторизован (для контраста); отдельный клиент без cookie.
+        using var authorizedClient = await HostClients.CreateTeacherClientAsync(_factory);
+        using var anonymousClient = HostClients.Create(_factory);
+
+        // when: GET /api/v1/labs без cookie.
+        using var response = await anonymousClient.GetAsync(LabsEndpoint);
+
+        // then: HTTP 401; тело ровно {message}, текст словаря «Не авторизован».
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        var root = await BodyAssertions.ReadRootObjectAsync(response);
+        BodyAssertions.HasExactlyProperties(root, "message");
+        BodyAssertions.MessageIs(root, "Не авторизован");
+    }
+
+    [Fact]
     public async Task NotFound404_BodyIsExactlyDictionaryMessage()
     {
-        // given: анонимный доступ.
-        using var client = HostClients.Create(_factory);
+        // given: teacher авторизован.
+        using var client = await HostClients.CreateTeacherClientAsync(_factory);
 
-        // when: GET /api/v1/labs/{нуль-uuid}.
+        // when: GET /api/v1/labs/{нуль-uuid} с cookie.
         using var response = await client.GetAsync($"{LabsEndpoint}/{ZeroLabId}");
 
         // then: HTTP 404; тело ровно {message}, текст словаря «Лабораторная не найдена».

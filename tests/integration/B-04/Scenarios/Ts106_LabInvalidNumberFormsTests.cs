@@ -22,7 +22,7 @@ public sealed class Ts106_LabInvalidNumberFormsTests(B04LabsWebAppFactory factor
     [InlineData("abc")]
     public async Task TS106_PostLabWithInvalidNumberForm_ReturnsNumberError(string number)
     {
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с невалидной формой number ('0' | '-3' | '1.5' | 'abc'),
         // прочие поля валидны.

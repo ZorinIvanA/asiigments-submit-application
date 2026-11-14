@@ -35,7 +35,8 @@ describe('AppRoot — корневой компонент-каркас', () => {
     const outlet = element.querySelector('router-outlet');
     expect(toastHost).not.toBeNull();
     expect(outlet).not.toBeNull();
-    // Хост объявлен ДО outlet: Toast смонтирован для всех экранов приложения.
+    // Хост объявлен ДО outlet: Toast смонтирован для всех экранов,
+    // включая страницы auth вне app-shell.
     expect(
       toastHost!.compareDocumentPosition(outlet!) &
         Node.DOCUMENT_POSITION_FOLLOWING,

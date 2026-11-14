@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// <summary>
 /// TS-106 «Лабораторные: фильтр semester + сортировка number desc» (happy_path,
 /// FR-017 AC «Фильтр и сортировка»; P0): given — демо-сид развёрнут (23 работы:
-/// 20 семестра 1, 3 семестра 2); клиент анонимный; when — GET
+/// 20 семестра 1, 3 семестра 2); сессия teacher; when — GET
 /// /labs?semester=2&amp;sortField=number&amp;sortDir=desc; then — 200 total=3;
 /// items упорядочены number 3,2,1.
 /// </summary>
@@ -29,8 +29,8 @@ public sealed class Ts106_LabsSemesterFilterDescTests : IClassFixture<B03HostFac
     [Fact]
     public async Task GetLabsSemester2NumberDesc_ReturnsThreeLabsDescending()
     {
-        // given: анонимный клиент (аутентификации нет).
-        var client = B03LabsApi.CreateClient(_factory);
+        // given: сессия teacher.
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: фильтр по семестру 2, сортировка по номеру по убыванию.
         using var response = await B03LabsApi.GetLabsAsync(
@@ -38,7 +38,7 @@ public sealed class Ts106_LabsSemesterFilterDescTests : IClassFixture<B03HostFac
 
         // then: 200; total=3; номера по убыванию 3,2,1.
         using var body = await ResponseAssert.ParseWithStatusAsync(
-            response, HttpStatusCode.OK, "GET /api/v1/labs?semester=2&sortField=number&sortDir=desc (анонимно)");
+            response, HttpStatusCode.OK, "GET /api/v1/labs?semester=2&sortField=number&sortDir=desc (teacher)");
         Assert.Equal(3, B03LabsApi.ReadInt(body.RootElement, "total"));
 
         var pairs = B03LabsApi.ReadItemPairs(body.RootElement);

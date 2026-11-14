@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
@@ -52,14 +53,14 @@ internal static class LabsEndpointHarness
     {
         var teacher = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("teacher");
         Assert.NotNull(teacher);
-        return CreateAnonymousClient(factory);
+        return CreateSessionClient(factory, teacher.Id, UserRoles.Teacher);
     }
 
     public static async Task<HttpClient> CreateStudentClient(TestWebAppFactory factory)
     {
         var student = await factory.Services.GetRequiredService<IUserRepository>().GetByLoginAsync("student01");
         Assert.NotNull(student);
-        return CreateAnonymousClient(factory);
+        return CreateSessionClient(factory, student.Id, UserRoles.Student);
     }
 
     public static HttpClient CreateAnonymousClient(TestWebAppFactory factory) =>
@@ -105,6 +106,18 @@ internal static class LabsEndpointHarness
     public static string[] ErrorOf(JsonElement errors, string field) =>
         [.. errors.GetProperty(field).EnumerateArray().Select(item => item.GetString() ?? string.Empty)];
 
+    private static HttpClient CreateSessionClient(TestWebAppFactory factory, Guid userId, string role)
+    {
+        var token = factory.Services
+            .GetRequiredService<ITokenService>()
+            .IssueAccessToken(userId, role);
+
+        var client = CreateAnonymousClient(factory);
+        client.DefaultRequestHeaders.Add(
+            "Cookie",
+            $"{AuthCoreDefaults.AccessTokenCookieName}={token}");
+        return client;
+    }
 }
 
 /// <summary>
@@ -778,6 +791,57 @@ public sealed class LabsRolesEndpointTests(LabsApiFixture fixture) : IClassFixtu
     private readonly TestWebAppFactory _factory = fixture.Factory;
 
     [Fact]
+    public async Task GetList_Anonymous_Returns401Envelope()
+    {
+        using var client = LabsEndpointHarness.CreateAnonymousClient(_factory);
+
+        using var response = await client.GetAsync(LabsEndpointHarness.LabsEndpoint);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Не авторизован", await LabsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task GetList_Student_Returns403ForbiddenEnvelope()
+    {
+        using var client = await LabsEndpointHarness.CreateStudentClient(_factory);
+
+        using var response = await client.GetAsync(LabsEndpointHarness.LabsEndpoint);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await LabsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Put_StudentNonexistentIdInvalidBody_403Before400And404()
+    {
+        using var client = await LabsEndpointHarness.CreateStudentClient(_factory);
+
+        // Роль проверяется раньше валидации тела и существования записи (FR-022).
+        using var response = await client.PutAsync(
+            $"{LabsEndpointHarness.LabsEndpoint}/{Guid.NewGuid()}",
+            LabsEndpointHarness.Json(
+                """{"number":53,"semester":0,"content":"Роль раньше тела","assignmentUrl":null,"defenseRequired":false}"""));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await LabsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Delete_Student_Returns403()
+    {
+        var lab = await LabsEndpointHarness.LabByPairAsync(_factory, 1, 1);
+        using var client = await LabsEndpointHarness.CreateStudentClient(_factory);
+
+        using var response = await client.DeleteAsync($"{LabsEndpointHarness.LabsEndpoint}/{lab.Id}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await LabsEndpointHarness.MessageAsync(response));
+        // Работа не удалена — отказ произошёл до бизнес-логики.
+        Assert.NotNull(await _factory.Services.GetRequiredService<ILabRepository>().GetByIdAsync(lab.Id));
+    }
+
+    [Fact]
     public async Task GetList_Teacher_BusinessStatus()
     {
         using var client = await LabsEndpointHarness.CreateTeacherClient(_factory);
@@ -819,6 +883,16 @@ public sealed class SemestersEndpointTests(LabsApiFixture fixture) : IClassFixtu
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Semesters_Anonymous_Returns401()
+    {
+        using var client = LabsEndpointHarness.CreateAnonymousClient(_factory);
+
+        using var response = await client.GetAsync(LabsEndpointHarness.SemestersEndpoint);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Не авторизован", await LabsEndpointHarness.MessageAsync(response));
+    }
 }
 
 /// <summary>FR-018, ветка пустого перечня: без работ — 200 и пустой массив.</summary>

@@ -12,9 +12,9 @@ namespace LabsApp.IntegrationTests.B13.Infrastructure;
 /// appsettings.json — конфигурация складывается из умолчаний Development) и
 /// <see cref="WwwrootMode.IndexHtmlPresent"/> (wwwroot/index.html с маркерным
 /// содержимым). Механика — копия фабрик зоны B-13/B-01 (фабрики чужих зон
-/// internal — BL-001 BUG-001): Development, демо-сид выключен ЯВНО.
-/// Аутентификации в приложении нет — auth-настройки хосту не нужны. Временные
-/// каталоги удаляются при освобождении фабрики.
+/// internal — BL-001 BUG-001): Development, фиксированный Auth:JwtKey,
+/// Seed:TeacherPassword зафиксирован, демо-сид выключен ЯВНО. Временные каталоги
+/// удаляются при освобождении фабрики.
 /// </summary>
 public sealed class B13ScopeWebAppFactory : WebApplicationFactory<Program>
 {
@@ -27,6 +27,8 @@ public sealed class B13ScopeWebAppFactory : WebApplicationFactory<Program>
         /// <summary>Стенд (б): wwwroot/index.html существует (маркерное содержимое).</summary>
         IndexHtmlPresent,
     }
+
+    public const string TestJwtKey = "b13-scope-jwt-signing-key-0123456789abcdef-0123456789abcdef";
 
     /// <summary>Маркер в теле index.html стенда (б) — проверка «тело = index.html».</summary>
     public const string IndexHtmlMarker = "b13-ts195-marker-index-html";
@@ -69,6 +71,8 @@ public sealed class B13ScopeWebAppFactory : WebApplicationFactory<Program>
         // Короткоживущие тестовые хосты не перезагружают конфигурацию (как в зоне B-01).
         builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
 
+        builder.UseSetting(ToConfigKey(AuthOptions.JwtKeyVariable), TestJwtKey);
+        builder.UseSetting(ToConfigKey(SeedOptions.TeacherPasswordVariable), SeedOptions.DefaultTeacherPassword);
         builder.UseSetting(ToConfigKey(SeedOptions.DemoDataVariable), "false");
     }
 

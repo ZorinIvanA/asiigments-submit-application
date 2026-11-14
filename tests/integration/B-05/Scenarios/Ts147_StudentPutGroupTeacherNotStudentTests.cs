@@ -18,9 +18,9 @@ public sealed class Ts147_StudentPutGroupTeacherNotStudentTests : IClassFixture<
     [Fact]
     public async Task PutGroupForTeacher_Returns404StudentNotFound()
     {
-        // given: существующий пользователь с ролью teacher; анонимный доступ (текущий пользователь — сид-преподаватель).
+        // given: существующий пользователь с ролью teacher; сессия teacher.
         var teacher = await B05SeedLookup.TeacherAsync(_factory);
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: попытка назначить группу пользователю-преподавателю.
         using var put = await client.PutAsJsonAsync(

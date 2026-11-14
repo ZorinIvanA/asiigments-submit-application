@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using LabsApp.Auth;
 using LabsApp.Domain.Entities;
 using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
@@ -73,6 +74,22 @@ internal static class SubmissionsEndpointHarness
         await factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(semester, number)
         ?? throw new InvalidOperationException($"Работы {semester}:{number} нет в хранилище тестового хоста.");
 
+    /// <summary>Клиент с валидным по форме access-JWT для произвольного userId
+    /// (пользователь может отсутствовать в хранилище — сценарий удалённой при
+    /// живом access-токене учётки, зеркало requireSessionUser).</summary>
+    public static HttpClient CreateSessionClient(TestWebAppFactory factory, Guid userId, string role)
+    {
+        var jwt = factory.Services
+            .GetRequiredService<ITokenService>()
+            .IssueAccessToken(userId, role);
+
+        var client = CreateAnonymousClient(factory);
+        client.DefaultRequestHeaders.Add(
+            "Cookie",
+            $"{AuthCoreDefaults.AccessTokenCookieName}={jwt}");
+        return client;
+    }
+
     public static async Task<HttpResponseMessage> PutJsonAsync(
         HttpClient client, string endpoint, string json) =>
         await client.PutAsync(endpoint, new StringContent(json, Encoding.UTF8, "application/json"));
@@ -104,8 +121,18 @@ internal static class SubmissionsEndpointHarness
     public static string[] ErrorOf(JsonElement errors, string field) =>
         [.. errors.GetProperty(field).EnumerateArray().Select(item => item.GetString() ?? string.Empty)];
 
-    private static HttpClient CreateClient(TestWebAppFactory factory, User user) =>
-        CreateAnonymousClient(factory);
+    private static HttpClient CreateClient(TestWebAppFactory factory, User user)
+    {
+        var token = factory.Services
+            .GetRequiredService<ITokenService>()
+            .IssueAccessToken(user.Id, user.Role);
+
+        var client = CreateAnonymousClient(factory);
+        client.DefaultRequestHeaders.Add(
+            "Cookie",
+            $"{AuthCoreDefaults.AccessTokenCookieName}={token}");
+        return client;
+    }
 }
 
 /// <summary>
@@ -440,6 +467,50 @@ public sealed class SubmissionsGridEndpointTests(SubmissionsApiFixture fixture) 
     // Роль-матрица GET /submissions (FR-022: submissions — только teacher)
     // ------------------------------------------------------------------
 
+    [Fact]
+    public async Task Grid_AsStudent_Forbidden()
+    {
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+
+        using var response = await client.GetAsync(
+            $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=1");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await SubmissionsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Grid_Anonymous_Unauthorized()
+    {
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = SubmissionsEndpointHarness.CreateAnonymousClient(_factory);
+
+        using var response = await client.GetAsync(
+            $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=1");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Не авторизован", await SubmissionsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Grid_DeletedTeacherWithLiveAccess_Unauthorized()
+    {
+        // given: access-JWT минтован для teacher-роли, которой нет в хранилище
+        // (удалена при живом access-токене — зеркало мока requireSessionUser).
+        // Грид-запрос валиден целиком: отказ — из действия, а не из схемы.
+        var groupId = (await SubmissionsEndpointHarness.GroupByNameAsync(_factory, "ИК-221")).Id;
+        using var client = SubmissionsEndpointHarness.CreateSessionClient(
+            _factory, Guid.NewGuid(), UserRoles.Teacher);
+
+        using var response = await client.GetAsync(
+            $"{SubmissionsEndpointHarness.GridEndpoint}?groupId={groupId}&semester=1&page=1");
+
+        // then: 401 «Не авторизован» из действия (TryLoadCurrentUser), не 200
+        // с ведомостью и не 400/404 query.
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Не авторизован", await SubmissionsEndpointHarness.MessageAsync(response));
+    }
 }
 
 /// <summary>
@@ -694,6 +765,34 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
     // Роль-матрица PUT /submissions (FR-022: submissions — только teacher)
     // ------------------------------------------------------------------
 
+    [Fact]
+    public async Task Put_AsStudent_Forbidden()
+    {
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+
+        using var response = await SubmissionsEndpointHarness.PutJsonAsync(
+            client,
+            SubmissionsEndpointHarness.GridEndpoint,
+            $$"""{"studentId":"{{Guid.NewGuid()}}","labId":"{{Guid.NewGuid()}}","submitDate":null,"defenseDate":null}""");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await SubmissionsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task Put_Anonymous_Unauthorized()
+    {
+        using var client = SubmissionsEndpointHarness.CreateAnonymousClient(_factory);
+
+        using var response = await SubmissionsEndpointHarness.PutJsonAsync(
+            client,
+            SubmissionsEndpointHarness.GridEndpoint,
+            $$"""{"studentId":"{{Guid.NewGuid()}}","labId":"{{Guid.NewGuid()}}","submitDate":null,"defenseDate":null}""");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Не авторизован", await SubmissionsEndpointHarness.MessageAsync(response));
+    }
+
     /// <summary>updatedAt — ISO-8601 UTC: суффикс Z и обратимый разбор (ADR-004).</summary>
     private static void AssertIso8601Utc(string? raw)
     {
@@ -712,6 +811,49 @@ public sealed class SubmissionsUpsertEndpointTests(SubmissionsApiFixture fixture
 public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : IClassFixture<SubmissionsApiFixture>
 {
     private readonly TestWebAppFactory _factory = fixture.Factory;
+
+    [Fact]
+    public async Task My_InGroup_SemesterLabsAndOwnSubmissionsOnly()
+    {
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
+
+        using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=1");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await SubmissionsEndpointHarness.ReadJsonAsync(response);
+        var root = body.RootElement;
+        Assert.True(root.GetProperty("hasGroup").GetBoolean());
+
+        // Работы семестра 1: 20, number↑ (те же колонки, что у ведомости).
+        var labs = root.GetProperty("labs").EnumerateArray().ToArray();
+        Assert.Equal(20, labs.Length);
+        Assert.Equal(
+            Enumerable.Range(1, 20),
+            labs.Select(item => item.GetProperty("number").GetInt32()));
+
+        // Только свои сид-сдачи (labs 1..3), без studentId и без чужих строк.
+        var semesterLabIds = new HashSet<string?>();
+        foreach (var nn in Enumerable.Range(1, 20))
+        {
+            semesterLabIds.Add((await SubmissionsEndpointHarness.LabByPairAsync(_factory, 1, nn)).Id.ToString());
+        }
+        var submissions = root.GetProperty("submissions").EnumerateArray().ToArray();
+        Assert.Equal(3, submissions.Length);
+        Assert.All(submissions, item =>
+        {
+            Assert.Equal(
+                new[] { "defenseDate", "labId", "submitDate" },
+                item.EnumerateObject().Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal));
+            Assert.Contains(item.GetProperty("labId").GetString(), semesterLabIds);
+        });
+        // Порядок ListForStudentAndSemester не определён (IF-015): сравниваем
+        // отсортированные последовательности, а не порядок вставки хранилища.
+        Assert.Equal(
+            new[] { "2026-09-01", "2026-09-02", "2026-09-03" },
+            submissions
+                .Select(item => item.GetProperty("submitDate").GetString())
+                .OrderBy(value => value, StringComparer.Ordinal));
+    }
 
     [Fact]
     public async Task My_WithoutGroup_EmptyResult()
@@ -763,5 +905,45 @@ public sealed class MySubmissionsEndpointTests(SubmissionsApiFixture fixture) : 
             SubmissionsEndpointHarness.ErrorOf(errors, "semester"));
     }
 
+    [Fact]
+    public async Task My_UpperSemesterBoundary_AcceptedWithEmptyLabs()
+    {
+        // Семестр 10 (граница) валиден: у студента он без работ — 200 с пустыми
+        // массивами работ, но hasGroup по-прежнему true.
+        using var client = await SubmissionsEndpointHarness.CreateStudentClient(_factory, "student01");
 
+        using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = await SubmissionsEndpointHarness.ReadJsonAsync(response);
+        Assert.True(body.RootElement.GetProperty("hasGroup").GetBoolean());
+        Assert.Equal(0, body.RootElement.GetProperty("labs").GetArrayLength());
+        Assert.Equal(0, body.RootElement.GetProperty("submissions").GetArrayLength());
+    }
+
+    // ------------------------------------------------------------------
+    // Роль-матрица GET /me/submissions (FR-022: только student)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task My_AsTeacher_Forbidden()
+    {
+        using var client = await SubmissionsEndpointHarness.CreateTeacherClient(_factory);
+
+        using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=1");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Доступ запрещён", await SubmissionsEndpointHarness.MessageAsync(response));
+    }
+
+    [Fact]
+    public async Task My_Anonymous_Unauthorized()
+    {
+        using var client = SubmissionsEndpointHarness.CreateAnonymousClient(_factory);
+
+        using var response = await client.GetAsync($"{SubmissionsEndpointHarness.MyEndpoint}?semester=1");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal("Не авторизован", await SubmissionsEndpointHarness.MessageAsync(response));
+    }
 }

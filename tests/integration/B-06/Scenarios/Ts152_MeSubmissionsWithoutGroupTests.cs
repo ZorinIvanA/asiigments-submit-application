@@ -1,16 +1,13 @@
 using System.Text.Json;
-using LabsApp.Hosting.Configuration;
-using LabsApp.Infrastructure;
 using LabsApp.IntegrationTests.B06.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B06.Scenarios;
 
 /// <summary>
-/// TS-152 «me/submissions: пользователь без группы» (happy_path, P0, FR-021).
+/// TS-152 «me/submissions: студент без группы» (happy_path, P0, FR-021).
 ///
-/// given: анонимный клиент; текущий пользователь — сид-преподаватель
-///        (Seed__TeacherLogin), GroupId = null.
+/// given: student31 без группы (демо-сид: student31/32 не включены в группы);
+///        сессия student31.
 /// when:  GET /api/v1/me/submissions?semester=1.
 /// then:  200; {hasGroup:false, labs:[], submissions:[]}
 ///        (FR-021 AC «Свои сдачи без группы»).
@@ -24,12 +21,11 @@ public sealed class Ts152_MeSubmissionsWithoutGroupTests : IClassFixture<B06Subm
     [Fact]
     public async Task GetMeSubmissionsWithoutGroup_ReturnsEmptyHasGroupFalse()
     {
-        // given: анонимный клиент; текущий пользователь — сид-преподаватель (без группы).
-        var users = _factory.Services.GetRequiredService<IUserRepository>();
-        var teacher = await users.GetByLoginAsync(SeedOptions.DefaultTeacherLogin)
-            ?? throw new InvalidOperationException("Сид-преподаватель не найден в хранилище (шаг given неисполним).");
-        Assert.Null(teacher.GroupId);
-        using var client = HostClients.Create(_factory);
+        // given: сессия student31 (в демо-сиде студент без группы).
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student31");
+        Assert.True(
+            (await B06SubmissionsSessions.RequireUserAsync(_factory, "student31")).GroupId is null,
+            "Шаг given «student31 без группы» нарушен: в хранилище у студента есть группа.");
 
         // when: GET /me/submissions?semester=1.
         using var response = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "1");

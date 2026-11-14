@@ -6,7 +6,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// TS-150 «Свои сдачи: semester отсутствует/вне диапазона/нечисловой — 400»
 /// (negative, P0, FR-021/ISS-011/AR-002).
 ///
-/// given: анонимный клиент; текущий пользователь — сид-преподаватель;
+/// given: student01 авторизован; Labs__MaxSemester=10 (умолчание конфигурации).
 /// when:  GET /me/submissions (без semester); затем ?semester=11; затем
 ///        ?semester=abc.
 /// then:  все три — 400 'Данные заполнены неверно' +
@@ -23,8 +23,8 @@ public sealed class Ts150_MeSubmissionsSemesterRequiredStrictTests : IClassFixtu
     [Fact]
     public async Task GetMeSubmissionsWithoutOutOfRangeAndNonNumericSemester_Returns400()
     {
-        // given: анонимный клиент (текущий пользователь — сид-преподаватель).
-        using var client = HostClients.Create(_factory);
+        // given: сессия student01.
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
 
         // when/then: semester отсутствует — 400 со строгой ошибкой semester.
         using var missing = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: null);

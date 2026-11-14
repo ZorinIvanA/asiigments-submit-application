@@ -21,7 +21,7 @@ public sealed class Ts126_GroupUnknownRosterNotFoundTests : IClassFixture<B17Gro
     public async Task GetRosterOfUnknownGroup_Returns404()
     {
         // given: сессия teacher; произвольный uuid несуществующей группы.
-        using var client = B17GroupsSession.CreateClient(_factory);
+        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: GET /groups/<uuid>/students.

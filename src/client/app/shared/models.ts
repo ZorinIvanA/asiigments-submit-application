@@ -1,10 +1,11 @@
 /**
- * Общие модели DTO и константы приложения — единый словарь типов для
- * сервисов core и страниц (контракт IF-011, компонент C-010 «Общий UI-кит»).
+ * Общие модели DTO и константы приложения — единый словарь типов для сервисов
+ * core, мок-слоя и страниц (контракт IF-011, компонент C-010 «Общий UI-кит»).
  *
  * Поля интерфейсов воспроизводят доменную модель спеки 3.2 (раздел
  * domain_model) и выходные схемы раздела interfaces дословно. Правила:
- *  - идентификаторы всех сущностей — строки в uuid-формате (IF-001);
+ *  - идентификаторы всех сущностей — строки в uuid-формате (IF-001,
+ *    MOCK_ID_PATTERN из ADR-013);
  *  - даты сдач (submitDate/defenseDate) — строки 'YYYY-MM-DD' либо null;
  *    конвертация в Date — только внутри контролов p-datepicker, отображение —
  *    только через утилиты shared/dates (формат дд.мм.гггг, без UTC-сдвига,
@@ -15,9 +16,9 @@
 /** Роль учётной записи: студент или преподаватель (доменная модель User). */
 export type UserRole = 'student' | 'teacher';
 
-/** Пользователь — элемент users серверного состояния (доменная модель User). */
+/** Пользователь — элемент users мок-БД (доменная модель User). */
 export interface User {
-  /** uuid. */
+  /** uuid, генерируется моком. */
   id: string;
   /** 1–100 символов после трима, без пробелов; уникален без учёта регистра. */
   login: string;
@@ -31,13 +32,14 @@ export interface User {
   /** Вычисляемое имя группы для отображения; null/отсутствует, если группы нет. */
   groupName?: string | null;
   /**
-   * Пароль. Служебное поле состояния серверного сида; наружу не отдаётся
-   * ни одним ответом API и не логируется.
+   * Пароль. Хранится в мок-БД открыто — осознанное ограничение демо-режима
+   * (out_of_scope, NFR-007); наружу не отдаётся ни одним ответом мока
+   * и не логируется.
    */
   password: string;
 }
 
-/** Группа — элемент groups серверного состояния + вычисляемое число студентов. */
+/** Группа — элемент groups мок-БД + вычисляемое число студентов. */
 export interface Group {
   /** uuid. */
   id: string;
@@ -82,21 +84,21 @@ export interface Submission {
 }
 
 /**
- * Лабораторная в ответах API (LabsService.getList/getById/create/update):
+ * Лабораторная в ответах мока (LabsService.getList/getById/create/update):
  * состав полей транспортной формы совпадает с доменной Lab — спека 3.2
  * различия не вводит, поэтому наследование фиксирует тождество.
  */
 export interface LabDto extends Lab {}
 
 /**
- * Группа в ответе GroupsService.getList (GET списка групп):
+ * Группа в ответе GroupsService.getList (мок GET списка групп):
  * транспортная форма совпадает с доменной Group.
  */
 export interface GroupDto extends Group {}
 
 /**
  * Строка списка студентов раздела «Доступ» (StudentsService.getList,
- * GET списка студентов) — проекция User без пароля и служебных полей.
+ * мок GET списка студентов) — проекция User без пароля и служебных полей.
  */
 export interface StudentDto {
   id: string;
@@ -111,7 +113,7 @@ export interface StudentDto {
 
 /**
  * Ведомость группы по семестру — ответ SubmissionsService.getGrid
- * (GET ведомости группы).
+ * (мок GET ведомости группы).
  */
 export interface SubmissionsGridDto {
   /** Страница студентов группы (выборка упорядочена по fullName, затем по login). */
@@ -130,16 +132,15 @@ export interface SubmissionsGridDto {
 }
 
 /**
- * Сдачи текущего пользователя по семестру — ответ
- * SubmissionsService.getMy (GET /me/submissions; в анонимной консоли
- * сервер всегда возвращает пустое состояние без группы).
+ * Сдачи текущего студента по семестру — ответ SubmissionsService.getMy
+ * (мок GET сдач текущего студента).
  */
 export interface MySubmissionsDto {
-  /** false = пользователь не включён в группу; при false массивы ниже пустые. */
+  /** false = студент не включён в группу; при false массивы ниже пустые. */
   hasGroup: boolean;
   /** Работы семестра, упорядочены по number по возрастанию. */
   labs: Array<{ id: string; number: number; defenseRequired: boolean }>;
-  /** Сдачи только текущего пользователя. */
+  /** Сдачи только текущего студента (без studentId — он известен из сессии). */
   submissions: Array<{
     labId: string;
     submitDate: string | null;
@@ -148,8 +149,22 @@ export interface MySubmissionsDto {
 }
 
 /**
+ * Текущий пользователь — ответ auth.register/auth.login/auth.me (контракт
+ * IF-101). Тип живёт в общем словаре DTO (ревью CR-001 T-101): нужен и
+ * мок-обработчикам (домен Auth), и сервисам core со страницами; мок-слой
+ * реэкспортирует его как часть контракта IF-101.
+ */
+export interface MeDto {
+  login: string;
+  fullName: string;
+  role: UserRole;
+  /** Имя группы студента; null = без группы или роль teacher. */
+  groupName?: string | null;
+}
+
+/**
  * Профиль текущего пользователя — ответ ProfileService.get/update
- * (GET/PUT /me/profile; в анонимной консоли это всегда сид-преподаватель).
+ * (мок GET/PUT собственного профиля).
  */
 export interface ProfileDto {
   login: string;
@@ -161,11 +176,11 @@ export interface ProfileDto {
 }
 
 /**
- * Ошибка HTTP-вызова — нормализованный ответ с телом ошибки
- * ({status, body: {message, errors?}}).
+ * Ошибка мок-вызова — эмуляция HTTP-ответа с телом ошибки
+ * (FR-003: {status, body: {message, errors?}}).
  */
 export interface ApiError {
-  /** HTTP-код отказа: 400/403/404/409/500. */
+  /** Эмулируемый HTTP-код: 400/401/403/404/409/429. */
   status: number;
   body: {
     /** Текст ошибки; показывается пользователю дословно. */
@@ -189,6 +204,17 @@ export interface PagedResult<T> {
 }
 
 /**
+ * Ключи хранилищ браузера (FR-003, ADR-012): значение зафиксировано спекой,
+ * изменение молча отбрасывает сохранённые данные. recovery.flow.v1 —
+ * sessionStorage (прочие ключи прошлых реализаций — мок-БД и мок-сессия —
+ * удалены вместе с мок-слоем, FR-026(4); маркер сессии — только в памяти
+ * AuthService).
+ */
+export const STORAGE_KEYS = {
+  recoveryFlow: 'recovery.flow.v1',
+} as const;
+
+/**
  * Верхняя граница номера семестра курса (спека §4.3: выпадающий список
  * 1…Labs__MaxSemester; правило валидации — labSemester в
  * shared/validation/validators: целое 1–10 включительно). Служит для
@@ -197,9 +223,53 @@ export interface PagedResult<T> {
 export const MAX_SEMESTER = 10;
 
 /*
- * Параметры контрактов сервисов core (IF-103/IF-105) — единый словарь DTO:
- * сервисы core и страницы импортируют отсюда.
+ * Параметры контрактов сервисов core (IF-101/IF-103/IF-105) — единый
+ * словарь DTO (FR-090): определения переехали из мок-обработчиков, мок-слой
+ * реэкспортирует их, сервисы core и страницы импортируют отсюда.
  */
+
+/** Параметры auth.register (IF-101): поля формы регистрации (US-15). */
+export interface RegisterParams {
+  fullName: string;
+  login: string;
+  email: string;
+  password: string;
+  repeatPassword: string;
+}
+
+/** Параметры auth.login (IF-101): поля формы входа (US-1). */
+export interface LoginParams {
+  login: string;
+  password: string;
+}
+
+/** Результат auth.recovery.confirm (IF-101): краткоживущий токен сброса. */
+export interface ConfirmRecoveryResult {
+  resetToken: string;
+}
+
+/**
+ * Тексты отказов IF-101 — дословно (§8); единый источник для мок-обработчиков
+ * и AuthService: страницы распознают терминальные ветки сравнением с ними,
+ * не дублируя литералы (ревью CR-001 T-111).
+ */
+export const AUTH_ERRORS = {
+  /** Единый отказ входа — не раскрывает существование логина (§4.1). */
+  wrongCredentials: 'Неверный логин или пароль',
+  /** Баннер полевых ошибок (§8). */
+  invalidData: 'Данные заполнены неверно',
+  /** Дубликаты регистрации: логин проверяется первым (§8). */
+  loginTaken: 'Пользователь с таким логином уже существует',
+  emailTaken: 'Пользователь с таким email уже существует',
+  /** Превышен лимит частоты — вход/регистрация/запрос кода (IF-101). */
+  tooManyAttempts: 'Слишком много попыток. Повторите позже',
+  /** Код неверный/просроченный/использованный/аннулированный (§4.2). */
+  recoveryCodeRejected: 'Код восстановления не подходит',
+  /** Токен сброса неверный/просроченный/использованный (IF-101). */
+  resetLinkInvalid: 'Ссылка восстановления недействительна или истекла',
+  /** Нет/битая сессия у метода авторизованного домена (IF-101, OQ-002). */
+  unauthorized: 'Не авторизован',
+} as const;
 
 /** Поле первичной сортировки списка лабораторных (IF-103): номер или семестр. */
 export type LabsSortField = 'number' | 'semester';

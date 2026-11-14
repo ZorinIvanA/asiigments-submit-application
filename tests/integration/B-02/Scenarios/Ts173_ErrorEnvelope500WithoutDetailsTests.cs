@@ -15,7 +15,8 @@ namespace LabsApp.IntegrationTests.B02.Scenarios;
 /// given: в тестовом окружении один из прикладных сервисов — ILabRepository —
 ///        заменён реализацией, бросающей исключение (тестовый шов подмены через DI:
 ///        ConfigureTestServices регистрируется позже Program — последняя регистрация
-///        интерфейса побеждает); запрос выполняется анонимно (эндпойнты публичны).
+///        интерфейса побеждает); teacher авторизован (Development-хост, штатный вход
+///        сеяного преподавателя).
 /// when:  запрос, проходящий через аварийный сервис — POST /api/v1/labs с валидным
 ///        телом: полевая валидация проходит, вызов доходит до заменённого
 ///        репозитория (_labs.Add) и падает необработанным исключением.
@@ -28,10 +29,10 @@ public sealed class Ts173_ErrorEnvelope500WithoutDetailsTests
     [Fact]
     public async Task PostLabs_ThroughThrowingService_ReturnsEnvelopeWithoutExceptionDetails()
     {
-        // given: хост с заменённым ILabRepository; клиент анонимный —
-        // аутентификации в приложении нет. Замена оборачивает штатную
+        // given: хост с заменённым ILabRepository; teacher — валидная сессия
+        // (Development, дефолтный сид-пароль допустим). Замена оборачивает штатную
         // реализацию: сид при СТАРТЕ хоста идёт через делегирование, бросающий
-        // режим «взводится» после старта — только на целевой запрос.
+        // режим «взводится» после входа — только на целевой запрос.
         // B02WebAppFactory запечатан — подмена сервиса через WithWebHostBuilder
         // (ConfigureTestServices применяется после ConfigureWebHost фабрики —
         // последняя регистрация интерфейса побеждает в DI).
@@ -42,7 +43,10 @@ public sealed class Ts173_ErrorEnvelope500WithoutDetailsTests
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
+            HandleCookies = true,
         });
+        using var login = await HostClients.LoginAsDefaultTeacherAsync(client);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
 
         ((ArmedLabRepository)factory.Services.GetRequiredService<ILabRepository>()).Arm();
 

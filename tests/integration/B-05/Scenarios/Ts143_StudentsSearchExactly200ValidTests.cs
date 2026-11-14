@@ -4,7 +4,7 @@ namespace LabsApp.IntegrationTests.B05.Scenarios;
 
 /// <summary>
 /// TS-143 (P1, boundary; FR-020) «Студенты: поиск ровно 200 символов — валиден».
-/// given: анонимный доступ (текущий пользователь — сид-преподаватель).
+/// given: сессия teacher.
 /// when:  GET /students?search=&lt;ровно 200 символов&gt;
 /// then:  200 (не 400; граница включительно); фильтр применён — пустая выборка
 ///        (ни один сид-студент не содержит 200-символьную строку).
@@ -18,8 +18,8 @@ public sealed class Ts143_StudentsSearchExactly200ValidTests : IClassFixture<B05
     [Fact]
     public async Task SearchOfExactly200Chars_IsAcceptedNot400()
     {
-        // given: анонимный запрос (текущий пользователь — сид-преподаватель).
-        using var client = HostClients.Create(_factory);
+        // given: teacher авторизован.
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: search ровно 200 символов.
         var search = Uri.EscapeDataString(new string('x', 200));

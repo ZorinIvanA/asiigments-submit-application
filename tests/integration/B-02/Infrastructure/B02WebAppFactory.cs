@@ -1,3 +1,4 @@
+using LabsApp.Hosting.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Hosting;
@@ -10,13 +11,15 @@ namespace LabsApp.IntegrationTests.B02.Infrastructure;
 /// зоны B-01, BL-001 BUG-001).
 ///
 /// Харнес-умолчание (NFR-011): Seed__DemoData=false — автотесты не зависят от
-/// демо-сида (его состав не вычисляется на каждый хост). Кейсы демо-сида
-/// (TS-138 counts/parity, TS-139) создают фабрику с useHarnessDefaults:false
-/// (Seed__DemoData остаётся не заданным — работает умолчание Development) и
-/// переопределяют настройки через settings — поздние значения выигрывают.
+/// демо-сида (его PBKDF2-хэши не вычисляются на каждый хост; при демо-сиде
+/// SeedPasswordHasher считает 2 деривации — учитель + общий хэш студентов).
+/// Кейсы демо-сида (TS-138 counts/parity, TS-139) создают фабрику с
+/// useHarnessDefaults:false (Seed__DemoData остаётся не заданным — работает умолчание
+/// Development) и переопределяют настройки через settings — поздние значения выигрывают.
 ///
-/// Аутентификации в приложении нет: секретные переменные (Auth__*/Seed__TeacherPassword)
-/// не существуют, Production-умолчанию достаточно явной строки подключения хранилища.
+/// Production-умолчания: валидные секреты (FR-008/FR-025: в Production обязательны
+/// Auth__JwtKey и Seed__TeacherPassword, не равный дефолту), отдельные кейсы
+/// переопределяют их через settings.
 ///
 /// Механика: при минимальном хостинге (WebApplicationBuilder) значения UseSetting
 /// фабрики попадают в аргументы точки входа до запуска Program, поэтому ключи
@@ -25,6 +28,12 @@ namespace LabsApp.IntegrationTests.B02.Infrastructure;
 /// </summary>
 public sealed class B02WebAppFactory : WebApplicationFactory<Program>
 {
+    /// <summary>Валидный Production-ключ подписи JWT (≥ 32 символов, ≠ dev-ключ).</summary>
+    public const string ProductionJwtKey = "b02-integration-production-jwt-signing-key-0123456789abcdef";
+
+    /// <summary>Валидный Production-пароль сида (≠ умолчанию, правила §8 выполнены).</summary>
+    public const string ProductionTeacherPassword = "b02-Production#2026";
+
     /// <summary>
     /// Харнес-умолчание Seed__DemoData (NFR-011). Значение — "false": батч по
     /// умолчанию не зависит от демо-сида; кейсы TS-138 (counts/parity) и TS-139
@@ -82,13 +91,22 @@ public sealed class B02WebAppFactory : WebApplicationFactory<Program>
         builder.UseEnvironment(_environment);
         builder.UseSetting(WebHostDefaults.ContentRootKey, AppContext.BaseDirectory);
 
-        // Адаптация окружения прогона: отключает inotify-watcher провайдеров
-        // конфигурации (appsettings.json, reloadOnChange). Значения конфигурации
-        // читаются как обычно — проверяемое поведение не меняется; на хосте прогона
-        // исчерпан пользовательский лимит
+        // Адаптация окружения прогона (как DOTNET_ROLL_FORWARD у процессных тестов):
+        // отключает inotify-watcher провайдеров конфигурации (appsettings.json,
+        // reloadOnChange). Значения конфигурации читаются как обычно — проверяемое
+        // поведение не меняется; на хосте прогона исчерпан пользовательский лимит
         // inotify-инстансов (fs.inotify.max_user_instances), и WebApplication без
         // этого ключа падает на создании FileSystemWatcher (System.IO.IOException).
         builder.UseSetting(HostDefaultsReloadConfigOnChangeKey, "false");
+
+        if (string.Equals(_environment, Environments.Production, StringComparison.OrdinalIgnoreCase))
+        {
+            // FR-008/FR-025: Production требует явные валидные секреты (Auth__JwtKey,
+            // Seed__TeacherPassword ≠ дефолту) — задаём их по умолчанию; кейс
+            // переопределяет через settings (например, guard-кейс TS-136).
+            builder.UseSetting(ToConfigKey(AuthOptions.JwtKeyVariable), ProductionJwtKey);
+            builder.UseSetting(ToConfigKey(SeedOptions.TeacherPasswordVariable), ProductionTeacherPassword);
+        }
 
         if (_useHarnessDefaults)
         {
@@ -108,7 +126,10 @@ public sealed class B02WebAppFactory : WebApplicationFactory<Program>
     /// WebApplicationFactory-хоста; жёсткий автотест на время НЕ вводится»).
     /// Замер пишется в стандартный вывод прогона (CI-лог); значение сохраняется в
     /// <see cref="HostWarmupDuration"/>; ограничений на значение не проверяется.
-    /// Клиент — без авто-редиректов; запросы уходят анонимно (аутентификации нет).
+    /// Обычный путь WAF-кейсов батча: cookie-контейнер включён (Development-кейсы).
+    /// Кейсы с ручным реплеем cookie создают клиента напрямую factory.CreateClient(...)
+    /// с HandleCookies=false (Ts137: access-cookie выпускается с флагом Secure в
+    /// Production и контейнером по http://localhost не реплится — обоснование в кейсе).
     /// </summary>
     public HttpClient CreateWarmClient()
     {
@@ -116,6 +137,7 @@ public sealed class B02WebAppFactory : WebApplicationFactory<Program>
         var client = CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
+            HandleCookies = true,
         });
         stopwatch.Stop();
 

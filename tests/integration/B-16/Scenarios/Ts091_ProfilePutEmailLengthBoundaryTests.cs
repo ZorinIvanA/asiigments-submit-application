@@ -1,3 +1,4 @@
+using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.IntegrationTests.B16.Infrastructure;
 
@@ -6,8 +7,7 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 /// <summary>
 /// TS-091 «Профиль: границы длины email 254/255» (boundary, FR-015, P2).
 ///
-/// given: текущий пользователь приложения — засеянный преподаватель; клиент
-///        анонимный (аутентификации в приложении нет); fullName валиден.
+/// given: пользователь авторизован; fullName валиден.
 /// when:  PUT с email длиной ровно 254 (валидный формат); затем с email длиной 255.
 /// then:  первый — 200; второй — 400, errors.email=['Email — не более 254 символов']
 ///        (доменная модель User.email: 1–254 после трима; текст словаря email.length).
@@ -17,6 +17,8 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 [Collection(SerialBuildAndProcessCollection.Name)]
 public sealed class Ts091_ProfilePutEmailLengthBoundaryTests : IClassFixture<B16WebAppFactory>
 {
+    private const string Login = "ts091";
+    private const string Email = "ts091@x.ru";
     private const string ValidFullName = "Студент ТС-091";
 
     private readonly B16WebAppFactory _factory;
@@ -26,9 +28,16 @@ public sealed class Ts091_ProfilePutEmailLengthBoundaryTests : IClassFixture<B16
     [Fact]
     public async Task PutProfile_Email254Accepted_Email255RejectedWithLengthError()
     {
-        // given: текущий пользователь — засеянный преподаватель; клиент анонимный.
-        _ = await B16Harness.CurrentUserAsync(_factory);
-        using var client = B16Harness.Create(_factory);
+        // given: пользователь авторизован; fullName валиден.
+        var user = B16Harness.SeedUser(
+            _factory,
+            login: Login,
+            email: Email,
+            fullName: ValidFullName,
+            role: UserRoles.Student,
+            groupId: null,
+            password: B16Harness.TestUserPassword);
+        using var client = B16Harness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // email валидного формата: локальная часть из «a» + «@example.com».
         var email254 = new string('a', 242) + "@example.com";

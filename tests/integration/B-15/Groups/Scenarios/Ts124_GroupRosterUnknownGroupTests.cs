@@ -22,7 +22,7 @@ public sealed class Ts124_GroupRosterUnknownGroupTests : IClassFixture<B15Groups
     public async Task GetRosterOfUnknownGroup_ReturnsNotFound()
     {
         // given: сессия teacher; группы с указанным uuid не существует.
-        using var client = B15GroupsSession.CreateClient(_factory);
+        using var client = await B15GroupsSession.CreateTeacherAsync(_factory);
         var unknownId = Guid.NewGuid();
 
         // when: GET /groups/{несуществующий-uuid}/students.

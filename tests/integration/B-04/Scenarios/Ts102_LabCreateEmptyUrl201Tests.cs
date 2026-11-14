@@ -26,7 +26,7 @@ public sealed class Ts102_LabCreateEmptyUrl201Tests(B04LabsWebAppFactory factory
         // given: пары (semester=1, number=21) не существует.
         Assert.Null( await labs.TryGetByPairAsync(semester: 1, number: 21) );
 
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when: POST /labs с пустой ссылкой assignmentUrl=''.
         using var response = await client.PostAsJsonAsync("/api/v1/labs", new

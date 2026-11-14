@@ -1,13 +1,14 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using LabsApp.Auth;
 using LabsApp.Domain.Dtos;
 using LabsApp.Domain.Entities;
 using LabsApp.Domain.Validation;
 using LabsApp.Hosting;
-using LabsApp.Hosting.Configuration;
 using LabsApp.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using ValidationTexts = LabsApp.Domain.Validation.ErrorTexts;
 
 namespace LabsApp.Controllers;
@@ -19,13 +20,15 @@ namespace LabsApp.Controllers;
 /// (обе ошибки сразу) → 400; дубликат lower(email) среди ДРУГИХ пользователей
 /// → 409 «Пользователь с таким email уже существует»; успех — обновление
 /// ТОЛЬКО fullName/email (login, роль и группа неизменны, поле login во входе
-/// игнорируется), 200 обновлённый ProfileDto. Текущий пользователь —
-/// засеянный преподаватель (Seed__TeacherLogin): без аутентификации
-/// приложение работает от его имени.
+/// игнорируется), 200 обновлённый ProfileDto. Смена пароля — отдельный
+/// эндпойнт PUT /me/password (T-012, отдельный контроллер).
+/// Доступ — любая аутентифицированная роль (FR-022 role=user); анонимно — 401
+/// «Не авторизован» от схемы аутентификации (Challenge, ADR-003).
 /// groupName вычисляется по ТЕКУЩЕМУ состоянию групп (зеркало мока
 /// toProfileDto: переименование/удаление группы студента сразу видно в профиле).
 /// Порядок отказов фиксирован 401 → 400 → 409:
-///  - 401 — сид-преподаватель не найден в хранилище (сид не выполнен);
+///  - 401 отдаёт схема аутентификации; пользователь, удалённый из хранилища
+///    при живом access-токене, даёт тот же 401 (зеркало мока requireSessionUser);
 ///  - тело запроса разбирается вручную (без [FromBody]): синтаксически
 ///    некорректный JSON → 400 «Данные заполнены неверно» БЕЗ errors (IF-001);
 ///  - полевая валидация возвращает ВСЕ ошибки сразу (errors {fullName, email}),
@@ -37,19 +40,15 @@ namespace LabsApp.Controllers;
 ///    200 рендерится по свежему снимку.
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api/v1/me/profile")]
-public sealed class ProfileController(
-    IUserRepository users,
-    IGroupRepository groups,
-    IOptions<SeedOptions> seedOptions) : ControllerBase
+public sealed class ProfileController(IUserRepository users, IGroupRepository groups) : ControllerBase
 {
     private const string FullNameField = "fullName";
     private const string EmailField = "email";
 
     private readonly IUserRepository _users = users ?? throw new ArgumentNullException(nameof(users));
     private readonly IGroupRepository _groups = groups ?? throw new ArgumentNullException(nameof(groups));
-    private readonly SeedOptions _seedOptions = seedOptions?.Value
-        ?? throw new ArgumentNullException(nameof(seedOptions));
 
     /// <summary>GET /api/v1/me/profile — ProfileDto текущего пользователя (FR-015).</summary>
     [HttpGet]
@@ -117,19 +116,18 @@ public sealed class ProfileController(
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Текущий пользователь — засеянный преподаватель (Seed__TeacherLogin):
-    /// без аутентификации приложение работает от его имени. Отсутствие записи
-    /// (сид не выполнен) даёт null — действие отвечает 401 «Не авторизован».
+    /// Текущий пользователь по claim sub (NameIdentifier). Отсутствие claim при
+    /// живой сессии либо запись, удалённая из хранилища, дают null — действие
+    /// отвечает 401 «Не авторизован» (зеркало мока requireSessionUser).
     /// </summary>
     private async Task<User?> TryLoadCurrentUserAsync()
     {
-        var login = _seedOptions.TeacherLogin?.Trim();
-        var normalized = string.IsNullOrEmpty(login) ? SeedOptions.DefaultTeacherLogin : login;
-        return await _users.GetByLoginAsync(normalized);
+        var rawId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(rawId, out var id) ? await _users.GetByIdAsync(id) : null;
     }
 
     private static IActionResult UnauthorizedEnvelope() =>
-        new ObjectResult(new ErrorEnvelope { Message = ValidationTexts.Unauthorized })
+        new ObjectResult(new ErrorEnvelope { Message = AuthCoreDefaults.UnauthorizedMessage })
         {
             StatusCode = StatusCodes.Status401Unauthorized,
             ContentTypes = { "application/json" },

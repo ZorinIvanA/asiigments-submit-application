@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// (ревью R4e)» (boundary, FR-017): given — сид развёрнут: 20 работ семестра 1
 /// (№1–20) и 3 работы семестра 2 (№1–3) — номера 1, 2, 3 существуют в ОБОИХ
 /// семестрах (межсеместровые дубли номеров, DI-сид <see cref="B03DomainSeed"/>);
-/// фильтр semester НЕ применяется; клиент анонимный; when — GET
+/// фильтр semester НЕ применяется; сессия teacher; when — GET
 /// /api/v1/labs?sortField=number&amp;sortDir=desc; then — 200, total=23,
 /// pageSize=10; порядок: первичный ключ number по убыванию, вторичный semester
 /// ВСЕГДА по возрастанию — первый элемент (semester=1, number=20); сквозной
@@ -35,8 +35,8 @@ public sealed class Ts174_LabsSortDescSecondarySemesterTests : IClassFixture<B03
     [Fact]
     public async Task NumberDesc_SecondarySemesterAlwaysAsc_AcrossAllPages()
     {
-        // given: сид 23 работ с межсеместровыми дублями номеров 1..3; клиент анонимный.
-        var client = B03LabsApi.CreateClient(_factory);
+        // given: сид 23 работ с межсеместровыми дублями номеров 1..3; teacher.
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: сквозная выборка sortField=number&sortDir=desc (фильтр semester
         //       не передан) — три страницы по pageSize=10 (на последней 3 записи).
@@ -48,7 +48,7 @@ public sealed class Ts174_LabsSortDescSecondarySemesterTests : IClassFixture<B03
             using var body = await ResponseAssert.ParseWithStatusAsync(
                 response,
                 HttpStatusCode.OK,
-                $"GET /api/v1/labs?sortField=number&sortDir=desc&page={page} (анонимно)");
+                $"GET /api/v1/labs?sortField=number&sortDir=desc&page={page} (teacher)");
 
             // then: на каждой странице total=23 (фильтр semester не применён),
             //       pageSize=10, page — нормализованное значение.

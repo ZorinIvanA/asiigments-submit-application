@@ -20,10 +20,10 @@ public sealed class Ts144_StudentsUnknownGroupUuidEmptySelectionTests : IClassFi
     [Fact]
     public async Task UnknownGroupUuid_Returns200EmptySelectionNot404()
     {
-        // given: случайный uuid, которого нет среди групп; анонимный запрос (текущий пользователь — сид-преподаватель).
+        // given: случайный uuid, которого нет среди групп; teacher авторизован.
         var unknownGroupId = Guid.NewGuid();
         Assert.Null(await _factory.Services.GetRequiredService<IGroupRepository>().GetByIdAsync(unknownGroupId));
-        using var client = HostClients.Create(_factory);
+        using var client = await B05MintedSessions.CreateTeacherClient(_factory);
 
         // when: фильтр студентов по неизвестной группе.
         using var response = await client.GetAsync($"/api/v1/students?groupId={unknownGroupId}");

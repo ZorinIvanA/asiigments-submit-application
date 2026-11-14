@@ -6,11 +6,15 @@ public sealed class SeedOptions
     public const string SectionName = "Seed";
 
     public const string TeacherLoginVariable = "Seed__TeacherLogin";
+    public const string TeacherPasswordVariable = "Seed__TeacherPassword";
     public const string DemoDataVariable = "Seed__DemoData";
 
     public const string DefaultTeacherLogin = "teacher";
+    public const string DefaultTeacherPassword = "teacher123!";
 
     public string TeacherLogin { get; set; } = DefaultTeacherLogin;
+
+    public string TeacherPassword { get; set; } = DefaultTeacherPassword;
 
     /// <summary>
     /// Сырое значение Seed__DemoData: 'true'/'false' (без учёта регистра);

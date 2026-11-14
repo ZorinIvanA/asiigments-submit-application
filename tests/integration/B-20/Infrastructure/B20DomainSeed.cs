@@ -1,0 +1,137 @@
+using LabsApp.Domain.Entities;
+using LabsApp.Infrastructure;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace LabsApp.IntegrationTests.B20.Infrastructure;
+
+/// <summary>
+/// DI-сид доменных данных батча B-20 (given TS-148/NFR-001): прямое наполнение
+/// in-memory репозиториев из factory.Services, минуя публичный API (объёмные
+/// данные готовятся в обход HTTP-лимитов; регистрационный лимитер 5/час на IP —
+/// FR-004 — прервал бы засев на 6-м запросе). Идемпотентен: существующие записи
+/// пропускаются. Пароли DI-пользователей кейсами не используются — PasswordHash
+/// кладётся заглушкой, PBKDF2 при сиде не вызывается. Копия механики зон
+/// B-19/B-21 (чужие зоны недоступны для ссылок — BL-001 BUG-001).
+/// </summary>
+public static class B20DomainSeed
+{
+    /// <summary>
+    /// Работа заданной пары (semester, number): добавляется в ILabRepository, если пара
+    /// свободна; иначе возвращается существующая запись.
+    /// </summary>
+    public static async Task<Lab> AddLabAsync(WebApplicationFactory<Program> factory, int semester, int number)
+    {
+        var labs = factory.Services.GetRequiredService<ILabRepository>();
+        if (await labs.TryGetByPairAsync(semester, number) is { } existing)
+        {
+            return existing;
+        }
+
+        var lab = new Lab
+        {
+            Id = Guid.NewGuid(),
+            Semester = semester,
+            Number = number,
+            Content = $"Содержание DI-сида работы B-20 {semester}:{number}",
+            AssignmentUrl = null,
+            DefenseRequired = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        await labs.AddAsync(lab);
+        return lab;
+    }
+
+    /// <summary>Группа с заданным именем (если имя свободно — добавляется, иначе существующая).</summary>
+    public static async Task<Group> AddGroupAsync(WebApplicationFactory<Program> factory, string name)
+    {
+        var groups = factory.Services.GetRequiredService<IGroupRepository>();
+        if (await groups.GetByNameAsync(name) is { } existing)
+        {
+            return existing;
+        }
+
+        var group = new Group
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            CreatedAt = DateTime.UtcNow,
+        };
+        await groups.AddAsync(group);
+        return group;
+    }
+
+    /// <summary>
+    /// Учётная запись студента role=student с заданной группой (GroupId = null — без группы).
+    /// </summary>
+    public static async Task<User> AddStudentAsync(WebApplicationFactory<Program> factory, string login, Guid? groupId = null)
+    {
+        var users = factory.Services.GetRequiredService<IUserRepository>();
+        if (await users.GetByLoginAsync(login) is { } existing)
+        {
+            return existing;
+        }
+
+        var student = new User
+        {
+            Id = Guid.NewGuid(),
+            Login = login,
+            Email = $"{login}@example.com",
+            FullName = $"Тестовый Студент B-20 {login}",
+            Role = UserRoles.Student,
+            GroupId = groupId,
+            PasswordHash = "b20-di-seed-hash-not-used-by-cases",
+            CreatedAt = DateTime.UtcNow,
+        };
+        await users.AddAsync(student);
+        return student;
+    }
+
+    /// <summary>Итог сида производительности NFR-001 (кейс TS-148).</summary>
+    public sealed record ReadPerformanceDataset(Guid TargetGroupId, int TargetSemester, int TargetSemesterLabCount);
+
+    /// <summary>
+    /// Датасет производительности NFR-001 (given TS-148): 200 работ, 300
+    /// пользователей, группа 25 студентов × семестр 20 работ. Целевой семестр — 1
+    /// (кейс запрашивает GET /api/v1/submissions?groupId=…&amp;semester=1): работы с
+    /// номерами 1..20; остальные 180 работ — шесть прочих семестров {2..7} по 30
+    /// работ. Целевая группа вмещает первых 25 студентов; остальные 275 — вне
+    /// группы. KDF-зависимые поверхности не задействованы.
+    /// </summary>
+    public static async Task<ReadPerformanceDataset> SeedReadPerformanceDatasetAsync(B20ApiFactory factory)
+    {
+        const int targetSemester = 1;
+        const int targetSemesterLabs = 20;
+        const int otherSemestersLabs = 30;
+        const int totalStudents = 300;
+        const int targetGroupSize = 25;
+
+        // 200 работ: целевой семестр (20) + прочие семестры (6 × 30 = 180).
+        for (var number = 1; number <= targetSemesterLabs; number++)
+        {
+            await AddLabAsync(factory, targetSemester, number);
+        }
+
+        foreach (var semester in new[] { 2, 3, 4, 5, 6, 7 })
+        {
+            for (var number = 1; number <= otherSemestersLabs; number++)
+            {
+                await AddLabAsync(factory, semester, number);
+            }
+        }
+
+        // 300 пользователей, первые 25 — в целевой группе.
+        var targetGroup = await AddGroupAsync(factory, "Ts148-Perf-Group");
+        for (var i = 1; i <= totalStudents; i++)
+        {
+            var inTargetGroup = i <= targetGroupSize;
+            await AddStudentAsync(
+                factory,
+                $"ts148-perf-student-{i:D4}",
+                inTargetGroup ? targetGroup.Id : null);
+        }
+
+        return new ReadPerformanceDataset(targetGroup.Id, targetSemester, targetSemesterLabs);
+    }
+}

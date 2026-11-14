@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// <summary>
 /// TS-092 «labs: создание с нормализацией (строка-число, трим, пустая ссылка →
 /// null)» (FR-017 AC «Создание» + нормализация после валидации; P0): given —
-/// клиент анонимный; пара (semester=1, number=21) не существует; when — POST
+/// сессия teacher; пара (semester=1, number=21) не существует; when — POST
 /// /api/v1/labs {number:'21' (строка из цифр), semester:1, content:'  Новая  ',
 /// assignmentUrl:'', defenseRequired:true}; then — 201 LabDto с number=21 (int,
 /// JSON-число), content='Новая', assignmentUrl=null, id≠null, defenseRequired=true.
@@ -21,8 +21,8 @@ public sealed class Ts092_LabCreateNormalizationTests : IClassFixture<B03HostFac
     [Fact]
     public async Task CreateLab_NormalizableFields_ReturnsNormalizedLabDto()
     {
-        // given: клиент анонимный; пара (1,21) не существует.
-        var client = B03LabsApi.CreateClient(_factory);
+        // given: сессия teacher; пара (1,21) не существует.
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
         Assert.Null(await _factory.Services.GetRequiredService<ILabRepository>().TryGetByPairAsync(1, 21));
 
         // when: POST с number-строкой из цифр, content с краевыми пробелами и

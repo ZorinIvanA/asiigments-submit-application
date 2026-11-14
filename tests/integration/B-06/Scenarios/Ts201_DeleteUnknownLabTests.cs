@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-201 «Лабораторные: DELETE несуществующего id — 404» (негативный, P1, FR-017).
 ///
-/// given: записи с указанным uuid не существует (случайный uuid); анонимный клиент.
+/// given: записи с указанным uuid не существует (случайный uuid); сессия teacher.
 /// when:  DELETE /api/v1/labs/&lt;произвольный-uuid&gt;.
 /// then:  404; message 'Лабораторная не найдена'
 ///        (NOT_FOUND_LAB; FR-017: «DELETE /labs/{id} → 204 и каскадное удаление …
@@ -20,8 +20,8 @@ public sealed class Ts201_DeleteUnknownLabTests : IClassFixture<B06SubmissionsWe
     [Fact]
     public async Task DeleteLabByUnknownId_Returns404LabNotFound()
     {
-        // given: анонимный клиент; uuid, которого нет в хранилище.
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        // given: сессия teacher; uuid, которого нет в хранилище.
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: DELETE /labs/<произвольный-uuid>.
         using var response = await B06SubmissionsApi.DeleteLabByIdAsync(client, Guid.NewGuid().ToString());

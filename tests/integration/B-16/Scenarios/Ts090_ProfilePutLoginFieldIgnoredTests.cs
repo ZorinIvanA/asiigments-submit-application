@@ -1,3 +1,4 @@
+using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B16.Infrastructure;
 
 namespace LabsApp.IntegrationTests.B16.Scenarios;
@@ -6,19 +7,18 @@ namespace LabsApp.IntegrationTests.B16.Scenarios;
 /// TS-090 «Профиль: поле login во входе игнорируется» (negative, FR-015, P1;
 /// нумерация текущего батча B-16).
 ///
-/// given: текущий пользователь приложения — засеянный преподаватель
-///        (Seed__TeacherLogin «teacher»); email 'new@example.com' свободен
-///        (свежая фикстура — пустое хранилище, кроме сид-преподавателя); клиент
-///        анонимный (аутентификации в приложении нет).
+/// given: пользователь 'victim' авторизован; email свободен (свежая фикстура —
+///        пустое хранилище, кроме сид-преподавателя).
 /// when:  PUT /api/v1/me/profile {fullName:'Новое ФИО', email:'new@example.com',
 ///        login:'hacker'} (лишнее поле).
-/// then:  200; login пользователя остался 'teacher' — поле login во входе
+/// then:  200; login пользователя остался 'victim' — поле login во входе
 ///        игнорируется (FR-015: «поле login во входе игнорируется»).
 /// </summary>
 [Collection(SerialBuildAndProcessCollection.Name)]
 public sealed class Ts090_ProfilePutLoginFieldIgnoredTests : IClassFixture<B16WebAppFactory>
 {
-    private const string Login = "teacher";
+    private const string Login = "victim";
+    private const string Email = "victim@example.com";
     private const string IgnoredLoginField = "hacker";
     private const string NewFullName = "Новое ФИО";
     private const string NewEmail = "new@example.com";
@@ -28,13 +28,18 @@ public sealed class Ts090_ProfilePutLoginFieldIgnoredTests : IClassFixture<B16We
     public Ts090_ProfilePutLoginFieldIgnoredTests(B16WebAppFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task PutProfile_WithExtraLoginField_Returns200_AndKeepsLogin()
+    public async Task PutProfile_WithExtraLoginField_Returns200_AndKeepsVictimLogin()
     {
-        // given: текущий пользователь — засеянный преподаватель; email
-        // 'new@example.com' свободен; клиент анонимный.
-        var current = await B16Harness.CurrentUserAsync(_factory);
-        Assert.Equal(Login, current.Login);
-        using var client = B16Harness.Create(_factory);
+        // given: пользователь 'victim' авторизован; email 'new@example.com' свободен.
+        var user = B16Harness.SeedUser(
+            _factory,
+            login: Login,
+            email: Email,
+            fullName: "Жертва Атаки Игнорирования",
+            role: UserRoles.Student,
+            groupId: null,
+            password: B16Harness.TestUserPassword);
+        using var client = B16Harness.CreateSessionClient(_factory, user.Id, UserRoles.Student);
 
         // when: PUT с лишним полем login:'hacker'.
         using var response = await client.PutAsJsonAsync(B16Harness.ProfileEndpoint, new
@@ -44,7 +49,7 @@ public sealed class Ts090_ProfilePutLoginFieldIgnoredTests : IClassFixture<B16We
             login = IgnoredLoginField,
         });
 
-        // then: 200; login пользователя остался 'teacher' — поле во входе
+        // then: 200; login пользователя остался 'victim' — поле во входе
         // игнорируется (и в ответе, и в хранилище).
         Assert.True(
             response.StatusCode == HttpStatusCode.OK,
@@ -52,7 +57,7 @@ public sealed class Ts090_ProfilePutLoginFieldIgnoredTests : IClassFixture<B16We
         var root = await B16Assertions.ReadRootObjectAsync(response);
         B16Assertions.StringPropertyIs(root, "login", Login);
 
-        var stored = await B16Harness.StoredUserAsync(_factory, current.Id);
+        var stored = await B16Harness.StoredUserAsync(_factory, user.Id);
         Assert.True(
             string.Equals(stored.Login, Login, StringComparison.Ordinal),
             $"Ожидался неизменный login «{Login}», фактически «{stored.Login}» (поле login во входе должно игнорироваться).");

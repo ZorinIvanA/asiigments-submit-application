@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-155 «Ведомость: отсутствует groupId — 400» (негативный, P0, FR-021).
 ///
-/// given: анонимный клиент; semester валиден (в демо-наборе есть работы семестра 1).
+/// given: сессия teacher; semester валиден (в демо-наборе есть работы семестра 1).
 /// when:  GET /api/v1/submissions?semester=1&amp;page=1 (без groupId — параметр
 ///        не передаётся вовсе).
 /// then:  400 'Данные заполнены неверно' + errors.groupId=['Заполните поле']
@@ -20,8 +20,8 @@ public sealed class Ts155_SubmissionsGridMissingGroupIdTests : IClassFixture<B06
     [Fact]
     public async Task GetGridWithoutGroupId_Returns400WithRequiredGroupIdError()
     {
-        // given: анонимный клиент.
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        // given: сессия teacher.
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: GET /submissions?semester=1&page=1 — без groupId.
         using var response = await B06SubmissionsApi.GetGridAsync(

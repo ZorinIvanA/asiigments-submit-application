@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 /// <summary>
 /// TS-100 «Лабораторные: внедиапазонный semester — пустая выборка, не 400»
 /// (FR-017 AC «Внедиапазонный semester — пустая выборка, не 400», AR-002; P0):
-/// given — сид: работы только в семестрах 1 и 2; клиент анонимный; when — GET
+/// given — сид: работы только в семестрах 1 и 2; сессия teacher; when — GET
 /// /labs?semester=99; then — 200 {items:[], total:0, page:1, pageSize:10} — НЕ 400.
 /// </summary>
 public sealed class Ts100_LabsOutOfRangeSemesterTests : IClassFixture<B03HostFactory>,
@@ -28,15 +28,15 @@ public sealed class Ts100_LabsOutOfRangeSemesterTests : IClassFixture<B03HostFac
     [Fact]
     public async Task GetLabsSemester99_ReturnsEmptyPageNot400()
     {
-        // given: клиент анонимный; сид — работы только в семестрах 1 и 2.
-        var client = B03LabsApi.CreateClient(_factory);
+        // given: сессия teacher; сид — работы только в семестрах 1 и 2.
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
 
         // when: целочисленный semester вне диапазона.
         using var response = await B03LabsApi.GetLabsAsync(client, "semester=99");
 
         // then: 200 с пустой выборкой и корректной пагинацией (НЕ 400).
         using var body = await ResponseAssert.ParseWithStatusAsync(
-            response, HttpStatusCode.OK, "GET /api/v1/labs?semester=99 (анонимно)");
+            response, HttpStatusCode.OK, "GET /api/v1/labs?semester=99 (teacher)");
         Assert.Empty(B03LabsApi.ReadItemPairs(body.RootElement));
         Assert.Equal(0, B03LabsApi.ReadInt(body.RootElement, "total"));
         Assert.Equal(1, B03LabsApi.ReadInt(body.RootElement, "page"));

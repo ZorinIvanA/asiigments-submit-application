@@ -22,7 +22,7 @@ public sealed class Ts204_GroupRosterPageBeyondLastTests : IClassFixture<B17Grou
     public async Task GetRosterPageBeyondLast_ReturnsEmptyItemsWithCorrectTotal()
     {
         // given: сессия teacher; id группы ИК-221 (25 студентов).
-        using var client = B17GroupsSession.CreateClient(_factory);
+        using var client = await B17GroupsSession.CreateTeacherAsync(_factory);
         var ik221Id = await B17GroupsApi.GetGroupIdByNameAsync(client, "ИК-221");
 
         // when: GET /groups/{id}/students?page=99.

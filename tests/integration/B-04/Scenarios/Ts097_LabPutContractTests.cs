@@ -10,7 +10,7 @@ namespace LabsApp.IntegrationTests.B04.Scenarios;
 /// самоконфликт 200, чужая пара 409, невалидное тело 400 (в т.ч. раньше 404),
 /// несуществующий id 404».
 /// given: существуют работы L1 (semester=1, number=5) и L2 (semester=1, number=6) —
-///        записи с РАЗНЫМИ парами (DI-сид); анонимный доступ (текущий пользователь — сид-преподаватель).
+///        записи с РАЗНЫМИ парами (DI-сид); сессия teacher.
 /// when:  PUT /labs/{L1.id} с теми же semester=1, number=5 и новым
 ///        content='Обновлённое содержание'; затем PUT /labs/{L1.id} с парой
 ///        semester=1, number=6 (занята записью L2); затем PUT /labs/{L1.id} с
@@ -23,7 +23,7 @@ namespace LabsApp.IntegrationTests.B04.Scenarios;
 ///        errors.number/errors.semester=['Семестр — число от 1 до 10']/errors.content/
 ///        errors.assignmentUrl (PUT наследует валидацию LabInput от POST), запись L1
 ///        не изменена (content равен значению, записанному шагом 1); четвёртый — те же
-///        400, не 404 (порядок отказов 400→404→409); пятый — 404
+///        400, не 404 (порядок отказов 401→403→400→404→409); пятый — 404
 ///        'Лабораторная не найдена'.
 /// </summary>
 public sealed class Ts097_LabPutContractTests(B04LabsWebAppFactory factory)
@@ -41,7 +41,7 @@ public sealed class Ts097_LabPutContractTests(B04LabsWebAppFactory factory)
         var labs = _factory.Services.GetRequiredService<ILabRepository>();
         var l1 = await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 5);
         await B04DomainSeed.AddLabAsync(labs, semester: 1, number: 6);
-        using var client = HostClients.Create(_factory);
+        using var client = await MintedSessions.CreateTeacherClient(_factory);
 
         // when/then (1): PUT собственной записи с той же парой (1, 5) — 200, не 409.
         using var selfUpdate = await client.PutAsJsonAsync($"/api/v1/labs/{l1.Id}", new

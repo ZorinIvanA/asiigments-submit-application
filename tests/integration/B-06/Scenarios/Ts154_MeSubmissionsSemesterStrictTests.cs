@@ -5,7 +5,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// <summary>
 /// TS-154 «me/submissions: внедиапазонный/нечисловой semester — 400» (boundary, P0, FR-021).
 ///
-/// given: анонимный клиент; текущий пользователь — сид-преподаватель; Labs__MaxSemester=10 (умолчание).
+/// given: student01 авторизован (демо-сид); Labs__MaxSemester=10 (умолчание конфигурации).
 /// when:  GET /api/v1/me/submissions?semester=11 и GET /api/v1/me/submissions?semester=abc.
 /// then:  оба — 400; message 'Данные заполнены неверно';
 ///        errors.semester=['Семестр — число от 1 до 10'] — не 200 с пустыми массивами
@@ -20,8 +20,8 @@ public sealed class Ts154_MeSubmissionsSemesterStrictTests : IClassFixture<B06Su
     [Fact]
     public async Task GetMeSubmissionsWithOutOfRangeAndNonNumericSemester_Returns400()
     {
-        // given: анонимный клиент (текущий пользователь — сид-преподаватель).
-        using var client = HostClients.Create(_factory);
+        // given: сессия student01.
+        using var client = await B06SubmissionsSessions.CreateStudentSessionByLogin(_factory, "student01");
 
         // when/then: semester=11 — 400 со строгой ошибкой semester.
         using var outOfRange = await B06SubmissionsApi.GetMeSubmissionsAsync(client, semester: "11");

@@ -7,7 +7,7 @@ namespace LabsApp.IntegrationTests.B03.Scenarios;
 
 /// <summary>
 /// TS-094 «labs: границы семестра 1/10 валидны, 0/11 — 400 с шаблонным текстом»
-/// (FR-017 AC «Границы семестра», ISS-015; P0): given — клиент анонимный;
+/// (FR-017 AC «Границы семестра», ISS-015; P0): given — сессия teacher;
 /// Labs__MaxSemester=10 (умолчание тестового хоста, фиксируется снимком конфигурации);
 /// пары свободны; when — POST с semester=1; semester=10; semester=0; semester=11
 /// (прочие поля валидны); then — первые два 201; последние два 400 с
@@ -23,8 +23,8 @@ public sealed class Ts094_LabSemesterBoundsTests : IClassFixture<B03HostFactory>
     [Fact]
     public async Task CreateLab_SemesterBoundaries_InRangeCreatedOutOfRangeRejected()
     {
-        // given: клиент анонимный; граница конфигурации ровно 10 (умолчание хоста).
-        var client = B03LabsApi.CreateClient(_factory);
+        // given: сессия teacher; граница конфигурации ровно 10 (умолчание хоста).
+        var (client, _) = await B03TeacherSession.CreateAsync(_factory);
         Assert.Equal(
             LabsOptions.DefaultMaxSemester,
             _factory.Services.GetRequiredService<IOptions<LabsOptions>>().Value.MaxSemester);

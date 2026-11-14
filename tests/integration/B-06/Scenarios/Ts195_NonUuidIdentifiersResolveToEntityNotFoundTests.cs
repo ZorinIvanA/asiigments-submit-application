@@ -8,7 +8,7 @@ namespace LabsApp.IntegrationTests.B06.Scenarios;
 /// TS-195 «Идентификаторы не-uuid формата в пути и теле — 404 сущности, не 500»
 /// (negative, P1, FR-020/FR-021).
 ///
-/// given: анонимный клиент; существует student01 (его uuid известен тесту);
+/// given: teacher-сессия; существует student01 (его uuid известен тесту);
 ///        подготовлена не-uuid строка 'not-a-uuid' для сегмента пути и полей тела.
 /// when:  PUT /api/v1/students/not-a-uuid/group {groupId:null}; затем
 ///        PUT /api/v1/submissions {studentId:'not-a-uuid', labId:'not-a-uuid',
@@ -46,8 +46,8 @@ public sealed class Ts195_NonUuidIdentifiersResolveToEntityNotFoundTests :
     [Fact]
     public async Task NonUuidIdentifierInPathAndBody_ReturnsEntity404Never500()
     {
-        // given: анонимный клиент; валидный student01; не-uuid строка подготовлена.
-        using var client = (await B06SubmissionsSessions.CreateTeacherClientAsync(_factory)).Client;
+        // given: teacher-сессия; валидный student01; не-uuid строка подготовлена.
+        using var client = (await B06SubmissionsSessions.CreateTeacherSession(_factory)).Client;
 
         // when: PUT /students/not-a-uuid/group {groupId:null}.
         using var pathSegment = await PutStudentGroupAsync(client, NotAUuid, groupId: null);

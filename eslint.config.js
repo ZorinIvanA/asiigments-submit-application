@@ -60,6 +60,10 @@ module.exports = tseslint.config(
       // Поля форм — PrimeNG-компоненты (p-select и т.п.): правило не видит
       // связь label[for] ↔ [inputId] кастомных контролов и ложно срабатывает.
       '@angular-eslint/template/label-has-associated-control': 'off',
+      // Кнопки PrimeNG (pButton) несут текст в атрибуте label — содержимое
+      // элемента пустое по каноническому паттерну библиотеки; правило
+      // считает такие кнопки «без текста» и ложно срабатывает.
+      '@angular-eslint/template/elements-content': 'off',
     },
   },
 );

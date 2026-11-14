@@ -5,9 +5,9 @@ namespace LabsApp.IntegrationTests.B04.Infrastructure;
 
 /// <summary>
 /// DI-сид сущностей кейсов батча (ADR-010: прямое наполнение репозиториев из
-/// factory.Services — независимость от демо-набора). Студенты кейсов —
-/// участники доменных данных (сдач, групп); пароль по passwordHash никогда
-/// не проверяется (аутентификации в приложении нет), хэш — плейсхолдер сида.
+/// factory.Services — обход лимитера регистраций и зависимости от демо-набора).
+/// Студенты кейсов не аутентифицируются (сессии — минтом, ADR-022), поэтому
+/// passwordHash — непустая заглушка; пароль по ней не проверяется никогда.
 /// Метки времени фиксированы — детерминизм независимо от системных часов.
 /// </summary>
 public static class B04DomainSeed
@@ -38,7 +38,7 @@ public static class B04DomainSeed
             Id = Guid.NewGuid(),
             Login = login,
             Email = $"{login}@b04.test",
-            PasswordHash = "!",
+            PasswordHash = "b04-di-seed-not-a-real-hash",
             FullName = $"B-04 {login}",
             Role = UserRoles.Student,
             GroupId = groupId,

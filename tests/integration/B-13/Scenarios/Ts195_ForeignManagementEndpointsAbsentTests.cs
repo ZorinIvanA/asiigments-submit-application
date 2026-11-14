@@ -2,7 +2,6 @@ using System.Text;
 using LabsApp.Domain.Entities;
 using LabsApp.IntegrationTests.B13.Infrastructure;
 using LabsApp.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LabsApp.IntegrationTests.B13.Scenarios;
 
@@ -23,8 +22,9 @@ namespace LabsApp.IntegrationTests.B13.Scenarios;
 ///        200 text/html с телом = index.html (правило SPA fallback FR-002:
 ///        маршрут не к /api/*, не к /health и не к /swagger*), и ни в одном
 ///        случае — не JSON-метрики. Контроль эффекта: ни на одном стенде
-///        пользователь не удалён и его роль не изменена (студент виден в
-///        GET /students; в хранилище запись осталась студентом).
+///        пользователь не удалён и его роль не изменена (под teacher студент
+///        виден в GET /students; GET /auth/me пользователя работает и роль
+///        прежняя — student).
 /// </summary>
 public sealed class Ts195_ForeignManagementEndpointsAbsentTests
 {
@@ -93,15 +93,15 @@ public sealed class Ts195_ForeignManagementEndpointsAbsentTests
     }
 
     /// <summary>
-    /// Контроль эффекта кейса: студент виден в GET /students (не удалён) и в
-    /// хранилище остался студентом (роль прежняя — student; эндпойнтов управления
-    /// учётными записями/ролями в API нет).
+    /// Контроль эффекта кейса: под teacher студент виден в GET /students
+    /// (не удалён); GET /auth/me пользователя работает и роль прежняя — student.
+    /// Сессии минтятся через ITokenService (ADR-022).
     /// </summary>
     private static async Task AssertStudentIntactAsync(B13ScopeWebAppFactory factory, Guid studentId)
     {
-        using (var client = B13ScopeHost.CreateClient(factory))
+        using (var teacherClient = await B13ScopeHost.CreateTeacherClientAsync(factory))
         {
-            using var students = await client.GetAsync(B13ScopeHost.StudentsEndpoint);
+            using var students = await teacherClient.GetAsync(B13ScopeHost.StudentsEndpoint);
             var body = await ApiAssert.ReadOkJsonAsync(students);
             var items = body.GetProperty("items");
             Assert.Equal(JsonValueKind.Array, items.ValueKind);
@@ -113,8 +113,13 @@ public sealed class Ts195_ForeignManagementEndpointsAbsentTests
             Assert.True(listed, "Контроль эффекта: студент не найден в GET /students — учётная запись удалена.");
         }
 
-        var stored = await factory.Services.GetRequiredService<IUserRepository>().GetByIdAsync(studentId);
-        Assert.NotNull(stored);
-        Assert.Equal(UserRoles.Student, stored!.Role);
+        using (var meClient = B13ScopeHost.CreateClient(factory))
+        {
+            B13ScopeHost.MintAccessCookie(factory, meClient, studentId, UserRoles.Student);
+            using var me = await meClient.GetAsync(B13ScopeHost.MeEndpoint);
+            var meBody = await ApiAssert.ReadOkJsonAsync(me);
+            Assert.Equal(StudentLogin, meBody.GetProperty("login").GetString());
+            Assert.Equal(UserRoles.Student, meBody.GetProperty("role").GetString());
+        }
     }
 }

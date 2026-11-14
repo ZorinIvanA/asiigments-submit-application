@@ -30,7 +30,7 @@ public static class B13Seed
     }
 
     /// <summary>
-    /// Добавляет студента напрямую в IUserRepository (ADR-010);
+    /// Добавляет студента напрямую в IUserRepository (сессия будет минтиться, ADR-022);
     /// groupId — членство в группе шага given (null = без группы).
     /// </summary>
     public static User AddStudent(B13WebAppFactory factory, string login, string fullName, Guid? groupId)
@@ -40,8 +40,8 @@ public static class B13Seed
             Id = Guid.NewGuid(),
             Login = login,
             Email = string.Create(CultureInfo.InvariantCulture, $"{login}@example.com"),
-            // Плейсхолдер сида приложения (SeedRunner): пароли не проверяются.
-            PasswordHash = "!",
+            // Сессии минтятся через ITokenService (ADR-022) — пароль не используется.
+            PasswordHash = "di-seed-mint-only",
             FullName = fullName,
             Role = UserRoles.Student,
             GroupId = groupId,
