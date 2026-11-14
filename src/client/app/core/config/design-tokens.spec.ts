@@ -11,15 +11,19 @@
  */
 import { TestBed } from '@angular/core/testing';
 
-import type { Preset } from '@primeuix/themes';
 import { PrimeNG } from 'primeng/config';
 
 import { appConfig } from './app.config';
 
-/** Пресет — то же дерево токенов, что передано providePrimeNG в appConfig. */
-function themePreset(): Preset {
-  // Типизация theme() в PrimeNG — any; приводим к Preset из @primeuix/themes.
-  return TestBed.inject(PrimeNG).theme()?.preset as Preset;
+/**
+ * Пресет — то же дерево токенов, что передано providePrimeNG в appConfig.
+ * Дерево динамическое (обращения вида semantic.primary[500]), типизация
+ * theme() в PrimeNG — any, а Preset из @primeuix/themes/types без
+ * type-аргументов даёт unknown; поэтому здесь осознанно any.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function themePreset(): any {
+  return TestBed.inject(PrimeNG).theme()?.preset;
 }
 
 describe('design-токены темы по макетам (T-109, ADR-108)', () => {

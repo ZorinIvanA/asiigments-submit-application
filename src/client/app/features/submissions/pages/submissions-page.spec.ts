@@ -197,11 +197,8 @@ describe('SubmissionsPage (ведомость преподавателя, SCR-00
   }
 
   function selectLabel(root: HTMLElement, index: number): string {
-    return (
-      selects(root)
-        [index]?.querySelector('.p-select-label')
-        ?.textContent?.trim() ?? ''
-    );
+    const select = selects(root)[index];
+    return select?.querySelector('.p-select-label')?.textContent?.trim() ?? '';
   }
 
   /** Строка tbody по номеру (1-based). */
