@@ -11,7 +11,10 @@
  * не выполняют (кэш наполняет provideAppInitializer — initSession).
  */
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import {
   ActivatedRouteSnapshot,
@@ -93,12 +96,15 @@ describe('Навигационные guards — сессия в памяти Aut
 
   /** Guards синхронны: кэш наполняет initSession до первого решения. */
   function call(guard: CanActivateFn): boolean | UrlTree {
-    return TestBed.runInInjectionContext(() => guard(ROUTE, STATE)) as boolean | UrlTree;
+    return TestBed.runInInjectionContext(() => guard(ROUTE, STATE)) as
+      boolean | UrlTree;
   }
 
   /** Редирект по IF-108 проверяется как UrlTree с точным путём. */
   function expectRedirect(result: boolean | UrlTree, path: string): void {
-    expect(result instanceof UrlTree).withContext(`UrlTree ${path}`).toBeTrue();
+    expect(result instanceof UrlTree)
+      .withContext(`UrlTree ${path}`)
+      .toBeTrue();
     expect((result as UrlTree).toString()).toBe(path);
   }
 
@@ -110,11 +116,17 @@ describe('Навигационные guards — сессия в памяти Aut
     const pending = auth().initSession();
     httpMock.expectOne(`${apiBase}/auth/me`).flush(me);
     await expectAsync(pending).toBeResolved();
-    expect(auth().isAuthenticated()).withContext('кэш заполнен до guard').toBeTrue();
+    expect(auth().isAuthenticated())
+      .withContext('кэш заполнен до guard')
+      .toBeTrue();
   }
 
   /** Вход через полный конвейер (POST /auth/login) — кэш currentUser. */
-  async function loginAs(login: string, password: string, me: MeDto): Promise<void> {
+  async function loginAs(
+    login: string,
+    password: string,
+    me: MeDto,
+  ): Promise<void> {
     const pending = auth().login({ login, password });
     httpMock.expectOne(`${apiBase}/auth/login`).flush(me);
     await expectAsync(pending).toBeResolvedTo(me);
@@ -124,7 +136,9 @@ describe('Навигационные guards — сессия в памяти Aut
     it('без сессии → UrlTree /login, без HTTP-вызовов', () => {
       const spy = spyOn(auth(), 'loadMe').and.callThrough();
       expectRedirect(call(authGuard), '/login');
-      expect(spy).withContext('guards не выполняют HTTP — кэш наполняет initSession').not.toHaveBeenCalled();
+      expect(spy)
+        .withContext('guards не выполняют HTTP — кэш наполняет initSession')
+        .not.toHaveBeenCalled();
       expect(console.error).not.toHaveBeenCalled();
     });
 
@@ -140,7 +154,9 @@ describe('Навигационные guards — сессия в памяти Aut
 
     it('битая сессия (initSession: me 401, refresh 401) → UrlTree /login, кэш пуст', async () => {
       const pending = auth().initSession();
-      httpMock.expectOne(`${apiBase}/auth/me`).flush({ message: 'Не авторизован' }, UNAUTHORIZED);
+      httpMock
+        .expectOne(`${apiBase}/auth/me`)
+        .flush({ message: 'Не авторизован' }, UNAUTHORIZED);
       httpMock
         .expectOne(`${apiBase}/auth/refresh`)
         .flush({ message: 'Не авторизован' }, UNAUTHORIZED);
@@ -155,10 +171,13 @@ describe('Навигационные guards — сессия в памяти Aut
       // Ключ прошлого (мокового) контракта: экспорт ключа сессии удалён из
       // shared/models (FR-026(4)); spec проверяет, что произвольный legacy-
       // ключ прошлого контракта игнорируется в памяти сервиса.
-      localStorage.setItem('legacy.session.userId', 'aaaaaaaa-1111-4111-8111-111111111111');
+      localStorage.setItem(
+        'legacy.session.userId',
+        'aaaaaaaa-1111-4111-8111-111111111111',
+      );
       expectRedirect(call(authGuard), '/login');
       expect(localStorage.getItem('legacy.session.userId'))
-        .withContext('ключ не читается и не удаляется guard\'ом')
+        .withContext("ключ не читается и не удаляется guard'ом")
         .toBe('aaaaaaaa-1111-4111-8111-111111111111');
     });
   });
@@ -183,7 +202,7 @@ describe('Навигационные guards — сессия в памяти Aut
       expectRedirect(call(roleGuard('teacher')), '/login');
     });
 
-    it('чужая роль после входа → UrlTree /403 без единого HTTP-вызова guard\'а', async () => {
+    it("чужая роль после входа → UrlTree /403 без единого HTTP-вызова guard'а", async () => {
       await loginAs('student01', 'student123!', STUDENT_ME);
       const spy = spyOn(auth(), 'loadMe').and.callThrough();
       expectRedirect(call(roleGuard('teacher')), '/403');
@@ -208,7 +227,9 @@ describe('Навигационные guards — сессия в памяти Aut
 
     it('битая сессия (initSession 401) → гость допущен', async () => {
       const pending = auth().initSession();
-      httpMock.expectOne(`${apiBase}/auth/me`).flush({ message: 'Не авторизован' }, UNAUTHORIZED);
+      httpMock
+        .expectOne(`${apiBase}/auth/me`)
+        .flush({ message: 'Не авторизован' }, UNAUTHORIZED);
       httpMock
         .expectOne(`${apiBase}/auth/refresh`)
         .flush({ message: 'Не авторизован' }, UNAUTHORIZED);
@@ -231,7 +252,9 @@ describe('Навигационные guards — сессия в памяти Aut
       flow().setEmail('student01@example.com');
       expect(call(recoveryStepGuard('code'))).toBeTrue();
       flow().setResetToken('reset-token-1');
-      expect(call(recoveryStepGuard('code'))).withContext('email остаётся').toBeTrue();
+      expect(call(recoveryStepGuard('code')))
+        .withContext('email остаётся')
+        .toBeTrue();
     });
 
     it('шаг "reset": только email → /recovery; email и токен → true', () => {
@@ -270,7 +293,9 @@ describe('Навигационные guards — сессия в памяти Aut
 
     it('битая сессия (initSession 401) → UrlTree /login', async () => {
       const pending = auth().initSession();
-      httpMock.expectOne(`${apiBase}/auth/me`).flush({ message: 'Не авторизован' }, UNAUTHORIZED);
+      httpMock
+        .expectOne(`${apiBase}/auth/me`)
+        .flush({ message: 'Не авторизован' }, UNAUTHORIZED);
       httpMock
         .expectOne(`${apiBase}/auth/refresh`)
         .flush({ message: 'Не авторизован' }, UNAUTHORIZED);

@@ -25,7 +25,11 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from '../api-base-url';
-import { MySubmissionsDto, Submission, SubmissionsGridDto } from '../../shared/models';
+import {
+  MySubmissionsDto,
+  Submission,
+  SubmissionsGridDto,
+} from '../../shared/models';
 
 /** Студентов на страницу ведомости (§4.4: пагинация по 5, ADR-109). */
 export const SUBMISSIONS_PAGE_SIZE = 5;
@@ -79,7 +83,9 @@ export class SubmissionsService {
       .set('semester', query.semester)
       .set('page', query.page);
     return firstValueFrom(
-      this.http.get<SubmissionsGridResult>(`${this.apiBase}/submissions`, { params }),
+      this.http.get<SubmissionsGridResult>(`${this.apiBase}/submissions`, {
+        params,
+      }),
     );
   }
 
@@ -92,7 +98,9 @@ export class SubmissionsService {
    * запись.
    */
   update(params: SubmissionUpdateParams): Promise<Submission> {
-    return firstValueFrom(this.http.put<Submission>(`${this.apiBase}/submissions`, params));
+    return firstValueFrom(
+      this.http.put<Submission>(`${this.apiBase}/submissions`, params),
+    );
   }
 
   /**

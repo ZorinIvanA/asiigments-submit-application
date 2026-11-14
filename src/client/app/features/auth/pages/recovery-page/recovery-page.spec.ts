@@ -121,7 +121,10 @@ describe('RecoveryPage — шаг 1 восстановления пароля (S
    * статусом/телом, затем микрозадачи (промисы сервиса и страницы)
    * дренируются макротаском и выполняется CD.
    */
-  async function submitAndFlush(status: number, body: unknown = null): Promise<void> {
+  async function submitAndFlush(
+    status: number,
+    body: unknown = null,
+  ): Promise<void> {
     fill(EMAIL);
     submit();
     const request = httpMock.expectOne(`${apiBase}/auth/recovery/request`);
@@ -136,8 +139,12 @@ describe('RecoveryPage — шаг 1 восстановления пароля (S
   }
 
   it('тексты макета дословно: заголовок, «Шаг 1 из 3», «Email», «Отмена», «Отправить код»', () => {
-    expect(root().querySelector('h1')!.textContent!.trim()).toBe('Восстановление пароля');
-    expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe('Шаг 1 из 3');
+    expect(root().querySelector('h1')!.textContent!.trim()).toBe(
+      'Восстановление пароля',
+    );
+    expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe(
+      'Шаг 1 из 3',
+    );
     expect(root().querySelector('label')!.textContent!.trim()).toBe('Email');
     expect(submitButton().textContent).toContain('Отправить код');
     expect(cancelButton().textContent).toContain('Отмена');
@@ -149,7 +156,9 @@ describe('RecoveryPage — шаг 1 восстановления пароля (S
     fixture.detectChanges();
 
     expect(fieldError()).toBe('Заполните поле');
-    expect(notifications.desktopMessage()!.text).toBe('Данные заполнены неверно');
+    expect(notifications.desktopMessage()!.text).toBe(
+      'Данные заполнены неверно',
+    );
     expect(httpMock.match(`${apiBase}/auth/recovery/request`).length)
       .withContext('запрос не отправлен')
       .toBe(0);
@@ -203,7 +212,9 @@ describe('RecoveryPage — шаг 1 восстановления пароля (S
 
     expect(notifications.desktopMessage()!.text).toBe(TOO_MANY);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
-    expect(root().querySelector('h1')!.textContent).toContain('Восстановление пароля');
+    expect(root().querySelector('h1')!.textContent).toContain(
+      'Восстановление пароля',
+    );
   });
 
   it('429 на мобильной ширине: inline-баннер под формой с якорем recovery-form (IF-109)', async () => {
@@ -217,7 +228,9 @@ describe('RecoveryPage — шаг 1 восстановления пароля (S
 
     const form = root().querySelector('form')!;
     const anchor = root().querySelector('app-notification-anchor')!;
-    expect(form.contains(anchor)).withContext('якорь смонтирован под формой').toBeTrue();
+    expect(form.contains(anchor))
+      .withContext('якорь смонтирован под формой')
+      .toBeTrue();
     const banner = anchor.querySelector('app-notification-banner');
     expect(banner).not.toBeNull();
     expect(banner!.textContent).toContain(TOO_MANY);
@@ -239,11 +252,15 @@ describe('RecoveryPage — шаг 1 восстановления пароля (S
     fixture.detectChanges();
 
     // Ответ ещё не программируется: запрос «висит» — состояние busy.
-    expect(submitButton().disabled).withContext('сабмит заблокирован').toBeTrue();
+    expect(submitButton().disabled)
+      .withContext('сабмит заблокирован')
+      .toBeTrue();
     expect(submitButton().className)
       .withContext('loading-класс p-button')
       .toContain('p-button-loading');
-    expect(cancelButton().disabled).withContext('отмена заблокирована').toBeTrue();
+    expect(cancelButton().disabled)
+      .withContext('отмена заблокирована')
+      .toBeTrue();
 
     submit(); // повторный клик — игнорируется
     // match() ПОТРЕБЛЯЕТ найденные запросы (удаляет из открытых), поэтому

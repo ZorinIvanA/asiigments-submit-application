@@ -40,7 +40,9 @@ describe('HeaderNotification', () => {
     notifications.notifyError('Слишком много попыток входа');
     fixture.detectChanges();
 
-    const banner = fixture.nativeElement.querySelector('app-notification-banner');
+    const banner = fixture.nativeElement.querySelector(
+      'app-notification-banner',
+    );
     expect(banner).not.toBeNull();
     expect(banner!.textContent).toContain('Слишком много попыток входа');
     expect(getComputedStyle(fixture.nativeElement).position).toBe('fixed');
@@ -52,7 +54,9 @@ describe('HeaderNotification', () => {
     notifications.notifySuccess('Сохранено');
     fixture.detectChanges();
 
-    const banner = fixture.nativeElement.querySelector('.app-notification-banner')!;
+    const banner = fixture.nativeElement.querySelector(
+      '.app-notification-banner',
+    )!;
     expect(banner.textContent).toContain('Сохранено');
     expect(banner.classList).toContain('app-notification-banner--success');
   });
@@ -73,7 +77,9 @@ describe('HeaderNotification', () => {
     notifications.notifyError('Email уже занят', { formId: 'profile-form' });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).toBeNull();
   });
 
   it('на десктопе (>=768px) баннер под шапкой не показывается', () => {
@@ -82,7 +88,9 @@ describe('HeaderNotification', () => {
     notifications.notifyError('Ошибка');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).toBeNull();
   });
 
   it('клик по крестику закрывает баннер', () => {
@@ -96,7 +104,9 @@ describe('HeaderNotification', () => {
       .click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).toBeNull();
     expect(notifications.mobileMessage()).toBeNull();
   });
 });

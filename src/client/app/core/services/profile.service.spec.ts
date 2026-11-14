@@ -13,14 +13,21 @@
  *    полевые errors работают без изменений).
  */
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { authInterceptor } from '../auth-interceptor';
 import { API_BASE_URL } from '../api-base-url';
 import { ProfileDto } from '../../shared/models';
-import { ProfileChangePasswordInput, ProfileService, ProfileUpdateInput } from './profile.service';
+import {
+  ProfileChangePasswordInput,
+  ProfileService,
+  ProfileUpdateInput,
+} from './profile.service';
 
 const STUDENT_PROFILE: ProfileDto = {
   login: 'student01',
@@ -68,7 +75,10 @@ describe('ProfileService — профиль поверх HttpClient (IF-013, FR-
   });
 
   it('update(): PUT /me/profile с телом {fullName, email} → обновлённый ProfileDto', async () => {
-    const input: ProfileUpdateInput = { fullName: 'Петров Пётр Петрович', email: 'petr@example.com' };
+    const input: ProfileUpdateInput = {
+      fullName: 'Петров Пётр Петрович',
+      email: 'petr@example.com',
+    };
     const updated: ProfileDto = {
       login: 'student01',
       email: input.email,
@@ -103,11 +113,16 @@ describe('ProfileService — профиль поверх HttpClient (IF-013, FR-
   });
 
   it('отказ 409 {message} → реджект ApiError {status: 409, body: {message}} (AC)', async () => {
-    const pending = service.update({ fullName: 'Иванов Иван Иванович 01', email: 'TEACHER@example.com' });
-    httpMock.expectOne(`${apiBase}/me/profile`).flush(
-      { message: 'Пользователь с таким email уже существует' },
-      { status: 409, statusText: 'Conflict' },
-    );
+    const pending = service.update({
+      fullName: 'Иванов Иван Иванович 01',
+      email: 'TEACHER@example.com',
+    });
+    httpMock
+      .expectOne(`${apiBase}/me/profile`)
+      .flush(
+        { message: 'Пользователь с таким email уже существует' },
+        { status: 409, statusText: 'Conflict' },
+      );
 
     await expectAsync(pending).toBeRejectedWith({
       status: 409,
@@ -121,10 +136,12 @@ describe('ProfileService — профиль поверх HttpClient (IF-013, FR-
       password: 'NewPass#2027',
       confirmPassword: 'NewPass#2027',
     });
-    httpMock.expectOne(`${apiBase}/me/password`).flush(
-      { message: 'Неверный текущий пароль' },
-      { status: 400, statusText: 'Bad Request' },
-    );
+    httpMock
+      .expectOne(`${apiBase}/me/password`)
+      .flush(
+        { message: 'Неверный текущий пароль' },
+        { status: 400, statusText: 'Bad Request' },
+      );
 
     await expectAsync(pending).toBeRejectedWith({
       status: 400,

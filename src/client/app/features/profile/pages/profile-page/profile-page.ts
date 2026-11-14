@@ -28,7 +28,12 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import {
+  AbstractControl,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+} from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 
@@ -58,7 +63,12 @@ const INVALID_FORM_MESSAGE = 'Данные заполнены неверно';
 
 @Component({
   selector: 'app-profile-page',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, NotificationAnchor],
+  imports: [
+    ReactiveFormsModule,
+    ButtonModule,
+    InputTextModule,
+    NotificationAnchor,
+  ],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -90,7 +100,10 @@ export class ProfilePage implements OnInit {
 
   /** Форма «Основные данные»: редактируются только email и fullName (§4.7). */
   readonly profileForm = new FormGroup({
-    email: new FormControl('', { nonNullable: true, validators: [requiredTrim(), emailFormat()] }),
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [requiredTrim(), emailFormat()],
+    }),
     fullName: new FormControl('', {
       nonNullable: true,
       validators: [requiredTrim(), fullNameRule()],
@@ -100,12 +113,18 @@ export class ProfilePage implements OnInit {
   /** Форма «Смена пароля»: текущий обязателен (§4.7), новый — по FR-023. */
   readonly passwordForm = new FormGroup(
     {
-      currentPassword: new FormControl('', { nonNullable: true, validators: [requiredTrim()] }),
+      currentPassword: new FormControl('', {
+        nonNullable: true,
+        validators: [requiredTrim()],
+      }),
       password: new FormControl('', {
         nonNullable: true,
         validators: [requiredTrim(), passwordRules()],
       }),
-      confirmPassword: new FormControl('', { nonNullable: true, validators: [requiredTrim()] }),
+      confirmPassword: new FormControl('', {
+        nonNullable: true,
+        validators: [requiredTrim()],
+      }),
     },
     { validators: passwordMatch('password', 'confirmPassword') },
   );
@@ -117,7 +136,10 @@ export class ProfilePage implements OnInit {
     try {
       const profile = await this.profileService.get();
       this.profile.set(profile);
-      this.profileForm.setValue({ email: profile.email, fullName: profile.fullName });
+      this.profileForm.setValue({
+        email: profile.email,
+        fullName: profile.fullName,
+      });
     } catch (error) {
       // Отказ загрузки — не действие формы: резервный якорь «под шапкой» (IF-109).
       this.notifications.notifyError(toApiError(error).body.message);
@@ -130,7 +152,9 @@ export class ProfilePage implements OnInit {
   protected async saveProfile(): Promise<void> {
     if (this.profileForm.invalid) {
       this.profileForm.markAllAsTouched();
-      this.notifications.notifyError(INVALID_FORM_MESSAGE, { formId: this.profileFormId });
+      this.notifications.notifyError(INVALID_FORM_MESSAGE, {
+        formId: this.profileFormId,
+      });
       return;
     }
     trimFormValues(this.profileForm);
@@ -142,7 +166,10 @@ export class ProfilePage implements OnInit {
       try {
         const updated = await this.profileService.update(input);
         this.profile.set(updated);
-        this.profileForm.setValue({ email: updated.email, fullName: updated.fullName });
+        this.profileForm.setValue({
+          email: updated.email,
+          fullName: updated.fullName,
+        });
         this.notifications.notifySuccess('Сохранено');
       } catch (error) {
         this.notifications.notifyError(toApiError(error).body.message, {
@@ -160,7 +187,9 @@ export class ProfilePage implements OnInit {
   protected async changePassword(): Promise<void> {
     if (this.passwordForm.invalid) {
       this.passwordForm.markAllAsTouched();
-      this.notifications.notifyError(INVALID_FORM_MESSAGE, { formId: this.passwordFormId });
+      this.notifications.notifyError(INVALID_FORM_MESSAGE, {
+        formId: this.passwordFormId,
+      });
       return;
     }
     trimFormValues(this.passwordForm);

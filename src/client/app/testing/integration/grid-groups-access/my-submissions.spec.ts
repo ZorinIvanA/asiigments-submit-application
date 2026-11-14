@@ -66,13 +66,21 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
   /** Нативный select семестра страницы. */
   function semesterSelect(): HTMLSelectElement {
-    return root().querySelector('#my-submissions-semester') as HTMLSelectElement;
+    return root().querySelector(
+      '#my-submissions-semester',
+    ) as HTMLSelectElement;
   }
 
   /** Ячейка даты строки таблицы: td 0 — ФИО, лаба k: 2k−1 сдача, 2k защита. */
-  function cellText(row: number, labNumber: number, field: 'submit' | 'defense'): string {
+  function cellText(
+    row: number,
+    labNumber: number,
+    field: 'submit' | 'defense',
+  ): string {
     const cell = field === 'submit' ? 2 * labNumber - 1 : 2 * labNumber;
-    const td = root().querySelectorAll('tbody tr')[row]?.querySelectorAll('td')[cell];
+    const td = root().querySelectorAll('tbody tr')[row]?.querySelectorAll('td')[
+      cell
+    ];
     return td?.textContent?.trim() ?? '';
   }
 
@@ -81,7 +89,9 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     openMySubmissions('student01');
 
     // Селектор семестра: только семестры с работами, выбран наименьший.
-    const options = Array.from(semesterSelect().options).map((option) => option.text.trim());
+    const options = Array.from(semesterSelect().options).map((option) =>
+      option.text.trim(),
+    );
     expect(options).toEqual(['1', '2']);
     expect(semesterSelect().value).toBe('1');
 
@@ -97,8 +107,12 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
     // Read-only: календаря в ячейках нет, клик по ячейке не открывает его,
     // вызовов submissions.update нет.
-    expect(root().querySelector('p-datepicker')).withContext('нет календарей').toBeNull();
-    expect(root().querySelector('input')).withContext('нет input-контролов').toBeNull();
+    expect(root().querySelector('p-datepicker'))
+      .withContext('нет календарей')
+      .toBeNull();
+    expect(root().querySelector('input'))
+      .withContext('нет input-контролов')
+      .toBeNull();
     root().querySelectorAll('tbody td')[1]?.dispatchEvent(new Event('click'));
     env.flushNgModel(fixture);
     expect(updateSpy).not.toHaveBeenCalled();
@@ -140,7 +154,9 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     const warning = root().querySelector('.no-group');
     expect(warning?.getAttribute('role')).toBe('status');
     expect(warning?.textContent?.trim()).toContain(TEXT_NO_GROUP);
-    expect(root().querySelector('p-table')).withContext('таблицы нет').toBeNull();
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы нет')
+      .toBeNull();
 
     // Селектор семестра остаётся активным (работы в системе есть).
     expect(semesterSelect().disabled).toBeFalse();
@@ -184,10 +200,16 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
     openMySubmissions('student01');
 
-    expect(getMySpy).withContext('вызов getMy с семестром вне 1..10 запрещён').not.toHaveBeenCalled();
-    expect(semesterSelect().disabled).withContext('селектор пуст/disabled').toBeTrue();
+    expect(getMySpy)
+      .withContext('вызов getMy с семестром вне 1..10 запрещён')
+      .not.toHaveBeenCalled();
+    expect(semesterSelect().disabled)
+      .withContext('селектор пуст/disabled')
+      .toBeTrue();
     expect(root().textContent).toContain(TEXT_NO_SEMESTERS);
-    expect(notifications.desktopMessage()).withContext('ошибочных баннеров нет').toBeNull();
+    expect(notifications.desktopMessage())
+      .withContext('ошибочных баннеров нет')
+      .toBeNull();
     expect(notifications.mobileMessage()).toBeNull();
   }));
 
@@ -199,7 +221,9 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
     openMySubmissions('student31');
 
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
     expect(root().textContent).not.toContain(TEXT_NO_SEMESTERS);
   }));
 
@@ -209,8 +233,8 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     // Каскадное удаление работ семестра 2 между запросами (другой сеанс).
     env.backend.mutate((state) => {
       state.labs = state.labs.filter((lab) => lab.semester !== 2);
-      state.submissions = state.submissions.filter(
-        (candidate) => state.labs.some((lab) => lab.id === candidate.labId),
+      state.submissions = state.submissions.filter((candidate) =>
+        state.labs.some((lab) => lab.id === candidate.labId),
       );
     });
 
@@ -218,10 +242,18 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     semesterSelect().dispatchEvent(new Event('change'));
     env.settle(fixture, 1);
 
-    expect(root().textContent).withContext('текст пустого состояния').toContain(TEXT_NO_SEMESTERS);
-    expect(semesterSelect().disabled).withContext('селектор активен').toBeFalse();
-    expect(root().querySelector('p-table')).withContext('вместо таблицы — текст').toBeNull();
-    expect(notifications.desktopMessage()).withContext('ошибочного баннера нет').toBeNull();
+    expect(root().textContent)
+      .withContext('текст пустого состояния')
+      .toContain(TEXT_NO_SEMESTERS);
+    expect(semesterSelect().disabled)
+      .withContext('селектор активен')
+      .toBeFalse();
+    expect(root().querySelector('p-table'))
+      .withContext('вместо таблицы — текст')
+      .toBeNull();
+    expect(notifications.desktopMessage())
+      .withContext('ошибочного баннера нет')
+      .toBeNull();
     env.drainNotifications();
 
     // Переключение на семестр 1 перезагружает экран с данными.
@@ -233,7 +265,9 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
   it('TS-327: исключение другим сеансом подхватывается после обновления профиля; в ведомости ИК-221 студента больше нет (total 24)', fakeAsync(() => {
     openMySubmissions('student02');
-    expect(root().querySelector('p-table')).withContext('до исключения — таблица').not.toBeNull();
+    expect(root().querySelector('p-table'))
+      .withContext('до исключения — таблица')
+      .not.toBeNull();
 
     // Другой сеанс исключает студента из группы прямой мутацией бэкенда.
     env.backend.mutate((state) => {
@@ -245,22 +279,30 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
 
     // До перезагрузки профиля — состояние по кэшу (аменда 3).
     fixture.detectChanges();
-    expect(root().querySelector('.no-group')).withContext('кэш профиля: без изменений').toBeNull();
+    expect(root().querySelector('.no-group'))
+      .withContext('кэш профиля: без изменений')
+      .toBeNull();
     expect(root().querySelector('p-table')).not.toBeNull();
 
     // Перезагрузка приложения: свежий auth.me обновляет кэш профиля.
     env.loginAs('student02');
     fixture.detectChanges();
 
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
-    expect(root().querySelector('p-table')).withContext('предупреждение вместо таблицы').toBeNull();
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
+    expect(root().querySelector('p-table'))
+      .withContext('предупреждение вместо таблицы')
+      .toBeNull();
 
     // Ведомость ИК-221: total 24, студента 02 нет ни на одной странице.
     env.serverSession('teacher');
     const seen: string[] = [];
     for (let page = 1; page <= 5; page++) {
       let grid!: Awaited<ReturnType<SubmissionsService['getGrid']>>;
-      void submissions.getGrid({ groupId: ik221, semester: 1, page }).then((result) => (grid = result));
+      void submissions
+        .getGrid({ groupId: ik221, semester: 1, page })
+        .then((result) => (grid = result));
       env.settleRequests(1);
       expect(grid.total).toBe(24);
       seen.push(...grid.students.map((student) => student.fullName));
@@ -278,26 +320,40 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     // Семестр 1 = 20 работ сида, поэтому 20 карточек (CR-001); даты — только
     // у лаб 1–3 (сид-сдачи), у остальных пары пустые.
     const cards = root().querySelectorAll('.card');
-    expect(cards.length).withContext('карточка на каждую работу семестра').toBe(20);
+    expect(cards.length)
+      .withContext('карточка на каждую работу семестра')
+      .toBe(20);
     const cardTitle = (index: number): string =>
       cards[index]?.querySelector('.card__title')?.textContent?.trim() ?? '';
     expect(cardTitle(0)).toBe('Лаб 1');
     expect(cardTitle(1)).toBe('Лаб 2');
     expect(cardTitle(2)).toBe('Лаб 3');
     expect(cardTitle(19)).toBe('Лаб 20');
-    const cardValue = (card: number, row: number): string =>
-      cards[card]?.querySelectorAll('.card__row')[row]?.querySelector('.card__value')?.textContent?.trim() ?? '';
+    const cardValue = (card: number, row: number): string => {
+      const rows = cards[card]?.querySelectorAll('.card__row');
+      return (
+        rows?.[row]?.querySelector('.card__value')?.textContent?.trim() ?? ''
+      );
+    };
     expect(cardValue(0, 0)).toBe('01.09.2026');
     expect(cardValue(0, 1)).toBe('11.09.2026');
     expect(cardValue(1, 0)).toBe('02.09.2026');
     expect(cardValue(1, 1)).toBe('12.09.2026');
     expect(cardValue(2, 0)).toBe('03.09.2026');
-    expect(cardValue(2, 1)).withContext('пустое значение пусто, без прочерка').toBe('');
+    expect(cardValue(2, 1))
+      .withContext('пустое значение пусто, без прочерка')
+      .toBe('');
     for (let index = 3; index < 20; index++) {
-      expect(cardValue(index, 0)).withContext(`Лаб ${index + 1}: сдача пуста`).toBe('');
-      expect(cardValue(index, 1)).withContext(`Лаб ${index + 1}: защита пуста`).toBe('');
+      expect(cardValue(index, 0))
+        .withContext(`Лаб ${index + 1}: сдача пуста`)
+        .toBe('');
+      expect(cardValue(index, 1))
+        .withContext(`Лаб ${index + 1}: защита пуста`)
+        .toBe('');
     }
-    expect(root().querySelector('p-table')).withContext('таблицы нет').toBeNull();
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы нет')
+      .toBeNull();
 
     // 768px — десктопная таблица одной строкой.
     env.breakpoints.simulate(false);
@@ -305,18 +361,26 @@ describe('MySubmissionsPage — интеграция с реальным HTTP-я
     expect(root().querySelector('p-table')).not.toBeNull();
     expect(root().querySelectorAll('tbody tr').length).toBe(1);
     expect(cellText(0, 1, 'submit')).toBe('01.09.2026');
-    expect(root().querySelectorAll('.card').length).withContext('карточек нет').toBe(0);
+    expect(root().querySelectorAll('.card').length)
+      .withContext('карточек нет')
+      .toBe(0);
 
     // student31: предупреждение корректно в обеих вёрстках.
     fixture.destroy();
     env.breakpoints.simulate(true);
     openMySubmissions('student31');
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
     expect(root().querySelector('.card')).toBeNull();
 
     env.breakpoints.simulate(false);
     fixture.detectChanges();
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
-    expect(root().querySelector('p-table')).withContext('таблицы у студента без группы нет').toBeNull();
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
+    expect(root().querySelector('p-table'))
+      .withContext('таблицы у студента без группы нет')
+      .toBeNull();
   }));
 });

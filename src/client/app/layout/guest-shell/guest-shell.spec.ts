@@ -70,10 +70,14 @@ describe('GuestShell — топбар гостя (§4.8, VS-006, VBUG-004)', () 
     fixture.detectChanges();
 
     expect(
-      fixture.nativeElement.querySelector('.guest-topbar__brand')!.textContent!.trim(),
+      fixture.nativeElement
+        .querySelector('.guest-topbar__brand')!
+        .textContent!.trim(),
     ).toBe('Сдача лабораторных');
     expect(
-      fixture.nativeElement.querySelector('nav.guest-topbar__tabs')!.getAttribute('aria-label'),
+      fixture.nativeElement
+        .querySelector('nav.guest-topbar__tabs')!
+        .getAttribute('aria-label'),
     ).toBe('Разделы');
   });
 
@@ -113,8 +117,12 @@ describe('GuestShell — топбар гостя (§4.8, VS-006, VBUG-004)', () 
     const host = fixture.nativeElement as HTMLElement;
     const header = host.querySelector('.guest-topbar')!;
     const page = host.querySelector('app-empty-page');
-    expect(page).withContext('страница активирована внутри оболочки').not.toBeNull();
-    expect(header.compareDocumentPosition(page!) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(page)
+      .withContext('страница активирована внутри оболочки')
+      .not.toBeNull();
+    expect(
+      header.compareDocumentPosition(page!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    )
       .withContext('страница после шапки в порядке документа')
       .toBeTruthy();
   });

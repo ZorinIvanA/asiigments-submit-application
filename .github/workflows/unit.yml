@@ -1,0 +1,53 @@
+# Этап 1 CI: пуш любой ветки — юнит-тесты.
+#
+# Заодно переиспользуется этапом 2 (pr-checks.yml вызывает через workflow_call),
+# чтобы юнит-прогоны в PR и на пушах были идентичными.
+name: unit
+
+on:
+  push:
+  workflow_call:
+
+# Новый пуш в ту же ветку отменяет предыдущий незавершённый прогон.
+concurrency:
+  group: unit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Юнит-тесты клиента: Karma + Jasmine в headless-Chrome. Лаунчер
+  # ChromeHeadlessNoSandbox определён в karma.conf.cjs — в CI-контейнере
+  # sandbox Chrome недоступен.
+  client-unit:
+    name: client-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Chrome предустановлен на ubuntu-runner; говорим карме, где он.
+      - name: Юнит-тесты клиента (Karma, ChromeHeadless)
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: |
+          npm ci
+          npm run test:ci
+
+  # Юнит-тесты API: решение содержит только LabsApp и LabsApp.Tests,
+  # хранилище подменено in-memory двойниками (tests/TestInfrastructure),
+  # PostgreSQL не нужен.
+  api-unit:
+    name: api-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Юнит-тесты API (xUnit)
+        run: dotnet test src/api/LabsApp.sln --nologo

@@ -46,11 +46,15 @@ export class NotificationService {
   /** Мобильный ли режим (<768px); переключается BreakpointObserver'ом. */
   readonly isMobile = this.isMobileSource.asReadonly();
 
-  private readonly desktopMessageSource = signal<DesktopNotification | null>(null);
+  private readonly desktopMessageSource = signal<DesktopNotification | null>(
+    null,
+  );
   /** Текущее уведомление десктоп-режима (null — не показано). */
   readonly desktopMessage = this.desktopMessageSource.asReadonly();
 
-  private readonly mobileMessageSource = signal<MobileNotification | null>(null);
+  private readonly mobileMessageSource = signal<MobileNotification | null>(
+    null,
+  );
   /** Текущее уведомление мобильного режима (null — не показано). */
   readonly mobileMessage = this.mobileMessageSource.asReadonly();
 
@@ -115,7 +119,9 @@ export class NotificationService {
    * Разрешение якоря: 'header' и отсутствующий якорь → под шапку;
    * formId без смонтированного якоря → резервно под шапку (IF-009).
    */
-  private resolveAnchorFormId(anchor: NotificationAnchor | undefined): string | null {
+  private resolveAnchorFormId(
+    anchor: NotificationAnchor | undefined,
+  ): string | null {
     if (anchor === undefined || anchor === 'header') {
       return null;
     }

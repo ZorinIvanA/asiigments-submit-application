@@ -114,8 +114,13 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
   }
 
   function restartLink(): HTMLAnchorElement | null {
-    const links = Array.from(root().querySelectorAll('a')) as HTMLAnchorElement[];
-    return links.find((a) => a.textContent!.trim() === 'Запросить код заново') ?? null;
+    const links = Array.from(
+      root().querySelectorAll('a'),
+    ) as HTMLAnchorElement[];
+    return (
+      links.find((a) => a.textContent!.trim() === 'Запросить код заново') ??
+      null
+    );
   }
 
   function errors(): string[] {
@@ -144,7 +149,10 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
   }
 
   /** Сабмит заполненной формы с программируемым ответом POST /auth/reset-password. */
-  async function submitAndFlush(status: number, body: unknown = null): Promise<void> {
+  async function submitAndFlush(
+    status: number,
+    body: unknown = null,
+  ): Promise<void> {
     fill(PASSWORD, PASSWORD);
     submit();
     const request = httpMock.expectOne(`${apiBase}/auth/reset-password`);
@@ -157,14 +165,24 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
   }
 
   it('тексты макета дословно: заголовок, «Шаг 3 из 3», требования, поля, кнопки; ссылки «Запросить код заново» нет', () => {
-    expect(root().querySelector('h1')!.textContent!.trim()).toBe('Новый пароль');
-    expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe('Шаг 3 из 3');
-    const requirements = root().querySelector('.auth-card__requirements')!.textContent!;
+    expect(root().querySelector('h1')!.textContent!.trim()).toBe(
+      'Новый пароль',
+    );
+    expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe(
+      'Шаг 3 из 3',
+    );
+    const requirements = root().querySelector(
+      '.auth-card__requirements',
+    )!.textContent!;
     expect(requirements).toContain('Требования к паролю');
     expect(requirements).toContain('не менее 8 символов; минимум одна цифра;');
-    expect(requirements).toContain('минимум одна буква; минимум один спецзнак;');
+    expect(requirements).toContain(
+      'минимум одна буква; минимум один спецзнак;',
+    );
     expect(requirements).toContain('пароли должны совпадать');
-    const labels = Array.from(root().querySelectorAll('label')).map((l) => l.textContent!.trim());
+    const labels = Array.from(root().querySelectorAll('label')).map((l) =>
+      l.textContent!.trim(),
+    );
     expect(labels).toEqual(['Новый пароль', 'Повторите пароль']);
     expect(submitButton().textContent).toContain('Сменить пароль');
     expect(cancelButton().textContent).toContain('Отмена');
@@ -182,7 +200,9 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
     fill('abcdefgh1', 'abcdefgh1');
     submit();
     await settle();
-    expect(errors()).toContain('Пароль должен содержать хотя бы один специальный знак');
+    expect(errors()).toContain(
+      'Пароль должен содержать хотя бы один специальный знак',
+    );
 
     expect(httpMock.match(`${apiBase}/auth/reset-password`).length)
       .withContext('запрос не отправлен')
@@ -260,7 +280,10 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
       password: PASSWORD,
       confirmPassword: PASSWORD,
     });
-    request.flush({ message: LINK_INVALID }, { status: 400, statusText: 'Error' });
+    request.flush(
+      { message: LINK_INVALID },
+      { status: 400, statusText: 'Error' },
+    );
     await settle();
 
     expect(notifications.desktopMessage()!.text).toBe(LINK_INVALID);
@@ -276,8 +299,12 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
     });
 
     expect(notifications.desktopMessage()!.text).toBe(INVALID_DATA);
-    expect(restartLink()).withContext('терминальная ссылка не показывается').toBeNull();
-    expect(flow.resetToken()).withContext('токен не гасится (IF-101)').toBe(RESET_TOKEN);
+    expect(restartLink())
+      .withContext('терминальная ссылка не показывается')
+      .toBeNull();
+    expect(flow.resetToken())
+      .withContext('токен не гасится (IF-101)')
+      .toBe(RESET_TOKEN);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
   });
 
@@ -293,7 +320,9 @@ describe('ResetPasswordPage — шаг 3 восстановления парол
 
     const form = root().querySelector('form')!;
     const anchor = root().querySelector('app-notification-anchor')!;
-    expect(form.contains(anchor)).withContext('якорь смонтирован под формой').toBeTrue();
+    expect(form.contains(anchor))
+      .withContext('якорь смонтирован под формой')
+      .toBeTrue();
     const banner = anchor.querySelector('app-notification-banner');
     expect(banner).not.toBeNull();
     expect(banner!.textContent).toContain(LINK_INVALID);

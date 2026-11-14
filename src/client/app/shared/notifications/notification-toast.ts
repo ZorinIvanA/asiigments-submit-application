@@ -11,7 +11,12 @@
  * уведомление в Toast через effect и держит desktopMessage не дольше
  * того же интервала.
  */
-import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  effect,
+  inject,
+} from '@angular/core';
 import { MessageService } from 'primeng/api';
 import { Toast } from 'primeng/toast';
 

@@ -24,16 +24,22 @@ describe('SessionLifecycle — контракт IF-014 (ADR-019/ADR-021)', () =>
   });
 
   it('холодный старт: initializing=true до markInitDone, false после (ADR-016)', () => {
-    expect(lifecycle.initializing).withContext('до завершения инициализации').toBeTrue();
+    expect(lifecycle.initializing)
+      .withContext('до завершения инициализации')
+      .toBeTrue();
 
     lifecycle.markInitDone();
 
-    expect(lifecycle.initializing).withContext('после markInitDone').toBeFalse();
+    expect(lifecycle.initializing)
+      .withContext('после markInitDone')
+      .toBeFalse();
   });
 
   it('notifySessionExpired публикует событие подписчику sessionExpired$ (подписчик-стаб)', () => {
     const events: void[] = [];
-    const subscriber = lifecycle.sessionExpired$.subscribe(() => events.push(undefined));
+    const subscriber = lifecycle.sessionExpired$.subscribe(() =>
+      events.push(undefined),
+    );
 
     lifecycle.notifySessionExpired();
     lifecycle.notifySessionExpired();
@@ -54,7 +60,9 @@ describe('SessionLifecycle — контракт IF-014 (ADR-019/ADR-021)', () =>
     let firstEvents = 0;
     let secondEvents = 0;
     const first = lifecycle.sessionExpired$.subscribe(() => (firstEvents += 1));
-    const second = lifecycle.sessionExpired$.subscribe(() => (secondEvents += 1));
+    const second = lifecycle.sessionExpired$.subscribe(
+      () => (secondEvents += 1),
+    );
 
     lifecycle.notifySessionExpired();
 
@@ -66,7 +74,9 @@ describe('SessionLifecycle — контракт IF-014 (ADR-019/ADR-021)', () =>
 
   it('markSessionRestored публикует событие подписчику sessionRestored$ (ADR-021, CR-001)', () => {
     let restoredEvents = 0;
-    const subscriber = lifecycle.sessionRestored$.subscribe(() => (restoredEvents += 1));
+    const subscriber = lifecycle.sessionRestored$.subscribe(
+      () => (restoredEvents += 1),
+    );
 
     expect(restoredEvents).withContext('без публикации событий нет').toBe(0);
 
@@ -82,8 +92,12 @@ describe('SessionLifecycle — контракт IF-014 (ADR-019/ADR-021)', () =>
   it('событие sessionRestored получают все подписчики канала (AuthService публикует, интерцептор сбрасывает фиксатор)', () => {
     let firstEvents = 0;
     let secondEvents = 0;
-    const first = lifecycle.sessionRestored$.subscribe(() => (firstEvents += 1));
-    const second = lifecycle.sessionRestored$.subscribe(() => (secondEvents += 1));
+    const first = lifecycle.sessionRestored$.subscribe(
+      () => (firstEvents += 1),
+    );
+    const second = lifecycle.sessionRestored$.subscribe(
+      () => (secondEvents += 1),
+    );
 
     lifecycle.markSessionRestored();
 
@@ -96,12 +110,18 @@ describe('SessionLifecycle — контракт IF-014 (ADR-019/ADR-021)', () =>
   it('каналы независимы: sessionExpired не слышно в sessionRestored$ и наоборот', () => {
     let expiredEvents = 0;
     let restoredEvents = 0;
-    const expiredSubscriber = lifecycle.sessionExpired$.subscribe(() => (expiredEvents += 1));
-    const restoredSubscriber = lifecycle.sessionRestored$.subscribe(() => (restoredEvents += 1));
+    const expiredSubscriber = lifecycle.sessionExpired$.subscribe(
+      () => (expiredEvents += 1),
+    );
+    const restoredSubscriber = lifecycle.sessionRestored$.subscribe(
+      () => (restoredEvents += 1),
+    );
 
     lifecycle.notifySessionExpired();
     expect(expiredEvents).toBe(1);
-    expect(restoredEvents).withContext('канал восстановления не сработал').toBe(0);
+    expect(restoredEvents)
+      .withContext('канал восстановления не сработал')
+      .toBe(0);
 
     lifecycle.markSessionRestored();
     expect(expiredEvents).withContext('канал сброса не сработал').toBe(1);

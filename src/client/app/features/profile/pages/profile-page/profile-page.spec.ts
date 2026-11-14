@@ -85,7 +85,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
    * Создаёт страницу и программирует первичный GET /me/profile: первый CD
    * запускает ngOnInit (запрос перехватывается), ответ завершает загрузку.
    */
-  async function createPage(profile: ProfileDto): Promise<ComponentFixture<ProfilePage>> {
+  async function createPage(
+    profile: ProfileDto,
+  ): Promise<ComponentFixture<ProfilePage>> {
     const fixture = TestBed.createComponent(ProfilePage);
     fixture.detectChanges();
     const request = httpMock.expectOne(`${apiBase}/me/profile`);
@@ -131,15 +133,26 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
     return request;
   }
 
-  function q(fixture: ComponentFixture<ProfilePage>, testId: string): HTMLElement {
-    return fixture.nativeElement.querySelector(`[data-test="${testId}"]`) as HTMLElement;
+  function q(
+    fixture: ComponentFixture<ProfilePage>,
+    testId: string,
+  ): HTMLElement {
+    return fixture.nativeElement.querySelector(
+      `[data-test="${testId}"]`,
+    ) as HTMLElement;
   }
 
-  function textOf(fixture: ComponentFixture<ProfilePage>, testId: string): string {
+  function textOf(
+    fixture: ComponentFixture<ProfilePage>,
+    testId: string,
+  ): string {
     return (q(fixture, testId)?.textContent ?? '').replace(/\s+/g, ' ').trim();
   }
 
-  function inputValue(fixture: ComponentFixture<ProfilePage>, testId: string): string {
+  function inputValue(
+    fixture: ComponentFixture<ProfilePage>,
+    testId: string,
+  ): string {
     return (q(fixture, testId) as HTMLInputElement).value;
   }
 
@@ -156,7 +169,10 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
   }
 
   /** Клик по кнопке действия (p-button рендерит вложенный <button>). */
-  function submit(fixture: ComponentFixture<ProfilePage>, buttonTestId: string): void {
+  function submit(
+    fixture: ComponentFixture<ProfilePage>,
+    buttonTestId: string,
+  ): void {
     const host = q(fixture, buttonTestId);
     const button = (host.querySelector('button') ?? host) as HTMLElement;
     button.click();
@@ -178,11 +194,15 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
     fixture: ComponentFixture<ProfilePage>,
     fieldTestId: string,
   ): string | null {
-    const error = q(fixture, fieldTestId)?.querySelector('.profile-field__error') ?? null;
+    const error =
+      q(fixture, fieldTestId)?.querySelector('.profile-field__error') ?? null;
     return error === null ? null : (error.textContent ?? '').trim();
   }
 
-  function buttonLabel(fixture: ComponentFixture<ProfilePage>, buttonTestId: string): string {
+  function buttonLabel(
+    fixture: ComponentFixture<ProfilePage>,
+    buttonTestId: string,
+  ): string {
     const label = q(fixture, buttonTestId)?.querySelector('.p-button-label');
     return (label?.textContent ?? '').trim();
   }
@@ -194,8 +214,12 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
       const fixture = TestBed.createComponent(ProfilePage);
       fixture.detectChanges();
 
-      expect(q(fixture, 'profile-form')).withContext('формы ещё нет').toBeNull();
-      expect(q(fixture, 'password-form')).withContext('формы ещё нет').toBeNull();
+      expect(q(fixture, 'profile-form'))
+        .withContext('формы ещё нет')
+        .toBeNull();
+      expect(q(fixture, 'password-form'))
+        .withContext('формы ещё нет')
+        .toBeNull();
       expect(textOf(fixture, 'loading')).toContain('Загрузка');
 
       // Ответ GET /me/profile: формы появляются.
@@ -218,7 +242,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
       expect(textOf(fixture, 'role-value')).toBe('Студент');
       expect(textOf(fixture, 'group-value')).toBe('ИК-221');
       expect(inputValue(fixture, 'email-input')).toBe('student01@example.com');
-      expect(inputValue(fixture, 'full-name-input')).toBe('Иванов Иван Иванович 01');
+      expect(inputValue(fixture, 'full-name-input')).toBe(
+        'Иванов Иван Иванович 01',
+      );
     });
 
     it('view-teacher: «Преподаватель», поля группы нет, данные преподавателя в полях', async () => {
@@ -227,9 +253,13 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
 
       expect(textOf(fixture, 'login-value')).toBe('teacher');
       expect(textOf(fixture, 'role-value')).toBe('Преподаватель');
-      expect(q(fixture, 'group-field')).withContext('у преподавателя группы нет').toBeNull();
+      expect(q(fixture, 'group-field'))
+        .withContext('у преподавателя группы нет')
+        .toBeNull();
       expect(inputValue(fixture, 'email-input')).toBe('teacher@example.com');
-      expect(inputValue(fixture, 'full-name-input')).toBe('Сидоров Семён Семёнович');
+      expect(inputValue(fixture, 'full-name-input')).toBe(
+        'Сидоров Семён Семёнович',
+      );
     });
 
     it('тексты макета SCR-014 дословно: заголовки, подсказка ФИО, требования к паролю, кнопки', async () => {
@@ -240,7 +270,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
       expect(textOf(fixture, 'profile-card-title')).toBe('Основные данные');
       expect(textOf(fixture, 'password-card-title')).toBe('Смена пароля');
       expect(textOf(fixture, 'full-name-hint')).toBe('От 1 до 200 символов');
-      expect(textOf(fixture, 'password-requirements-title')).toBe('Требования к новому паролю');
+      expect(textOf(fixture, 'password-requirements-title')).toBe(
+        'Требования к новому паролю',
+      );
       expect(textOf(fixture, 'password-requirements-text')).toBe(
         'не менее 8 символов; минимум одна цифра; минимум одна буква; минимум один спецзнак; пароли должны совпадать',
       );
@@ -262,13 +294,18 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
         email: 'petrov.petrov@example.ru',
       });
 
-      expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
+      expect(notifications.desktopMessage()).toEqual({
+        severity: 'success',
+        text: 'Сохранено',
+      });
       // Триммированные значения уходят в DTO PUT-запроса (на границе HTTP).
       expect(request.request.body).toEqual({
         fullName: 'Петров Пётр Петрович',
         email: 'petrov.petrov@example.ru',
       });
-      expect(inputValue(fixture, 'full-name-input')).toBe('Петров Пётр Петрович');
+      expect(inputValue(fixture, 'full-name-input')).toBe(
+        'Петров Пётр Петрович',
+      );
       notifications.dismissMobile();
     });
 
@@ -283,7 +320,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
 
       const banner = bannerUnder(fixture, 'profile-anchor');
       expect(banner).withContext('баннер под «Основные данные»').not.toBeNull();
-      expect(banner!.textContent).toContain('Пользователь с таким email уже существует');
+      expect(banner!.textContent).toContain(
+        'Пользователь с таким email уже существует',
+      );
       expect(bannerUnder(fixture, 'password-anchor'))
         .withContext('под формой смены пароля баннера нет')
         .toBeNull();
@@ -316,7 +355,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
 
       const banner = bannerUnder(fixture, 'profile-anchor');
       expect(banner!.textContent).toContain('Данные заполнены неверно');
-      expect(fieldErrorText(fixture, 'email-field')).toBe('Введите корректный email');
+      expect(fieldErrorText(fixture, 'email-field')).toBe(
+        'Введите корректный email',
+      );
       expect(httpMock.match(`${apiBase}/me/profile`).length)
         .withContext('запрос не отправлен')
         .toBe(0);
@@ -335,7 +376,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
       setInput(fixture, 'full-name-input', 'Ф'.repeat(201));
       submit(fixture, 'profile-submit');
 
-      expect(fieldErrorText(fixture, 'full-name-field')).toBe('ФИО — от 1 до 200 символов');
+      expect(fieldErrorText(fixture, 'full-name-field')).toBe(
+        'ФИО — от 1 до 200 символов',
+      );
       expect(httpMock.match(`${apiBase}/me/profile`).length)
         .withContext('невалидные варианты не отправлялись')
         .toBe(0);
@@ -347,7 +390,10 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
       const fixture = await createPage(STUDENT_PROFILE);
       setInput(fixture, 'full-name-input', 'Новое ФИО');
       submit(fixture, 'profile-submit');
-      await flushUpdate(fixture, 200, { ...STUDENT_PROFILE, fullName: 'Новое ФИО' });
+      await flushUpdate(fixture, 200, {
+        ...STUDENT_PROFILE,
+        fullName: 'Новое ФИО',
+      });
 
       expect(notifications.mobileMessage()).toEqual({
         severity: 'success',
@@ -392,16 +438,24 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
       setInput(fixture, 'new-password-input', NEW_PASSWORD);
       setInput(fixture, 'repeat-password-input', NEW_PASSWORD);
       submit(fixture, 'password-submit');
-      await flushPasswordChange(fixture, 400, { message: 'Неверный текущий пароль' });
+      await flushPasswordChange(fixture, 400, {
+        message: 'Неверный текущий пароль',
+      });
 
       const banner = bannerUnder(fixture, 'password-anchor');
-      expect(banner).withContext('баннер под формой смены пароля').not.toBeNull();
+      expect(banner)
+        .withContext('баннер под формой смены пароля')
+        .not.toBeNull();
       expect(banner!.textContent).toContain('Неверный текущий пароль');
       expect(bannerUnder(fixture, 'profile-anchor'))
         .withContext('под формой профиля баннера нет')
         .toBeNull();
-      expect(inputValue(fixture, 'new-password-input')).withContext('не сброшено').toBe(NEW_PASSWORD);
-      expect(inputValue(fixture, 'repeat-password-input')).withContext('не сброшено').toBe(NEW_PASSWORD);
+      expect(inputValue(fixture, 'new-password-input'))
+        .withContext('не сброшено')
+        .toBe(NEW_PASSWORD);
+      expect(inputValue(fixture, 'repeat-password-input'))
+        .withContext('не сброшено')
+        .toBe(NEW_PASSWORD);
       notifications.dismissMobile();
     });
 
@@ -422,7 +476,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
       setInput(fixture, 'repeat-password-input', `${NEW_PASSWORD}!`);
       submit(fixture, 'password-submit');
 
-      expect(fieldErrorText(fixture, 'repeat-password-field')).toBe('Пароли не совпадают');
+      expect(fieldErrorText(fixture, 'repeat-password-field')).toBe(
+        'Пароли не совпадают',
+      );
       expect(httpMock.match(`${apiBase}/me/password`).length)
         .withContext('запрос не отправлен')
         .toBe(0);
@@ -441,7 +497,9 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
         'Данные заполнены неверно',
       );
       expect(bannerUnder(fixture, 'profile-anchor')).toBeNull();
-      expect(fieldErrorText(fixture, 'current-password-field')).toBe('Заполните поле');
+      expect(fieldErrorText(fixture, 'current-password-field')).toBe(
+        'Заполните поле',
+      );
       expect(fieldErrorText(fixture, 'email-field'))
         .withContext('поля формы профиля не затронуты')
         .toBeNull();
@@ -453,10 +511,14 @@ describe('ProfilePage (C-116, IF-107/IF-109, SCR-014)', () => {
         'Данные заполнены неверно',
       );
       expect(bannerUnder(fixture, 'password-anchor')).toBeNull();
-      expect(fieldErrorText(fixture, 'email-field')).toBe('Введите корректный email');
+      expect(fieldErrorText(fixture, 'email-field')).toBe(
+        'Введите корректный email',
+      );
       // Ошибки полей пароля — её собственные (остались от шага 1), действие
       // формы профиля их не добавляет и не сбрасывает.
-      expect(fieldErrorText(fixture, 'current-password-field')).toBe('Заполните поле');
+      expect(fieldErrorText(fixture, 'current-password-field')).toBe(
+        'Заполните поле',
+      );
       notifications.dismissMobile();
     });
   });

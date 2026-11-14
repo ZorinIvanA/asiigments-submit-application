@@ -15,7 +15,15 @@
  * formId считается статическим идентификатором экрана и не меняется
  * в течение жизни якоря.
  */
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  input,
+} from '@angular/core';
 
 import { NotificationBanner } from './notification-banner';
 import { MobileNotification } from './notification-model';

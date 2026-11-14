@@ -63,13 +63,19 @@ describe('Интеграция: вкладки шапки по ролям (IF-11
   it('TS-038: набор вкладок шапки появляется по роли при входе', async () => {
     // Гость: топбарных вкладок нет; навигация — экраны «Вход»,
     // «Регистрация», «Восстановление пароля».
-    expect(env.router.url).withContext('гость на корне — экран входа').toBe('/login');
-    expect(shellTabs(env).length).withContext('у гостя нет вкладок шапки').toBe(0);
+    expect(env.router.url)
+      .withContext('гость на корне — экран входа')
+      .toBe('/login');
+    expect(shellTabs(env).length)
+      .withContext('у гостя нет вкладок шапки')
+      .toBe(0);
     expect(required(env, 'h1').textContent!.trim()).toBe('Вход');
     await env.harness.navigateByUrl('/register');
     expect(required(env, 'h1').textContent!.trim()).toBe('Регистрация');
     await env.harness.navigateByUrl('/recovery');
-    expect(required(env, 'h1').textContent!.trim()).toBe('Восстановление пароля');
+    expect(required(env, 'h1').textContent!.trim()).toBe(
+      'Восстановление пароля',
+    );
 
     // Вход студентом: вкладки меняются сразу, без перезагрузки.
     await env.harness.navigateByUrl('/login');
@@ -91,7 +97,9 @@ describe('Интеграция: вкладки шапки по ролям (IF-11
     // Выход: вкладки исчезают сразу, гость снова на экране входа.
     await logoutViaHeader();
     expect(env.router.url).toBe('/login');
-    expect(shellTabs(env).length).withContext('после выхода вкладок нет').toBe(0);
+    expect(shellTabs(env).length)
+      .withContext('после выхода вкладок нет')
+      .toBe(0);
 
     // Вход преподавателем: ровно 5 вкладок по IF-111.
     await loginViaForm('teacher', 'teacher123!', '/works');

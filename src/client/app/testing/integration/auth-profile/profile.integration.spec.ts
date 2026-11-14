@@ -58,17 +58,24 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
   /** Открытие /profile авторизованной сессией с ответом GET профиля. */
   async function openProfileAs(login: DemoLogin): Promise<void> {
     await env.harness.navigateByUrl('/profile');
-    const profile = login === STUDENT_LOGIN ? storedStudent : PROFILE_FIXTURES[TEACHER_LOGIN];
+    const profile =
+      login === STUDENT_LOGIN ? storedStudent : PROFILE_FIXTURES[TEACHER_LOGIN];
     respond(env, 'GET', '/me/profile', { body: profile });
     await settle(env);
   }
 
   function profileSave(): HTMLButtonElement {
-    return required<HTMLButtonElement>(env, '[data-test="profile-submit"] button');
+    return required<HTMLButtonElement>(
+      env,
+      '[data-test="profile-submit"] button',
+    );
   }
 
   function passwordSave(): HTMLButtonElement {
-    return required<HTMLButtonElement>(env, '[data-test="password-submit"] button');
+    return required<HTMLButtonElement>(
+      env,
+      '[data-test="password-submit"] button',
+    );
   }
 
   function logoutClick(): void {
@@ -80,7 +87,9 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     const banner = root(env).querySelector(
       `${anchorSelector} app-notification-banner`,
     );
-    return banner === null ? null : banner.textContent!.replace(/\s+/g, ' ').trim();
+    return banner === null
+      ? null
+      : banner.textContent!.replace(/\s+/g, ' ').trim();
   }
 
   /** Тело последнего вызова path (граница HTTP). */
@@ -99,9 +108,15 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     buildResponse: (putBody: { fullName: string; email: string }) => ProfileDto,
   ): Promise<{ fullName: string; email: string }> {
     profileSave().click();
-    const pending = env.httpMock.match({ method: 'PUT', url: apiUrl(env, '/me/profile') });
+    const pending = env.httpMock.match({
+      method: 'PUT',
+      url: apiUrl(env, '/me/profile'),
+    });
     expect(pending.length).withContext('ровно один PUT /me/profile').toBe(1);
-    const putBody = pending[0].request.body as { fullName: string; email: string };
+    const putBody = pending[0].request.body as {
+      fullName: string;
+      email: string;
+    };
     env.requests.push({ method: 'PUT', path: '/me/profile', body: putBody });
     pending[0].flush(buildResponse(putBody), { status: 200, statusText: 'OK' });
     await settle(env);
@@ -114,14 +129,22 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     expect(env.router.url).toBe('/profile');
 
     const loginField = required(env, '[data-test="login-field"]');
-    expect(loginField.querySelector('[data-test="login-value"]')!.textContent!.trim())
+    expect(
+      loginField
+        .querySelector('[data-test="login-value"]')!
+        .textContent!.trim(),
+    )
       .withContext('логин отображается')
       .toBe(STUDENT_LOGIN);
     expect(loginField.querySelector('input, textarea'))
       .withContext('логин недоступен вводу (read-only)')
       .toBeNull();
-    expect(required(env, '[data-test="role-value"]').textContent!.trim()).toBe('Студент');
-    expect(required(env, '[data-test="group-value"]').textContent!.trim()).toBe('ИК-221');
+    expect(required(env, '[data-test="role-value"]').textContent!.trim()).toBe(
+      'Студент',
+    );
+    expect(required(env, '[data-test="group-value"]').textContent!.trim()).toBe(
+      'ИК-221',
+    );
     expect(required<HTMLInputElement>(env, '#profile-email').value)
       .withContext('email учётки')
       .toBe('student01@example.com');
@@ -157,7 +180,11 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     setInput(env, '#profile-full-name', '  Петров Пётр Петрович  ');
     // «Бэкенд» применяет триммированные значения из PUT и отвечает ими.
     const putBody = await saveProfileResponding((body) => {
-      storedStudent = { ...storedStudent, fullName: body.fullName, email: body.email };
+      storedStudent = {
+        ...storedStudent,
+        fullName: body.fullName,
+        email: body.email,
+      };
       return storedStudent;
     });
 
@@ -165,7 +192,9 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     expect(env.notifications.desktopMessage()).toEqual(
       jasmine.objectContaining({ severity: 'success', text: 'Сохранено' }),
     );
-    expect(env.notifications.mobileMessage()).withContext('успех без якоря формы').toBeNull();
+    expect(env.notifications.mobileMessage())
+      .withContext('успех без якоря формы')
+      .toBeNull();
 
     // Значения ушли в PUT триммированными; login/роль/группа не в DTO.
     expect(putBody).toEqual({
@@ -182,7 +211,11 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
       return storedStudent;
     });
     expect(env.notifications.mobileMessage()).toEqual(
-      jasmine.objectContaining({ severity: 'success', text: 'Сохранено', formId: null }),
+      jasmine.objectContaining({
+        severity: 'success',
+        text: 'Сохранено',
+        formId: null,
+      }),
     );
     env.breakpoints.simulate(false);
     env.notifications.dismissMobile();
@@ -213,14 +246,23 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     await settle(env);
     expect(lastBody('/me/profile'))
       .withContext('email уходит без изменения регистра')
-      .toEqual({ fullName: 'Иванов Иван Иванович 01', email: 'TEACHER@EXAMPLE.COM' });
+      .toEqual({
+        fullName: 'Иванов Иван Иванович 01',
+        email: 'TEACHER@EXAMPLE.COM',
+      });
     expect(env.notifications.mobileMessage()?.text)
       .withContext('баннер дословно')
       .toBe('Пользователь с таким email уже существует');
-    expect(env.notifications.mobileMessage()?.formId).withContext('якорь формы').toBe('profile-form');
-    expect(bannerIn('[data-test="profile-anchor"]')).toBe('Пользователь с таким email уже существует');
+    expect(env.notifications.mobileMessage()?.formId)
+      .withContext('якорь формы')
+      .toBe('profile-form');
+    expect(bannerIn('[data-test="profile-anchor"]')).toBe(
+      'Пользователь с таким email уже существует',
+    );
     // Отказ PUT кэш формы не обновляет: значение email осталось введённым.
-    expect(required<HTMLInputElement>(env, '#profile-email').value).toBe('TEACHER@EXAMPLE.COM');
+    expect(required<HTMLInputElement>(env, '#profile-email').value).toBe(
+      'TEACHER@EXAMPLE.COM',
+    );
     env.notifications.dismissMobile();
 
     // Собственный текущий email — сохранение успешно (сам исключён из проверки).
@@ -254,18 +296,20 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     expect(env.notifications.mobileMessage()?.formId)
       .withContext('баннер под формой «Смена пароля»')
       .toBe('password-form');
-    expect(bannerIn('[data-test="password-anchor"]')).toBe('Неверный текущий пароль');
+    expect(bannerIn('[data-test="password-anchor"]')).toBe(
+      'Неверный текущий пароль',
+    );
 
     // Все три поля сохраняют введённое (сброс только при успехе).
-    expect(required<HTMLInputElement>(env, '#profile-current-password').value).toBe(
-      'WrongPass999!',
-    );
+    expect(
+      required<HTMLInputElement>(env, '#profile-current-password').value,
+    ).toBe('WrongPass999!');
     expect(required<HTMLInputElement>(env, '#profile-new-password').value).toBe(
       'NewPass1!',
     );
-    expect(required<HTMLInputElement>(env, '#profile-repeat-password').value).toBe(
-      'NewPass1!',
-    );
+    expect(
+      required<HTMLInputElement>(env, '#profile-repeat-password').value,
+    ).toBe('NewPass1!');
     env.notifications.dismissMobile();
   }, 20000);
 
@@ -278,10 +322,12 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     setInput(env, '#profile-repeat-password', 'abc');
     passwordSave().click();
     await settle(env);
-    expect(env.notifications.desktopMessage()?.text).toBe('Данные заполнены неверно');
-    expect(required(env, '[data-test="new-password-error"]').textContent!.trim()).toBe(
-      'Пароль должен содержать не менее 8 символов',
+    expect(env.notifications.desktopMessage()?.text).toBe(
+      'Данные заполнены неверно',
     );
+    expect(
+      required(env, '[data-test="new-password-error"]').textContent!.trim(),
+    ).toBe('Пароль должен содержать не менее 8 символов');
     expect(requestsOf(env, 'PUT', '/me/password'))
       .withContext('запрос changePassword НЕ отправлен')
       .toBe(0);
@@ -299,7 +345,9 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     expect(requestsOf(env, 'PUT', '/me/password'))
       .withContext('запрос отправлен')
       .toBe(1);
-    expect(env.notifications.desktopMessage()?.text).toBe('Неверный текущий пароль');
+    expect(env.notifications.desktopMessage()?.text).toBe(
+      'Неверный текущий пароль',
+    );
     env.notifications.dismissMobile();
   }, 20000);
 
@@ -320,7 +368,9 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     expect(required<HTMLInputElement>(env, '#profile-current-password').value)
       .withContext('поля пароля очищены при успехе')
       .toBe('');
-    expect(required<HTMLInputElement>(env, '#profile-new-password').value).toBe('');
+    expect(required<HTMLInputElement>(env, '#profile-new-password').value).toBe(
+      '',
+    );
 
     // Текущая сессия сохранена — повторный вход не требуется (память AuthService).
     expect(env.auth.isAuthenticated()).withContext('сессия жива').toBeTrue();
@@ -332,7 +382,9 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     await env.harness.navigateByUrl('/profile');
     respond(env, 'GET', '/me/profile', { body: storedStudent });
     await settle(env);
-    expect(env.router.url).withContext('профиль доступен без повторного входа').toBe('/profile');
+    expect(env.router.url)
+      .withContext('профиль доступен без повторного входа')
+      .toBe('/profile');
 
     // Выход: старый пароль больше не работает, новый — работает.
     logoutClick();
@@ -346,14 +398,18 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
       body: { message: 'Неверный логин или пароль' },
     });
     await settle(env);
-    expect(env.notifications.desktopMessage()?.text).toBe('Неверный логин или пароль');
+    expect(env.notifications.desktopMessage()?.text).toBe(
+      'Неверный логин или пароль',
+    );
     env.notifications.dismissMobile();
 
     setInput(env, '#password-input', 'NewPass1!');
     required<HTMLButtonElement>(env, 'button[type="submit"]').click();
     respond(env, 'POST', '/auth/login', { body: ME_FIXTURES.student01 });
     await waitForUrl(env, '/my-submissions');
-    expect(env.router.url).withContext('вход с новым паролем успешен').toBe('/my-submissions');
+    expect(env.router.url)
+      .withContext('вход с новым паролем успешен')
+      .toBe('/my-submissions');
   }, 30000);
 
   it('TS-031: повторное сохранение профиля идемпотентно, роль/группа неизменны', async () => {
@@ -367,7 +423,9 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
       await settle(env);
       expect(env.notifications.desktopMessage())
         .withContext(`сохранение ${attempt} успешно (свой email не даёт 409)`)
-        .toEqual(jasmine.objectContaining({ severity: 'success', text: 'Сохранено' }));
+        .toEqual(
+          jasmine.objectContaining({ severity: 'success', text: 'Сохранено' }),
+        );
       env.notifications.dismissMobile();
       // DTO сохранения — только fullName/email: роль/группа клиентом не меняются.
       expect(lastBody('/me/profile')).toEqual({
@@ -377,8 +435,12 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     }
 
     // Отображение после сохранений: роль и группа без изменений.
-    expect(required(env, '[data-test="role-value"]').textContent!.trim()).toBe('Студент');
-    expect(required(env, '[data-test="group-value"]').textContent!.trim()).toBe('ИК-221');
+    expect(required(env, '[data-test="role-value"]').textContent!.trim()).toBe(
+      'Студент',
+    );
+    expect(required(env, '[data-test="group-value"]').textContent!.trim()).toBe(
+      'ИК-221',
+    );
   }, 20000);
 
   it('TS-032: валидации email/ФИО в профиле без отправки запроса', async () => {
@@ -396,24 +458,26 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     setInput(env, '#profile-full-name', '');
     profileSave().click();
     await settle(env);
-    expect(required(env, '[data-test="full-name-error"]').textContent!.trim()).toBe(
-      'Заполните поле',
-    );
+    expect(
+      required(env, '[data-test="full-name-error"]').textContent!.trim(),
+    ).toBe('Заполните поле');
     env.notifications.dismissMobile();
 
     setInput(env, '#profile-full-name', '   ');
     profileSave().click();
     await settle(env);
-    expect(required(env, '[data-test="full-name-error"]').textContent!.trim()).toBe(
-      'Заполните поле',
-    );
+    expect(
+      required(env, '[data-test="full-name-error"]').textContent!.trim(),
+    ).toBe('Заполните поле');
 
     expect(requestsOf(env, 'PUT', '/me/profile'))
       .withContext('profile.update не вызван ни разу')
       .toBe(0);
     expect(
-      env.httpMock.match({ method: 'PUT', url: `${env.apiBase}/me/profile` }).length,
-    ).withContext('незапрограммированных запросов нет')
+      env.httpMock.match({ method: 'PUT', url: `${env.apiBase}/me/profile` })
+        .length,
+    )
+      .withContext('незапрограммированных запросов нет')
       .toBe(0);
   }, 20000);
 
@@ -471,7 +535,9 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     Array.from(root(env).querySelectorAll<HTMLButtonElement>('button'))
       .find((b) => (b.textContent ?? '').trim() === 'Ввести код')!
       .click();
-    respond(env, 'POST', '/auth/recovery/confirm', { body: { resetToken: 'reset-token-1' } });
+    respond(env, 'POST', '/auth/recovery/confirm', {
+      body: { resetToken: 'reset-token-1' },
+    });
     await waitForUrl(env, '/reset-password');
     setInput(env, '#password-input', '  NewPass1!  ');
     setInput(env, '#repeat-password-input', '  NewPass1!  ');
@@ -483,7 +549,10 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     expect(lastBody('/auth/reset-password'))
       .withContext('сброс: пароль в DTO триммирован')
       .toEqual(
-        jasmine.objectContaining({ password: 'NewPass1!', confirmPassword: 'NewPass1!' }),
+        jasmine.objectContaining({
+          password: 'NewPass1!',
+          confirmPassword: 'NewPass1!',
+        }),
       );
 
     // (4) Вход новым паролем с пробелами — согласовано со значением DTO.
@@ -509,7 +578,12 @@ describe('Интеграция: профиль (FR-4.7, batch1 TS-025..TS-033)',
     await waitForUrl(env, '/my-submissions');
     expect(lastBody('/auth/register'))
       .withContext('в DTO уходит триммированный пароль')
-      .toEqual(jasmine.objectContaining({ password: 'Abcdef1!', repeatPassword: 'Abcdef1!' }));
+      .toEqual(
+        jasmine.objectContaining({
+          password: 'Abcdef1!',
+          repeatPassword: 'Abcdef1!',
+        }),
+      );
 
     logoutClick();
     respond(env, 'POST', '/auth/logout', { status: 204 });

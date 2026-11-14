@@ -144,7 +144,10 @@ export class SubmissionDateCell {
       return;
     }
     const picker = this.pickerRef();
-    if (picker !== undefined && (picker.value === null || picker.value === undefined)) {
+    if (
+      picker !== undefined &&
+      (picker.value === null || picker.value === undefined)
+    ) {
       this.rewriteFromSource();
     }
   }

@@ -68,7 +68,9 @@ describe('NotificationAnchor', () => {
     const fixture = TestBed.createComponent(TwoFormsHost);
     fixture.detectChanges();
 
-    notifications.notifyError('Неверный текущий пароль', { formId: 'password-form' });
+    notifications.notifyError('Неверный текущий пароль', {
+      formId: 'password-form',
+    });
     fixture.detectChanges();
 
     const profile = fixture.nativeElement.querySelector(
@@ -93,7 +95,9 @@ describe('NotificationAnchor', () => {
     fixture.detectChanges();
 
     expect(
-      fixture.nativeElement.querySelector('[data-test="profile-section"] app-notification-banner'),
+      fixture.nativeElement.querySelector(
+        '[data-test="profile-section"] app-notification-banner',
+      ),
     ).toBeNull();
     const movedBanner = fixture.nativeElement.querySelector(
       '[data-test="password-section"] app-notification-banner',
@@ -109,7 +113,9 @@ describe('NotificationAnchor', () => {
     notifications.notifySuccess('Пароль изменён');
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).toBeNull();
   });
 
   it('на десктопе (>=768px) под формой баннера нет', () => {
@@ -120,7 +126,9 @@ describe('NotificationAnchor', () => {
     notifications.notifyError('Email уже занят', { formId: 'profile-form' });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).toBeNull();
   });
 
   it('клик по крестику закрывает баннер', () => {
@@ -132,11 +140,15 @@ describe('NotificationAnchor', () => {
     fixture.detectChanges();
 
     fixture.nativeElement
-      .querySelector('[data-test="profile-section"] .app-notification-banner__close')!
+      .querySelector(
+        '[data-test="profile-section"] .app-notification-banner__close',
+      )!
       .click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).toBeNull();
     expect(notifications.mobileMessage()).toBeNull();
   });
 
@@ -147,12 +159,16 @@ describe('NotificationAnchor', () => {
 
     notifications.notifyError('Ошибка', { formId: 'profile-form' });
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).not.toBeNull();
 
     tick(5000);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('app-notification-banner')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('app-notification-banner'),
+    ).toBeNull();
   }));
 
   it('уничтожение якоря снимает регистрацию formId (fallback под шапку)', () => {

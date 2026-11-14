@@ -39,7 +39,13 @@ import {
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { catchError, finalize, map, shareReplay, switchMap } from 'rxjs/operators';
+import {
+  catchError,
+  finalize,
+  map,
+  shareReplay,
+  switchMap,
+} from 'rxjs/operators';
 
 import { API_BASE_URL } from './api-base-url';
 import { normalizeHttpError } from './http-errors';
@@ -197,7 +203,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         error.status === 401 &&
         !isAuthEndpoint(apiReq.url, apiBase)
       ) {
-        return handleUnauthorized(apiReq, next, { refresh, lifecycle, router, error });
+        return handleUnauthorized(apiReq, next, {
+          refresh,
+          lifecycle,
+          router,
+          error,
+        });
       }
       return throwError(() => normalizeHttpError(error));
     }),

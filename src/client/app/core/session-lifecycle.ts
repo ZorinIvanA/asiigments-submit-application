@@ -40,13 +40,15 @@ export class SessionLifecycle {
   private initDone = false;
 
   /** Сигнал недействительной сессии — потребляет AuthService (T-015). */
-  readonly sessionExpired$: Observable<void> = this.sessionExpiredSubject.asObservable();
+  readonly sessionExpired$: Observable<void> =
+    this.sessionExpiredSubject.asObservable();
 
   /**
    * Сигнал восстановления сессии — потребляет RefreshCoordinator
    * интерцептора (C-013): сброс фиксатора неудачного refresh (ADR-021).
    */
-  readonly sessionRestored$: Observable<void> = this.sessionRestoredSubject.asObservable();
+  readonly sessionRestored$: Observable<void> =
+    this.sessionRestoredSubject.asObservable();
 
   /**
    * Фаза холодного старта: true до markInitDone() — интерцептор в этой фазе

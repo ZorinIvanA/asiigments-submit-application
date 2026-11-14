@@ -24,7 +24,14 @@
  * Раздел «Группы» — отдельная фича (T-116); маршруты фичи объявлены в
  * access.routes.ts (ADR-110).
  */
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -265,7 +272,10 @@ export class AccessPage implements OnInit {
    * состояние при отказе и откатывает опустевшую страницу (контракт T-117,
    * CR-001). Успех без тостов: фидбек — обновлённая строка (аменда 6).
    */
-  private async applyGroup(row: AccessRow, groupId: string | null): Promise<void> {
+  private async applyGroup(
+    row: AccessRow,
+    groupId: string | null,
+  ): Promise<void> {
     if (row.saving) {
       return;
     }

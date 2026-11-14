@@ -56,7 +56,8 @@ import {
 } from '../../../../shared/validation/validators';
 
 /** Текст тултипа кнопки-цепочки — дословно по подзадаче (макета формы нет). */
-const LINK_BUTTON_TOOLTIP = 'Нажмите на эту кнопку чтобы добавить или изменить ссылку';
+const LINK_BUTTON_TOOLTIP =
+  'Нажмите на эту кнопку чтобы добавить или изменить ссылку';
 
 /** Подпись блока «Ссылка на задание» (метка поля и имя кнопки-цепочки). */
 const URL_FIELD_LABEL = 'Ссылка на задание';
@@ -141,7 +142,9 @@ export class LabFormPage {
 
   /** Заголовок карточки — по режиму (макета формы нет, стиль SCR-001). */
   protected readonly title = computed(() =>
-    this.isEdit() ? 'Редактирование лабораторной работы' : 'Новая лабораторная работа',
+    this.isEdit()
+      ? 'Редактирование лабораторной работы'
+      : 'Новая лабораторная работа',
   );
 
   /** Поле URL показано после клика по кнопке-цепочке либо когда ссылка есть. */
@@ -152,13 +155,19 @@ export class LabFormPage {
       nonNullable: true,
       validators: [requiredTrim(), labNumber()],
     }),
-    semester: new FormControl<number | null>(null, [requiredTrim(), labSemester()]),
+    semester: new FormControl<number | null>(null, [
+      requiredTrim(),
+      labSemester(),
+    ]),
     content: new FormControl<string>('', {
       nonNullable: true,
       validators: [requiredTrim(), labContent()],
     }),
     defenseRequired: new FormControl<boolean>(false, { nonNullable: true }),
-    assignmentUrl: new FormControl<string>('', { nonNullable: true, validators: [labUrl()] }),
+    assignmentUrl: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [labUrl()],
+    }),
   });
 
   constructor() {

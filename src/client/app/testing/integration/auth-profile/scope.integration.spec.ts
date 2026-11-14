@@ -40,13 +40,9 @@ describe('Интеграция: границы области v1 (FR-4.1/FR-4.7,
     const labels = Array.from(root(env).querySelectorAll('label')).map((l) =>
       l.textContent!.trim(),
     );
-    expect(labels).withContext('поля формы регистрации (SCR-002)').toEqual([
-      'ФИО',
-      'Логин',
-      'Email',
-      'Пароль',
-      'Повторите пароль',
-    ]);
+    expect(labels)
+      .withContext('поля формы регистрации (SCR-002)')
+      .toEqual(['ФИО', 'Логин', 'Email', 'Пароль', 'Повторите пароль']);
     expect(root(env).querySelectorAll('select, input[type="radio"]').length)
       .withContext('выбора роли в UI нет')
       .toBe(0);
@@ -63,14 +59,12 @@ describe('Интеграция: границы области v1 (FR-4.1/FR-4.7,
     respond(env, 'POST', '/auth/register', { body: ME_FIXTURES.student01 });
     await settle(env);
     const registerCall = env.requests.find((r) => r.path === '/auth/register');
-    expect(Object.keys(registerCall!.body as Record<string, unknown>).sort()).toEqual([
-      'email',
-      'fullName',
-      'login',
-      'password',
-      'repeatPassword',
-    ]);
-    expect(env.auth.isAuthenticated()).withContext('автологин регистрации').toBeTrue();
+    expect(
+      Object.keys(registerCall!.body as Record<string, unknown>).sort(),
+    ).toEqual(['email', 'fullName', 'login', 'password', 'repeatPassword']);
+    expect(env.auth.isAuthenticated())
+      .withContext('автологин регистрации')
+      .toBeTrue();
 
     // /profile: редактируемы только ФИО и email; логин read-only; полей
     // роли/группы к редактированию нет. «F5»: сессия в памяти не переживает
@@ -91,7 +85,10 @@ describe('Интеграция: границы области v1 (FR-4.1/FR-4.7,
     // Ровно два редактируемых поля — в форме «Основные данные» (селектор
     // ограничен формой: поля «Смена пароля» — отдельная карточка, CR-011).
     const inputs = Array.from(
-      required(env, 'form[data-test="profile-form"]').querySelectorAll<HTMLInputElement>('input'),
+      required(
+        env,
+        'form[data-test="profile-form"]',
+      ).querySelectorAll<HTMLInputElement>('input'),
     );
     expect(inputs.map((input) => input.id).sort())
       .withContext('редактируемые поля профиля — только email и ФИО')
@@ -100,7 +97,11 @@ describe('Интеграция: границы области v1 (FR-4.1/FR-4.7,
     expect(loginField.querySelector('input, textarea'))
       .withContext('логин read-only')
       .toBeNull();
-    expect(root(env).querySelector('[data-test="role-field"] input, [data-test="group-field"] input'))
+    expect(
+      root(env).querySelector(
+        '[data-test="role-field"] input, [data-test="group-field"] input',
+      ),
+    )
       .withContext('роль и группа — не поля ввода')
       .toBeNull();
     expect(console.error).not.toHaveBeenCalled();

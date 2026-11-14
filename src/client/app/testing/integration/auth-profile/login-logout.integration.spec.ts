@@ -74,36 +74,48 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
     // Преподаватель.
     fillCredentials(TEACHER.login, TEACHER.password);
     await submitLogin(200, ME_FIXTURES.teacher, '/works');
-    expect(env.auth.currentUser()).withContext('ответ содержит {role, fullName}').toEqual(
-      jasmine.objectContaining({
-        role: 'teacher',
-        fullName: 'Сидоров Семён Семёнович',
-      }),
-    );
-    expect(env.router.url).withContext('teacher → редирект /works').toBe('/works');
-    expect(env.auth.isAuthenticated()).withContext('сессия установлена (память)').toBeTrue();
+    expect(env.auth.currentUser())
+      .withContext('ответ содержит {role, fullName}')
+      .toEqual(
+        jasmine.objectContaining({
+          role: 'teacher',
+          fullName: 'Сидоров Семён Семёнович',
+        }),
+      );
+    expect(env.router.url)
+      .withContext('teacher → редирект /works')
+      .toBe('/works');
+    expect(env.auth.isAuthenticated())
+      .withContext('сессия установлена (память)')
+      .toBeTrue();
 
     // Выход через шапку.
     required<HTMLButtonElement>(env, '.app-topbar__logout').click();
     respond(env, 'POST', '/auth/logout', { status: 204 });
     await waitForUrl(env, '/login');
-    expect(env.auth.isAuthenticated()).withContext('сессия очищена').toBeFalse();
+    expect(env.auth.isAuthenticated())
+      .withContext('сессия очищена')
+      .toBeFalse();
 
     // Студент — логин в другом регистре: клиент отправляет значение как
     // набрано; нормализация регистра — ci-проверка бэкенда.
     fillCredentials('Student01', STUDENT.password);
     await submitLogin(200, ME_FIXTURES.student01, '/my-submissions');
-    expect(lastLoginBody()).withContext('логин уходит без изменения регистра').toEqual({
-      login: 'Student01',
-      password: STUDENT.password,
-    });
+    expect(lastLoginBody())
+      .withContext('логин уходит без изменения регистра')
+      .toEqual({
+        login: 'Student01',
+        password: STUDENT.password,
+      });
     expect(env.auth.currentUser()).toEqual(
       jasmine.objectContaining({
         role: 'student',
         fullName: 'Иванов Иван Иванович 01',
       }),
     );
-    expect(env.router.url).withContext('student → редирект /my-submissions').toBe('/my-submissions');
+    expect(env.router.url)
+      .withContext('student → редирект /my-submissions')
+      .toBe('/my-submissions');
     expect(env.auth.isAuthenticated()).toBeTrue();
   }, 20000);
 
@@ -125,12 +137,16 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
       env.notifications.dismissMobile();
     }
 
-    expect(texts).withContext('один и тот же текст во всех трёх случаях').toEqual([
-      'Неверный логин или пароль',
-      'Неверный логин или пароль',
-      'Неверный логин или пароль',
-    ]);
-    expect(env.router.url).withContext('экран входа остаётся открытым').toBe('/login');
+    expect(texts)
+      .withContext('один и тот же текст во всех трёх случаях')
+      .toEqual([
+        'Неверный логин или пароль',
+        'Неверный логин или пароль',
+        'Неверный логин или пароль',
+      ]);
+    expect(env.router.url)
+      .withContext('экран входа остаётся открытым')
+      .toBe('/login');
   }, 20000);
 
   it('TS-010: 429 входа — дословный баннер, форма не блокируется (окно лимита — зона бэкенда)', async () => {
@@ -143,14 +159,18 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
     for (let i = 0; i < 2; i++) {
       fillCredentials(STUDENT.login, `nope-${i}`);
       await submitLogin(401, { message: 'Неверный логин или пароль' });
-      expect(env.notifications.desktopMessage()?.text).toBe('Неверный логин или пароль');
+      expect(env.notifications.desktopMessage()?.text).toBe(
+        'Неверный логин или пароль',
+      );
       expectButtonEnabled();
       env.notifications.dismissMobile();
     }
 
     // Лимит бэкенда исчерпан: 429 дословно, экран входа остаётся.
     fillCredentials(STUDENT.login, STUDENT.password);
-    await submitLogin(429, { message: 'Слишком много попыток. Повторите позже' });
+    await submitLogin(429, {
+      message: 'Слишком много попыток. Повторите позже',
+    });
     expect(env.notifications.desktopMessage()?.text)
       .withContext('429 дословно')
       .toBe('Слишком много попыток. Повторите позже');
@@ -171,12 +191,16 @@ describe('Интеграция: вход и выход (FR-4.1/IF-108, batch1 TS
     await waitForUrl(env, '/login');
 
     expect(env.auth.currentUser()).withContext('currentUser=null').toBeNull();
-    expect(env.auth.isAuthenticated()).withContext('сессия очищена').toBeFalse();
+    expect(env.auth.isAuthenticated())
+      .withContext('сессия очищена')
+      .toBeFalse();
     expect(env.router.url).withContext('возврат на /login').toBe('/login');
 
     // /profile закрыт authGuard'ом (проверка по памяти, без HTTP).
     await env.harness.navigateByUrl('/profile');
-    expect(env.router.url).withContext('/profile → редирект /login').toBe('/login');
+    expect(env.router.url)
+      .withContext('/profile → редирект /login')
+      .toBe('/login');
 
     // Страницы гостя снова доступны.
     await env.harness.navigateByUrl('/login');

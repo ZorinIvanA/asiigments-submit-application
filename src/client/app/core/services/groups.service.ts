@@ -43,12 +43,16 @@ export class GroupsService {
 
   /** Создаёт группу с уникальным (ci) названием 1–100 символов → 201 GroupDto. */
   create(name: string): Promise<GroupDto> {
-    return firstValueFrom(this.http.post<GroupDto>(`${this.apiBase}/groups`, { name }));
+    return firstValueFrom(
+      this.http.post<GroupDto>(`${this.apiBase}/groups`, { name }),
+    );
   }
 
   /** Переименовывает группу; дубликат (ci) чужого названия — 409. */
   rename(id: string, name: string): Promise<GroupDto> {
-    return firstValueFrom(this.http.put<GroupDto>(`${this.apiBase}/groups/${id}`, { name }));
+    return firstValueFrom(
+      this.http.put<GroupDto>(`${this.apiBase}/groups/${id}`, { name }),
+    );
   }
 
   /**
@@ -56,7 +60,9 @@ export class GroupsService {
    * (§4.5 — теряют доступ к сдаче, попадают в фильтр «без группы»).
    */
   remove(id: string): Promise<void> {
-    return firstValueFrom(this.http.delete<void>(`${this.apiBase}/groups/${id}`));
+    return firstValueFrom(
+      this.http.delete<void>(`${this.apiBase}/groups/${id}`),
+    );
   }
 
   /** Страница состава группы (GET /groups/{id}/students?page=): pageSize=10,
@@ -64,9 +70,12 @@ export class GroupsService {
   getStudents(id: string, page: number): Promise<PagedResult<StudentDto>> {
     const query = new HttpParams().set('page', page);
     return firstValueFrom(
-      this.http.get<PagedResult<StudentDto>>(`${this.apiBase}/groups/${id}/students`, {
-        params: query,
-      }),
+      this.http.get<PagedResult<StudentDto>>(
+        `${this.apiBase}/groups/${id}/students`,
+        {
+          params: query,
+        },
+      ),
     );
   }
 }

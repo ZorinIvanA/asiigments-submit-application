@@ -21,7 +21,9 @@ describe('RecoveryFlowStore — поток восстановления recovery
   function freshStore(): RecoveryFlowStore {
     // Отдельный инжектор — экземпляр, независимый от любого TestBed/синглтона:
     // состояние должно приезжать из sessionStorage, а не из памяти.
-    return Injector.create({ providers: [RecoveryFlowStore] }).get(RecoveryFlowStore);
+    return Injector.create({ providers: [RecoveryFlowStore] }).get(
+      RecoveryFlowStore,
+    );
   }
 
   it('новый поток пуст: email/resetToken — null, предикаты false', () => {
@@ -40,7 +42,9 @@ describe('RecoveryFlowStore — поток восстановления recovery
     expect(store.email()).toBe('student01@example.com');
     expect(store.hasEmail()).toBeTrue();
     expect(store.hasResetToken()).toBeFalse();
-    expect(JSON.parse(sessionStorage.getItem(STORAGE_KEYS.recoveryFlow) ?? 'null')).toEqual({
+    expect(
+      JSON.parse(sessionStorage.getItem(STORAGE_KEYS.recoveryFlow) ?? 'null'),
+    ).toEqual({
       email: 'student01@example.com',
       resetToken: null,
     });
@@ -78,7 +82,9 @@ describe('RecoveryFlowStore — поток восстановления recovery
     expect(store.resetToken()).toBeNull();
     expect(store.hasEmail()).toBeFalse();
     expect(store.hasResetToken()).toBeFalse();
-    expect(JSON.parse(sessionStorage.getItem(STORAGE_KEYS.recoveryFlow) ?? 'null')).toEqual({
+    expect(
+      JSON.parse(sessionStorage.getItem(STORAGE_KEYS.recoveryFlow) ?? 'null'),
+    ).toEqual({
       email: null,
       resetToken: null,
     });
@@ -90,7 +96,9 @@ describe('RecoveryFlowStore — поток восстановления recovery
     store.setResetToken('reset-token-1');
 
     store.clearResetToken();
-    expect(store.email()).withContext('email сохраняется').toBe('student01@example.com');
+    expect(store.email())
+      .withContext('email сохраняется')
+      .toBe('student01@example.com');
     expect(store.resetToken()).toBeNull();
     expect(store.hasResetToken()).toBeFalse();
     expect(store.hasEmail()).toBeTrue();

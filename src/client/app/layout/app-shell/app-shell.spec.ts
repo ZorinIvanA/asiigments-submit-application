@@ -163,7 +163,9 @@ describe('AppShell — оболочка (IF-111, T-109)', () => {
     await fixture.whenStable();
 
     expect(logout).toHaveBeenCalledTimes(1);
-    expect(TestBed.inject(Router).url).withContext('редирект на вход').toBe('/login');
+    expect(TestBed.inject(Router).url)
+      .withContext('редирект на вход')
+      .toBe('/login');
   });
 
   it('объявляет --app-header-height: 56px, высота шапки 56px', () => {
@@ -192,9 +194,9 @@ describe('AppShell — оболочка (IF-111, T-109)', () => {
     const host = fixture.nativeElement as HTMLElement;
     const bannerHost = host.querySelector('app-header-notification');
     expect(bannerHost).not.toBeNull();
-    expect(
-      bannerHost!.querySelector('app-notification-banner'),
-    ).withContext('баннер смонтирован').not.toBeNull();
+    expect(bannerHost!.querySelector('app-notification-banner'))
+      .withContext('баннер смонтирован')
+      .not.toBeNull();
     expect(bannerHost!.textContent).toContain('Ошибка загрузки данных');
 
     // Смещение баннера — высота шапки оболочки (переменная наследуется хостом).

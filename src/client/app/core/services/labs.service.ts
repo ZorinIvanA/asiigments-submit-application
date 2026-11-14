@@ -39,7 +39,13 @@ import {
 export { LABS_PAGE_SIZE } from '../../shared/models';
 
 /** Типы контракта labs — реэкспорт для страниц фичи works (T-112/T-113). */
-export type { LabInput, LabsGetListParams, LabsSortDir, LabsSortField, LabsUpdateParams };
+export type {
+  LabInput,
+  LabsGetListParams,
+  LabsSortDir,
+  LabsSortField,
+  LabsUpdateParams,
+};
 
 @Injectable({ providedIn: 'root' })
 export class LabsService {
@@ -68,7 +74,9 @@ export class LabsService {
       query = query.set('sortDir', params.sortDir);
     }
     return firstValueFrom(
-      this.http.get<PagedResult<LabDto>>(`${this.apiBase}/labs`, { params: query }),
+      this.http.get<PagedResult<LabDto>>(`${this.apiBase}/labs`, {
+        params: query,
+      }),
     );
   }
 
@@ -79,12 +87,16 @@ export class LabsService {
 
   /** Создание лабораторной (POST /labs, 201) — успех: созданная запись. */
   create(input: LabInput): Promise<LabDto> {
-    return firstValueFrom(this.http.post<LabDto>(`${this.apiBase}/labs`, input));
+    return firstValueFrom(
+      this.http.post<LabDto>(`${this.apiBase}/labs`, input),
+    );
   }
 
   /** Обновление лабораторной (PUT /labs/{id}, тело как у POST) — успех: обновлённая запись. */
   update(id: string, input: LabInput): Promise<LabDto> {
-    return firstValueFrom(this.http.put<LabDto>(`${this.apiBase}/labs/${id}`, input));
+    return firstValueFrom(
+      this.http.put<LabDto>(`${this.apiBase}/labs/${id}`, input),
+    );
   }
 
   /** Удаление лабораторной (DELETE /labs/{id} → 204); записи ведомости удаляются каскадом. */

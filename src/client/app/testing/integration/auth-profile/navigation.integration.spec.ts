@@ -23,7 +23,13 @@ import {
   stopAuthProfileEnv,
 } from './auth-profile.env';
 
-const AUTH_ROUTES = ['/login', '/register', '/recovery', '/recovery/code', '/reset-password'];
+const AUTH_ROUTES = [
+  '/login',
+  '/register',
+  '/recovery',
+  '/recovery/code',
+  '/reset-password',
+];
 
 /** Ответ GET /me/profile для сценариев с заходом на /profile. */
 const STUDENT_PROFILE = {
@@ -63,20 +69,26 @@ describe('Интеграция: навигация auth-семейства (IF-1
           .toBe(home);
       }
     }
-    expect(console.error).withContext('ошибок консоли нет').not.toHaveBeenCalled();
+    expect(console.error)
+      .withContext('ошибок консоли нет')
+      .not.toHaveBeenCalled();
   }, 30000);
 
-  it('TS-035: homeGuard на \'\' и \'**\' по наличию сессии и роли', async () => {
+  it("TS-035: homeGuard на '' и '**' по наличию сессии и роли", async () => {
     // Гость → /login.
     await env.harness.navigateByUrl('/');
     expect(env.router.url).withContext('гость на корне').toBe('/login');
     await env.harness.navigateByUrl('/some/unknown/page');
-    expect(env.router.url).withContext('гость на несуществующем маршруте').toBe('/login');
+    expect(env.router.url)
+      .withContext('гость на несуществующем маршруте')
+      .toBe('/login');
 
     // Студент → /my-submissions.
     env = await restartApp(env, { keepStorage: false, session: 'student01' });
     await env.harness.navigateByUrl('/');
-    expect(env.router.url).withContext('student на корне').toBe('/my-submissions');
+    expect(env.router.url)
+      .withContext('student на корне')
+      .toBe('/my-submissions');
     await env.harness.navigateByUrl('/some/unknown/page');
     expect(env.router.url).withContext('student на **').toBe('/my-submissions');
 
@@ -92,16 +104,24 @@ describe('Интеграция: навигация auth-семейства (IF-1
   it('TS-036: recoveryStepGuard на deep-link без данных потока — безопасный рестарт', async () => {
     // Пустой store: оба шага → /recovery.
     await env.harness.navigateByUrl('/recovery/code');
-    expect(env.router.url).withContext('/recovery/code без email → /recovery').toBe('/recovery');
+    expect(env.router.url)
+      .withContext('/recovery/code без email → /recovery')
+      .toBe('/recovery');
     await env.harness.navigateByUrl('/reset-password');
-    expect(env.router.url).withContext('/reset-password без resetToken → /recovery').toBe('/recovery');
+    expect(env.router.url)
+      .withContext('/reset-password без resetToken → /recovery')
+      .toBe('/recovery');
 
     // Store только с email: код открыт, /reset-password → безопасный рестарт.
     env.flow.setEmail('student01@example.com');
     await env.harness.navigateByUrl('/recovery/code');
-    expect(env.router.url).withContext('с email шаг кода разрешён').toBe('/recovery/code');
+    expect(env.router.url)
+      .withContext('с email шаг кода разрешён')
+      .toBe('/recovery/code');
     await env.harness.navigateByUrl('/reset-password');
-    expect(env.router.url).withContext('с email без resetToken → /recovery').toBe('/recovery');
+    expect(env.router.url)
+      .withContext('с email без resetToken → /recovery')
+      .toBe('/recovery');
 
     // Страницы не шлют recovery-запросов с пустыми значениями (журнал HTTP).
     expect(requestsOf(env, 'POST', '/auth/recovery/request'))
@@ -123,14 +143,18 @@ describe('Интеграция: навигация auth-семейства (IF-1
 
     // /profile закрыт; guard решает по пустому кэшу, без HTTP.
     await env.harness.navigateByUrl('/profile');
-    expect(env.router.url).withContext('аноним на /profile → редирект /login').toBe('/login');
+    expect(env.router.url)
+      .withContext('аноним на /profile → редирект /login')
+      .toBe('/login');
     expect(requestsOf(env, 'POST', '/auth/refresh'))
       .withContext('новых refresh нет (фиксатор неудачного refresh)')
       .toBe(1);
 
     // Дальнейшая навигация ведёт себя как гостевая.
     await env.harness.navigateByUrl('/register');
-    expect(env.router.url).withContext('auth-страницы доступны гостю').toBe('/register');
+    expect(env.router.url)
+      .withContext('auth-страницы доступны гостю')
+      .toBe('/register');
     await env.harness.navigateByUrl('/profile');
     expect(env.router.url).withContext('защищённые — редирект').toBe('/login');
     expect(console.error).not.toHaveBeenCalled();
@@ -147,7 +171,9 @@ describe('Интеграция: навигация auth-семейства (IF-1
     await env.harness.navigateByUrl('/profile');
     respond(env, 'GET', '/me/profile', { body: STUDENT_PROFILE });
     await settle(env);
-    expect(env.router.url).withContext('без редиректа на /login').toBe('/profile');
+    expect(env.router.url)
+      .withContext('без редиректа на /login')
+      .toBe('/profile');
     expect(required(env, '[data-test="login-value"]').textContent!.trim())
       .withContext('профиль отображает корректные данные')
       .toBe('student01');

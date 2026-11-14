@@ -18,7 +18,12 @@ import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-obse
 import { GroupsService } from '../../../core/services/groups.service';
 import { StudentsService } from '../../../core/services/students.service';
 import { NotificationService } from '../../../shared/notifications/notification-service';
-import { ApiError, GroupDto, PagedResult, StudentDto } from '../../../shared/models';
+import {
+  ApiError,
+  GroupDto,
+  PagedResult,
+  StudentDto,
+} from '../../../shared/models';
 import { GroupPage } from './group-page';
 import { GroupsPage } from './groups-page';
 
@@ -117,27 +122,25 @@ describe('GroupPage', () => {
     return Array.from(root().querySelectorAll<HTMLTableRowElement>('tbody tr'));
   }
 
-  function rowButton(row: HTMLTableRowElement, label: string): HTMLButtonElement {
-    const found = row.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
-    expect(found).withContext(`кнопка «${label}» в строке`).not.toBeNull();
-    return found!;
-  }
-
   /** Кнопка номера страницы пейджера. */
   function pageButton(number: string): HTMLButtonElement {
-    const found = Array.from(root().querySelectorAll<HTMLButtonElement>('.group-page__page')).find(
-      (candidate) => candidate.textContent?.trim() === number,
-    );
+    const found = Array.from(
+      root().querySelectorAll<HTMLButtonElement>('.group-page__page'),
+    ).find((candidate) => candidate.textContent?.trim() === number);
     expect(found).withContext(`кнопка страницы «${number}»`).toBeDefined();
     return found!;
   }
 
   /** Кнопка исключения в строке: имя доступности — видимый текст кнопки. */
   function excludeButtonInRow(row: HTMLTableRowElement): HTMLButtonElement {
-    const found = Array.from(row.querySelectorAll<HTMLButtonElement>('button')).find((candidate) =>
+    const found = Array.from(
+      row.querySelectorAll<HTMLButtonElement>('button'),
+    ).find((candidate) =>
       candidate.textContent?.includes('Исключить из группы'),
     );
-    expect(found).withContext('кнопка «Исключить из группы» в строке').not.toBeNull();
+    expect(found)
+      .withContext('кнопка «Исключить из группы» в строке')
+      .not.toBeNull();
     return found!;
   }
 
@@ -150,12 +153,18 @@ describe('GroupPage', () => {
   it('рисует крошки «Группы / ИК-221», заголовок с именем и счётчик «Студентов: 25»', async () => {
     await openCard();
 
-    const crumbsLink = root().querySelector<HTMLAnchorElement>('.group-page__crumbs-link');
+    const crumbsLink = root().querySelector<HTMLAnchorElement>(
+      '.group-page__crumbs-link',
+    );
     expect(crumbsLink?.getAttribute('href')).toBe('/groups');
     expect(crumbsLink?.textContent?.trim()).toBe('Группы');
-    expect(root().querySelector('.group-page__crumbs-name')?.textContent?.trim()).toBe('ИК-221');
+    expect(
+      root().querySelector('.group-page__crumbs-name')?.textContent?.trim(),
+    ).toBe('ИК-221');
     expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-221');
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 25');
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 25');
   });
 
   it('таблица состава: ФИО/Логин/Email, 10 строк первой страницы, кнопка исключения', async () => {
@@ -183,36 +192,42 @@ describe('GroupPage', () => {
   it('подпись «Показать записи с 1 по 10 из 25»; клик по страницам перечитывает состав', async () => {
     await openCard();
 
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 1 по 10 из 25',
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 1 по 10 из 25');
+    const prev = root().querySelector<HTMLButtonElement>(
+      'button[aria-label="Предыдущая страница"]',
     );
-    const prev = root().querySelector<HTMLButtonElement>('button[aria-label="Предыдущая страница"]');
     expect(prev?.disabled).toBeTrue();
 
-    const pageTwo = Array.from(root().querySelectorAll<HTMLButtonElement>('.group-page__page')).find(
-      (candidate) => candidate.textContent?.trim() === '2',
-    );
+    const pageTwo = Array.from(
+      root().querySelectorAll<HTMLButtonElement>('.group-page__page'),
+    ).find((candidate) => candidate.textContent?.trim() === '2');
     expect(pageTwo).toBeDefined();
     pageTwo!.click();
     await flush();
 
     expect(groupsService.getStudents).toHaveBeenCalledWith('g-221', 2);
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 11 по 20 из 25',
-    );
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 11 по 20 из 25');
     expect(studentRows()[0]!.textContent).toContain('Иванов Иван Иванович 11');
 
     root()
-      .querySelector<HTMLButtonElement>('button[aria-label="Следующая страница"]')!
+      .querySelector<HTMLButtonElement>(
+        'button[aria-label="Следующая страница"]',
+      )!
       .click();
     await flush();
 
     expect(groupsService.getStudents).toHaveBeenCalledWith('g-221', 3);
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 21 по 25 из 25',
-    );
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 21 по 25 из 25');
     expect(studentRows().length).toBe(5);
-    const next = root().querySelector<HTMLButtonElement>('button[aria-label="Следующая страница"]');
+    const next = root().querySelector<HTMLButtonElement>(
+      'button[aria-label="Следующая страница"]',
+    );
     expect(next?.disabled).toBeTrue();
   });
 
@@ -227,18 +242,26 @@ describe('GroupPage', () => {
       'Исключить студента Иванов Иван Иванович 01 из группы?',
     );
     expect(
-      root().querySelector<HTMLButtonElement>('.p-confirmdialog-accept-button')?.textContent?.trim(),
+      root()
+        .querySelector<HTMLButtonElement>('.p-confirmdialog-accept-button')
+        ?.textContent?.trim(),
     ).toBe('Yes');
     expect(
-      root().querySelector<HTMLButtonElement>('.p-confirmdialog-reject-button')?.textContent?.trim(),
+      root()
+        .querySelector<HTMLButtonElement>('.p-confirmdialog-reject-button')
+        ?.textContent?.trim(),
     ).toBe('No');
 
-    root().querySelector<HTMLButtonElement>('.p-confirmdialog-reject-button')!.click();
+    root()
+      .querySelector<HTMLButtonElement>('.p-confirmdialog-reject-button')!
+      .click();
     await flush();
 
     expect(studentsService.setGroup).not.toHaveBeenCalled();
     expect(root().querySelector('.p-confirmdialog-message')).toBeNull();
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 25');
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 25');
   });
 
   it('AC exclude-student: «Yes» — setGroup(id, null), «Сохранено», счётчик 24, студент ушёл', async () => {
@@ -253,22 +276,30 @@ describe('GroupPage', () => {
 
     excludeButtonInRow(studentRows()[0]!).click();
     harness.fixture.detectChanges();
-    root().querySelector<HTMLButtonElement>('.p-confirmdialog-accept-button')!.click();
+    root()
+      .querySelector<HTMLButtonElement>('.p-confirmdialog-accept-button')!
+      .click();
     await flush();
 
     expect(studentsService.setGroup).toHaveBeenCalledWith('s-01', null);
     expect(notifications.notifySuccess).toHaveBeenCalledWith('Сохранено');
     // Счётчик и страница перечитаны у мока (сервер — истина).
     expect(groupsService.getStudents).toHaveBeenCalledWith('g-221', 1);
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 24');
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 1 по 10 из 24',
-    );
-    const firstRowCells = Array.from(studentRows()[0]!.querySelectorAll('td')).map((td) =>
-      td.textContent?.trim(),
-    );
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 24');
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 1 по 10 из 24');
+    const firstRowCells = Array.from(
+      studentRows()[0]!.querySelectorAll('td'),
+    ).map((td) => td.textContent?.trim());
     expect(firstRowCells[0]).toBe('Иванов Иван Иванович 02');
-    expect(studentRows().some((row) => row.textContent?.includes('Иванов Иван Иванович 01')))
+    expect(
+      studentRows().some((row) =>
+        row.textContent?.includes('Иванов Иван Иванович 01'),
+      ),
+    )
       .withContext('исключённый студент ушёл со страницы')
       .toBeFalse();
   });
@@ -293,13 +324,17 @@ describe('GroupPage', () => {
 
     excludeButtonInRow(studentRows()[0]!).click();
     harness.fixture.detectChanges();
-    root().querySelector<HTMLButtonElement>('.p-confirmdialog-accept-button')!.click();
+    root()
+      .querySelector<HTMLButtonElement>('.p-confirmdialog-accept-button')!
+      .click();
     await flush();
 
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 20');
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 11 по 20 из 20',
-    );
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 20');
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 11 по 20 из 20');
     expect(studentRows().length).toBe(10);
   });
 
@@ -308,7 +343,10 @@ describe('GroupPage', () => {
     await harness.navigateByUrl('/groups/ghost');
     await flush();
 
-    expect(notifications.notifyError).toHaveBeenCalledWith('Группа не найдена', 'header');
+    expect(notifications.notifyError).toHaveBeenCalledWith(
+      'Группа не найдена',
+      'header',
+    );
     expect(TestBed.inject(Router).url).toBe('/groups');
     expect(root().querySelector('h1')?.textContent?.trim()).toBe('Группы');
   });
@@ -316,13 +354,20 @@ describe('GroupPage', () => {
   it('404 при пагинации: отказ getStudents — баннер под шапкой и возврат к /groups', async () => {
     await openCard();
 
-    groupsService.getStudents.and.rejectWith(apiError(404, 'Группа не найдена'));
+    groupsService.getStudents.and.rejectWith(
+      apiError(404, 'Группа не найдена'),
+    );
     root()
-      .querySelector<HTMLButtonElement>('button[aria-label="Следующая страница"]')!
+      .querySelector<HTMLButtonElement>(
+        'button[aria-label="Следующая страница"]',
+      )!
       .click();
     await flush();
 
-    expect(notifications.notifyError).toHaveBeenCalledWith('Группа не найдена', 'header');
+    expect(notifications.notifyError).toHaveBeenCalledWith(
+      'Группа не найдена',
+      'header',
+    );
     expect(TestBed.inject(Router).url).toBe('/groups');
   });
 
@@ -330,12 +375,16 @@ describe('GroupPage', () => {
     roster = [];
     await openCard();
 
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 0');
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 0');
     expect(studentRows().length).toBe(0);
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 1 по 0 из 0',
-    );
-    expect(root().querySelector('.group-page__pages')).withContext('кнопки страниц').toBeNull();
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 1 по 0 из 0');
+    expect(root().querySelector('.group-page__pages'))
+      .withContext('кнопки страниц')
+      .toBeNull();
   });
 
   it('клик по активной странице и вне диапазона не порождает лишних вызовов', async () => {
@@ -359,7 +408,9 @@ describe('GroupPage', () => {
     await flush();
 
     expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-222');
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 25');
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 25');
     expect(groupsService.getStudents).toHaveBeenCalledWith('g-222', 1);
   });
 
@@ -380,18 +431,18 @@ describe('GroupPage', () => {
     pageButton('3').click();
     await flush();
 
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 21 по 25 из 25',
-    );
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 21 по 25 из 25');
     expect(studentRows()[0]!.textContent).toContain('Иванов Иван Иванович 21');
 
     // Поздний ответ страницы 2 (после более свежего запроса) отбрасывается.
     resolvePage2(pageOf(2));
     await flush();
 
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 21 по 25 из 25',
-    );
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 21 по 25 из 25');
     expect(studentRows()[0]!.textContent).toContain('Иванов Иван Иванович 21');
     expect(notifications.notifyError).not.toHaveBeenCalled();
   });

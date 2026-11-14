@@ -20,7 +20,7 @@
         formControlName="fullName"
       />
       <div class="field__hint">От 1 до 200 символов</div>
-      @if (errorTextOf("fullName"); as text) {
+      @if (errorTextOf('fullName'); as text) {
         <div class="field__error">{{ text }}</div>
       }
     </div>
@@ -31,7 +31,7 @@
       <div class="field__hint">
         От 1 до 100 символов, не меняется после регистрации
       </div>
-      @if (errorTextOf("login"); as text) {
+      @if (errorTextOf('login'); as text) {
         <div class="field__error">{{ text }}</div>
       }
     </div>
@@ -39,7 +39,7 @@
     <div class="field" [class.field--invalid]="errorTextOf('email') !== null">
       <label for="email-input">Email</label>
       <input id="email-input" type="text" pInputText formControlName="email" />
-      @if (errorTextOf("email"); as text) {
+      @if (errorTextOf('email'); as text) {
         <div class="field__error">{{ text }}</div>
       }
     </div>
@@ -60,7 +60,7 @@
         Не менее 8 символов; минимум одна цифра, одна буква и один спецзнак;
         пароли должны совпадать
       </div>
-      @if (errorTextOf("password"); as text) {
+      @if (errorTextOf('password'); as text) {
         <div class="field__error">{{ text }}</div>
       }
     </div>
@@ -77,7 +77,7 @@
         formControlName="repeatPassword"
         autocomplete="new-password"
       />
-      @if (errorTextOf("repeatPassword"); as text) {
+      @if (errorTextOf('repeatPassword'); as text) {
         <div class="field__error">{{ text }}</div>
       }
     </div>

@@ -20,7 +20,12 @@
  * неверной попыткой это единственное продолжение потока (AR-011),
  * store.email сохраняется. У «Отмена» — полный сброс потока и /login.
  */
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
@@ -44,7 +49,12 @@ type RecoveryCodeField = 'code';
 
 @Component({
   selector: 'app-recovery-code-page',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, NotificationAnchor],
+  imports: [
+    ReactiveFormsModule,
+    ButtonModule,
+    InputTextModule,
+    NotificationAnchor,
+  ],
   templateUrl: './recovery-code-page.html',
   styleUrl: './recovery-code-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -96,7 +106,9 @@ export class RecoveryCodePage {
     }
     if (this.form.invalid) {
       this.attempted.set(true);
-      this.notifications.notifyError(this.invalidDataText, { formId: this.formId });
+      this.notifications.notifyError(this.invalidDataText, {
+        formId: this.formId,
+      });
       return;
     }
     trimFormValues(this.form);
@@ -110,7 +122,9 @@ export class RecoveryCodePage {
       } catch (error: unknown) {
         // Единый 400 «Код восстановления не подходит»: экран остаётся
         // открытым, продолжение — «Переотправить код» (IF-101/AR-011).
-        this.notifications.notifyError(toApiError(error).body.message, { formId: this.formId });
+        this.notifications.notifyError(toApiError(error).body.message, {
+          formId: this.formId,
+        });
       }
     });
   }
@@ -128,7 +142,9 @@ export class RecoveryCodePage {
       try {
         await this.auth.requestRecoveryCode(email);
       } catch (error: unknown) {
-        this.notifications.notifyError(toApiError(error).body.message, { formId: this.formId });
+        this.notifications.notifyError(toApiError(error).body.message, {
+          formId: this.formId,
+        });
       }
     });
   }

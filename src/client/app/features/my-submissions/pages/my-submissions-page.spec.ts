@@ -61,7 +61,9 @@ const MY_SUBMISSIONS: MySubmissionsDto = {
 const SEMESTER_2_SUBMISSIONS: MySubmissionsDto = {
   hasGroup: true,
   labs: [{ id: 'lab-9', number: 9, defenseRequired: true }],
-  submissions: [{ labId: 'lab-9', submitDate: '2026-10-05', defenseDate: null }],
+  submissions: [
+    { labId: 'lab-9', submitDate: '2026-10-05', defenseDate: null },
+  ],
 };
 
 class LabsServiceStub {
@@ -166,8 +168,8 @@ describe('MySubmissionsPage', () => {
         'Защита',
       ]);
 
-      const cells = Array.from(native.querySelectorAll('tbody td')).map(
-        (td) => td.textContent!.trim(),
+      const cells = Array.from(native.querySelectorAll('tbody td')).map((td) =>
+        td.textContent!.trim(),
       );
       expect(cells).toEqual([
         'Иванов Иван Иванович 01',
@@ -249,8 +251,8 @@ describe('MySubmissionsPage', () => {
       const cards = Array.from(native.querySelectorAll('.card'));
       expect(cards.length).toBe(3);
 
-      const titles = cards.map(
-        (card) => card.querySelector('.card__title')!.textContent!.trim(),
+      const titles = cards.map((card) =>
+        card.querySelector('.card__title')!.textContent!.trim(),
       );
       expect(titles).toEqual(['Лаб 1', 'Лаб 2', 'Лаб 3']);
 
@@ -305,8 +307,8 @@ describe('MySubmissionsPage', () => {
       await selectSemester('2');
 
       expect(submissions.getMy).toHaveBeenCalledWith(2);
-      const cells = Array.from(native.querySelectorAll('tbody td')).map(
-        (td) => td.textContent!.trim(),
+      const cells = Array.from(native.querySelectorAll('tbody td')).map((td) =>
+        td.textContent!.trim(),
       );
       expect(cells).toEqual(['Иванов Иван Иванович 01', '05.10.2026', '']);
     });
@@ -324,7 +326,11 @@ describe('MySubmissionsPage', () => {
     beforeEach(() => {
       auth.currentUser.set({ ...STUDENT_IN_GROUP, groupName: null });
       labs.getSemesters.and.resolveTo([1, 2]);
-      submissions.getMy.and.resolveTo({ hasGroup: false, labs: [], submissions: [] });
+      submissions.getMy.and.resolveTo({
+        hasGroup: false,
+        labs: [],
+        submissions: [],
+      });
     });
 
     it('AC no-group: предупреждение дословно (role=status), таблицы/карточек нет, селектор активен', async () => {
@@ -335,7 +341,9 @@ describe('MySubmissionsPage', () => {
       expect(warning).not.toBeNull();
       expect(warning.getAttribute('role')).toBe('status');
       const warningText = warning.querySelector('span:not(.no-group__icon)')!;
-      expect(warningText.textContent!.replace(/\s+/g, ' ').trim()).toBe(TEXT_NO_GROUP);
+      expect(warningText.textContent!.replace(/\s+/g, ' ').trim()).toBe(
+        TEXT_NO_GROUP,
+      );
 
       expect(native.querySelector('table')).toBeNull();
       expect(native.querySelector('.card')).toBeNull();
@@ -413,7 +421,11 @@ describe('MySubmissionsPage', () => {
   describe('аменда 3: у выбранного семестра нет работ (CR-004)', () => {
     beforeEach(() => {
       labs.getSemesters.and.resolveTo([1, 2]);
-      submissions.getMy.and.resolveTo({ hasGroup: true, labs: [], submissions: [] });
+      submissions.getMy.and.resolveTo({
+        hasGroup: true,
+        labs: [],
+        submissions: [],
+      });
     });
 
     it('десктоп: «Нет семестров с работами», селектор активен, таблицы нет, update отсутствует', async () => {
@@ -469,11 +481,17 @@ describe('MySubmissionsPage', () => {
 
     it('отказ getMy: текст дословно, якорь header', async () => {
       labs.getSemesters.and.resolveTo([1]);
-      const error: ApiError = { status: 403, body: { message: 'Доступ запрещён' } };
+      const error: ApiError = {
+        status: 403,
+        body: { message: 'Доступ запрещён' },
+      };
       submissions.getMy.and.rejectWith(error);
       await createAndSettle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Доступ запрещён', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        'Доступ запрещён',
+        'header',
+      );
       expect(native.querySelector('table')).toBeNull();
     });
 
@@ -484,7 +502,10 @@ describe('MySubmissionsPage', () => {
       } satisfies ApiError);
       await createAndSettle();
 
-      expect(notifications.notifyError).toHaveBeenCalledWith('Не авторизован', 'header');
+      expect(notifications.notifyError).toHaveBeenCalledWith(
+        'Не авторизован',
+        'header',
+      );
       expect(native.querySelector('.no-group')).toBeNull();
       expect(native.querySelector('.no-data')).toBeNull();
     });

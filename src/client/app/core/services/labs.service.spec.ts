@@ -17,7 +17,10 @@
  *    реджект ApiError {status: 401, body: {message}}.
  */
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
@@ -53,7 +56,10 @@ const labInput = (overrides?: Partial<LabInput>): LabInput => ({
 });
 
 /** Заголовки HTTP-отказов бэкенда. */
-function status(status: number, statusText: string): { status: number; statusText: string } {
+function status(
+  status: number,
+  statusText: string,
+): { status: number; statusText: string } {
   return { status, statusText };
 }
 
@@ -88,7 +94,12 @@ describe('LabsService — домен лабораторных поверх HttpC
         page: 2,
         pageSize: LABS_PAGE_SIZE,
       };
-      const pending = service.getList({ semester: 1, page: 2, sortField: 'number', sortDir: 'desc' });
+      const pending = service.getList({
+        semester: 1,
+        page: 2,
+        sortField: 'number',
+        sortDir: 'desc',
+      });
 
       const request = httpMock.expectOne(
         `${apiBase}/labs?semester=1&page=2&sortField=number&sortDir=desc`,
@@ -110,7 +121,12 @@ describe('LabsService — домен лабораторных поверх HttpC
       expect(request.request.method).toBe('GET');
       request.flush({ items: [], total: 0, page: 1, pageSize: LABS_PAGE_SIZE });
 
-      await expectAsync(pending).toBeResolvedTo({ items: [], total: 0, page: 1, pageSize: LABS_PAGE_SIZE });
+      await expectAsync(pending).toBeResolvedTo({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: LABS_PAGE_SIZE,
+      });
     });
 
     it('getById: GET /labs/{id} → LabDto', async () => {
@@ -137,12 +153,19 @@ describe('LabsService — домен лабораторных поверх HttpC
     });
 
     it('update: PUT /labs/{id} — id в пути, тело без дублирования id → LabDto', async () => {
-      const input = labInput({ number: 7, semester: 3, content: 'Изменено', defenseRequired: true });
+      const input = labInput({
+        number: 7,
+        semester: 3,
+        content: 'Изменено',
+        defenseRequired: true,
+      });
       const pending = service.update(API_LAB_ID, input);
 
       const request = httpMock.expectOne(`${apiBase}/labs/${API_LAB_ID}`);
       expect(request.request.method).toBe('PUT');
-      expect(request.request.body).withContext('id уходит в путь, не в тело').toEqual(input);
+      expect(request.request.body)
+        .withContext('id уходит в путь, не в тело')
+        .toEqual(input);
       request.flush({ ...CREATED_LAB, ...input });
 
       await expectAsync(pending).toBeResolvedTo({ ...CREATED_LAB, ...input });
@@ -178,10 +201,9 @@ describe('LabsService — домен лабораторных поверх HttpC
   describe('нормализация отказов (ApiError, баннеры страниц без изменений)', () => {
     it('getList: 403 «Доступ запрещён» студенту → ApiError {status, body:{message}}', async () => {
       const pending = service.getList({ semester: 1, page: 1 });
-      httpMock.expectOne(`${apiBase}/labs?semester=1&page=1`).flush(
-        { message: 'Доступ запрещён' },
-        status(403, 'Forbidden'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/labs?semester=1&page=1`)
+        .flush({ message: 'Доступ запрещён' }, status(403, 'Forbidden'));
 
       await expectAsync(pending).toBeRejectedWith({
         status: 403,
@@ -191,10 +213,12 @@ describe('LabsService — домен лабораторных поверх HttpC
 
     it('getById: 404 «Лабораторная не найдена» → ApiError с дословным message', async () => {
       const pending = service.getById(API_LAB_ID);
-      httpMock.expectOne(`${apiBase}/labs/${API_LAB_ID}`).flush(
-        { message: 'Лабораторная не найдена' },
-        status(404, 'Not Found'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/labs/${API_LAB_ID}`)
+        .flush(
+          { message: 'Лабораторная не найдена' },
+          status(404, 'Not Found'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 404,
@@ -203,16 +227,20 @@ describe('LabsService — домен лабораторных поверх HttpC
     });
 
     it('create: 400 «Данные заполнены неверно» с errors → ApiError переносит errors по полям', async () => {
-      const pending = service.create(labInput({ number: 0, semester: 11, assignmentUrl: 'ftp://x' }));
+      const pending = service.create(
+        labInput({ number: 0, semester: 11, assignmentUrl: 'ftp://x' }),
+      );
       const errors = {
         number: ['Номер должен быть положительным целым числом'],
         semester: ['Семестр должен быть целым числом от 1 до 10'],
         assignmentUrl: ['Ссылка должна начинаться с http:// или https://'],
       };
-      httpMock.expectOne(`${apiBase}/labs`).flush(
-        { message: 'Данные заполнены неверно', errors },
-        status(400, 'Bad Request'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/labs`)
+        .flush(
+          { message: 'Данные заполнены неверно', errors },
+          status(400, 'Bad Request'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 400,
@@ -222,10 +250,12 @@ describe('LabsService — домен лабораторных поверх HttpC
 
     it('update: 409 «Лабораторная с таким номером уже есть в семестре» → ApiError', async () => {
       const pending = service.update(API_LAB_ID, labInput({ number: 3 }));
-      httpMock.expectOne(`${apiBase}/labs/${API_LAB_ID}`).flush(
-        { message: 'Лабораторная с таким номером уже есть в семестре' },
-        status(409, 'Conflict'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/labs/${API_LAB_ID}`)
+        .flush(
+          { message: 'Лабораторная с таким номером уже есть в семестре' },
+          status(409, 'Conflict'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 409,
@@ -235,10 +265,12 @@ describe('LabsService — домен лабораторных поверх HttpC
 
     it('remove: 404 «Лабораторная не найдена» → ApiError', async () => {
       const pending = service.remove(API_LAB_ID);
-      httpMock.expectOne(`${apiBase}/labs/${API_LAB_ID}`).flush(
-        { message: 'Лабораторная не найдена' },
-        status(404, 'Not Found'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/labs/${API_LAB_ID}`)
+        .flush(
+          { message: 'Лабораторная не найдена' },
+          status(404, 'Not Found'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 404,
@@ -252,14 +284,12 @@ describe('LabsService — домен лабораторных поверх HttpC
       spyOn(TestBed.inject(Router), 'navigate');
 
       const pending = service.getSemesters();
-      httpMock.expectOne(`${apiBase}/semesters`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
-      httpMock.expectOne(`${apiBase}/auth/refresh`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/semesters`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
+      httpMock
+        .expectOne(`${apiBase}/auth/refresh`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
 
       await expectAsync(pending).toBeRejectedWith({
         status: 401,

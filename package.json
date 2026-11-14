@@ -6,17 +6,11 @@
     "start": "ng serve",
     "build": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test --watch=false --browsers=ChromeHeadless"
-  },
-  "prettier": {
-    "overrides": [
-      {
-        "files": "*.html",
-        "options": {
-          "parser": "angular"
-        }
-      }
-    ]
+    "test": "ng test --watch=false --browsers=ChromeHeadless",
+    "test:ci": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "private": true,
   "dependencies": {
@@ -29,8 +23,8 @@
     "@angular/platform-browser": "20.0.4",
     "@angular/router": "20.0.4",
     "@primeuix/themes": "^1.2.5",
-    "primeng": "20.0.0",
     "primeicons": "^7.0.0",
+    "primeng": "20.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
@@ -39,13 +33,18 @@
     "@angular/build": "20.0.4",
     "@angular/cli": "20.0.4",
     "@angular/compiler-cli": "20.0.4",
+    "@eslint/js": "^9.39.5",
     "@types/jasmine": "~5.1.0",
+    "angular-eslint": "^20.7.0",
+    "eslint": "^9.39.5",
     "jasmine-core": "~5.7.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
-    "typescript": "~5.8.2"
+    "prettier": "^3.10.1",
+    "typescript": "~5.8.2",
+    "typescript-eslint": "^8.72.2"
   }
 }

@@ -23,7 +23,10 @@
  *    терминальная ветка «Ссылка…» удаляет только resetToken.
  */
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
@@ -49,7 +52,10 @@ const STUDENT_ME: MeDto = {
 };
 
 /** Заголовки HTTP-отказов бэкенда. */
-function status(status: number, statusText: string): { status: number; statusText: string } {
+function status(
+  status: number,
+  statusText: string,
+): { status: number; statusText: string } {
   return { status, statusText };
 }
 
@@ -86,11 +92,17 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
 
   describe('контракт вызовов (AC, HttpTestingController)', () => {
     it('login: POST /auth/login с телом {login, password} и withCredentials → MeDto', async () => {
-      const pending = service.login({ login: 'teacher', password: 'teacher123!' });
+      const pending = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
 
       const request = httpMock.expectOne(`${apiBase}/auth/login`);
       expect(request.request.method).toBe('POST');
-      expect(request.request.body).toEqual({ login: 'teacher', password: 'teacher123!' });
+      expect(request.request.body).toEqual({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       expect(request.request.withCredentials)
         .withContext('cookie-аутентификация — withCredentials (FR-091)')
         .toBeTrue();
@@ -118,7 +130,10 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
     });
 
     it('logout: POST /auth/logout без тела → void, кэш сброшен', async () => {
-      const login = service.login({ login: 'teacher', password: 'teacher123!' });
+      const login = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await login;
       expect(service.isAuthenticated()).toBeTrue();
@@ -126,7 +141,9 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       const pending = service.logout();
       const request = httpMock.expectOne(`${apiBase}/auth/logout`);
       expect(request.request.method).toBe('POST');
-      expect(request.request.body).withContext('тело logout отсутствует').toBeNull();
+      expect(request.request.body)
+        .withContext('тело logout отсутствует')
+        .toBeNull();
       request.flush(null, status(204, 'No Content'));
 
       await expectAsync(pending).toBeResolved();
@@ -144,7 +161,9 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
 
       await expectAsync(pending).toBeResolvedTo(STUDENT_ME);
       expect(service.currentUser()).toEqual(STUDENT_ME);
-      expect(service.isAuthenticated()).withContext('синхронно по кэшу').toBeTrue();
+      expect(service.isAuthenticated())
+        .withContext('синхронно по кэшу')
+        .toBeTrue();
     });
 
     it('requestRecoveryCode: POST /auth/recovery/request {email} → 200 {}, email в потоке', async () => {
@@ -156,20 +175,28 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       request.flush({});
 
       await expectAsync(pending).toBeResolved();
-      expect(flow.email()).withContext('email запоминается после запроса кода').toBe(
-        'student01@example.com',
-      );
+      expect(flow.email())
+        .withContext('email запоминается после запроса кода')
+        .toBe('student01@example.com');
     });
 
     it('confirmRecoveryCode: POST /auth/recovery/confirm {email, code} → {resetToken} в ответе и в потоке', async () => {
-      const pending = service.confirmRecoveryCode('student01@example.com', '123456');
+      const pending = service.confirmRecoveryCode(
+        'student01@example.com',
+        '123456',
+      );
 
       const request = httpMock.expectOne(`${apiBase}/auth/recovery/confirm`);
       expect(request.request.method).toBe('POST');
-      expect(request.request.body).toEqual({ email: 'student01@example.com', code: '123456' });
+      expect(request.request.body).toEqual({
+        email: 'student01@example.com',
+        code: '123456',
+      });
       request.flush({ resetToken: 'reset-token-1' });
 
-      await expectAsync(pending).toBeResolvedTo({ resetToken: 'reset-token-1' });
+      await expectAsync(pending).toBeResolvedTo({
+        resetToken: 'reset-token-1',
+      });
       expect(flow.resetToken()).toBe('reset-token-1');
       expect(flow.hasResetToken()).toBeTrue();
     });
@@ -178,7 +205,11 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       flow.setEmail('student01@example.com');
       flow.setResetToken('reset-token-1');
 
-      const pending = service.resetPassword('reset-token-1', 'NewPassword#2026', 'NewPassword#2026');
+      const pending = service.resetPassword(
+        'reset-token-1',
+        'NewPassword#2026',
+        'NewPassword#2026',
+      );
 
       const request = httpMock.expectOne(`${apiBase}/auth/reset-password`);
       expect(request.request.method).toBe('POST');
@@ -190,7 +221,9 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       request.flush(null);
 
       await expectAsync(pending).toBeResolved();
-      expect(flow.hasEmail()).withContext('поток завершён — очищен').toBeFalse();
+      expect(flow.hasEmail())
+        .withContext('поток завершён — очищен')
+        .toBeFalse();
       expect(flow.hasResetToken()).toBeFalse();
     });
   });
@@ -199,14 +232,12 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
     it('loadMe при 401: аноним (null) без необработанных исключений; тихий refresh исчерпан', async () => {
       const pending = service.loadMe();
 
-      httpMock.expectOne(`${apiBase}/auth/me`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
-      httpMock.expectOne(`${apiBase}/auth/refresh`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/auth/me`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
+      httpMock
+        .expectOne(`${apiBase}/auth/refresh`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
 
       await expectAsync(pending).toBeResolvedTo(null);
       expect(service.currentUser()).toBeNull();
@@ -217,7 +248,10 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       // Маркер прошлой (моковой) реализации в localStorage игнорируется:
       // сервис не читает НИКАКИХ ключей, поэтому проверяем произвольный
       // legacy-ключ прошлого контракта.
-      localStorage.setItem('legacy.session.userId', 'aaaaaaaa-1111-4111-8111-111111111111');
+      localStorage.setItem(
+        'legacy.session.userId',
+        'aaaaaaaa-1111-4111-8111-111111111111',
+      );
       expect(service.isAuthenticated())
         .withContext('признак сессии — только память (FR-092)')
         .toBeFalse();
@@ -225,7 +259,10 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
     });
 
     it('ключ сессии прошлых реализаций не пишется: login заполняет только память', async () => {
-      const pending = service.login({ login: 'teacher', password: 'teacher123!' });
+      const pending = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await pending;
 
@@ -233,16 +270,23 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       expect(localStorage.getItem('legacy.session.userId'))
         .withContext('localStorage-маркер сессии запрещён (FR-092)')
         .toBeNull();
-      expect(localStorage.length).withContext('сервис ничего не пишет в localStorage').toBe(0);
+      expect(localStorage.length)
+        .withContext('сервис ничего не пишет в localStorage')
+        .toBe(0);
     });
 
     it('после logout в localStorage тоже пусто; повторный вход начинается с чистой памятью', async () => {
-      const login = service.login({ login: 'teacher', password: 'teacher123!' });
+      const login = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await login;
 
       const out = service.logout();
-      httpMock.expectOne(`${apiBase}/auth/logout`).flush(null, status(204, 'No Content'));
+      httpMock
+        .expectOne(`${apiBase}/auth/logout`)
+        .flush(null, status(204, 'No Content'));
       await out;
 
       expect(service.isAuthenticated()).toBeFalse();
@@ -265,12 +309,19 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
     });
 
     it('успешный login публикует markSessionRestored; кэш обновлён синхронно с публикацией', async () => {
-      const pending = service.login({ login: 'teacher', password: 'teacher123!' });
+      const pending = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await pending;
 
-      expect(restoredEvents).withContext('ровно одна публикация на успешный вход').toBe(1);
-      expect(cacheAtRestore).withContext('кэш обновлён ДО публикации').toEqual(TEACHER_ME);
+      expect(restoredEvents)
+        .withContext('ровно одна публикация на успешный вход')
+        .toBe(1);
+      expect(cacheAtRestore)
+        .withContext('кэш обновлён ДО публикации')
+        .toEqual(TEACHER_ME);
     });
 
     it('успешный register публикует markSessionRestored (автоматический вход)', async () => {
@@ -292,10 +343,12 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
 
     it('неудачный login (401) публикаций не делает и кэш не заполняет', async () => {
       const pending = service.login({ login: 'teacher', password: 'неверный' });
-      httpMock.expectOne(`${apiBase}/auth/login`).flush(
-        { message: 'Неверный логин или пароль' },
-        status(401, 'Unauthorized'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/auth/login`)
+        .flush(
+          { message: 'Неверный логин или пароль' },
+          status(401, 'Unauthorized'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 401,
@@ -307,16 +360,23 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
     });
 
     it('logout публикаций sessionRestored не делает', async () => {
-      const login = service.login({ login: 'teacher', password: 'teacher123!' });
+      const login = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await login;
       expect(restoredEvents).toBe(1);
 
       const out = service.logout();
-      httpMock.expectOne(`${apiBase}/auth/logout`).flush(null, status(204, 'No Content'));
+      httpMock
+        .expectOne(`${apiBase}/auth/logout`)
+        .flush(null, status(204, 'No Content'));
       await out;
 
-      expect(restoredEvents).withContext('выход — не восстановление сессии').toBe(1);
+      expect(restoredEvents)
+        .withContext('выход — не восстановление сессии')
+        .toBe(1);
     });
   });
 
@@ -329,10 +389,12 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
         password: 'Password#2026',
         repeatPassword: 'Password#2026',
       });
-      httpMock.expectOne(`${apiBase}/auth/register`).flush(
-        { message: 'Пользователь с таким логином уже существует' },
-        status(409, 'Conflict'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/auth/register`)
+        .flush(
+          { message: 'Пользователь с таким логином уже существует' },
+          status(409, 'Conflict'),
+        );
 
       const expected: ApiError = {
         status: 409,
@@ -370,22 +432,31 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
           },
         },
       });
-      expect(service.currentUser()).withContext('отказ кэш не заполняет').toBeNull();
+      expect(service.currentUser())
+        .withContext('отказ кэш не заполняет')
+        .toBeNull();
     });
 
     it('confirmRecoveryCode 400 «Код восстановления не подходит» → ApiError, в потоке email без токена', async () => {
       flow.setEmail('student01@example.com');
-      const pending = service.confirmRecoveryCode('student01@example.com', '000000');
-      httpMock.expectOne(`${apiBase}/auth/recovery/confirm`).flush(
-        { message: 'Код восстановления не подходит' },
-        status(400, 'Bad Request'),
+      const pending = service.confirmRecoveryCode(
+        'student01@example.com',
+        '000000',
       );
+      httpMock
+        .expectOne(`${apiBase}/auth/recovery/confirm`)
+        .flush(
+          { message: 'Код восстановления не подходит' },
+          status(400, 'Bad Request'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 400,
         body: { message: 'Код восстановления не подходит' },
       });
-      expect(flow.hasEmail()).withContext('email сохраняется — можно переотправить код').toBeTrue();
+      expect(flow.hasEmail())
+        .withContext('email сохраняется — можно переотправить код')
+        .toBeTrue();
       expect(flow.hasResetToken()).toBeFalse();
     });
 
@@ -393,25 +464,39 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       flow.setEmail('student01@example.com');
       flow.setResetToken('reset-token-1');
 
-      const pending = service.resetPassword('гнилой-токен', 'NewPassword#2026', 'NewPassword#2026');
-      httpMock.expectOne(`${apiBase}/auth/reset-password`).flush(
-        { message: 'Ссылка восстановления недействительна или истекла' },
-        status(400, 'Bad Request'),
+      const pending = service.resetPassword(
+        'гнилой-токен',
+        'NewPassword#2026',
+        'NewPassword#2026',
       );
+      httpMock
+        .expectOne(`${apiBase}/auth/reset-password`)
+        .flush(
+          { message: 'Ссылка восстановления недействительна или истекла' },
+          status(400, 'Bad Request'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 400,
         body: { message: 'Ссылка восстановления недействительна или истекла' },
       });
-      expect(flow.resetToken()).withContext('токен удалён из потока').toBeNull();
-      expect(flow.email()).withContext('email сохраняется').toBe('student01@example.com');
+      expect(flow.resetToken())
+        .withContext('токен удалён из потока')
+        .toBeNull();
+      expect(flow.email())
+        .withContext('email сохраняется')
+        .toBe('student01@example.com');
     });
 
     it('resetPassword: полевая ошибка пароля (400 с errors) — поток не трогается (токен жив)', async () => {
       flow.setEmail('student01@example.com');
       flow.setResetToken('reset-token-1');
 
-      const pending = service.resetPassword('reset-token-1', 'слабый', 'слабый');
+      const pending = service.resetPassword(
+        'reset-token-1',
+        'слабый',
+        'слабый',
+      );
       httpMock.expectOne(`${apiBase}/auth/reset-password`).flush(
         {
           message: 'Данные заполнены неверно',
@@ -426,27 +511,36 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       )) as ApiError | null;
       expect(rejection).not.toBeNull();
       expect(rejection!.body.errors!['password']).toBeDefined();
-      expect(flow.hasResetToken()).withContext('нетерминальная ветка — токен жив').toBeTrue();
+      expect(flow.hasResetToken())
+        .withContext('нетерминальная ветка — токен жив')
+        .toBeTrue();
     });
 
     it('запрос кода: 429 → ApiError {status: 429}, email в поток не попадает', async () => {
       const pending = service.requestRecoveryCode('student01@example.com');
-      httpMock.expectOne(`${apiBase}/auth/recovery/request`).flush(
-        { message: 'Слишком много попыток. Повторите позже' },
-        status(429, 'Too Many Requests'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/auth/recovery/request`)
+        .flush(
+          { message: 'Слишком много попыток. Повторите позже' },
+          status(429, 'Too Many Requests'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 429,
         body: { message: 'Слишком много попыток. Повторите позже' },
       });
-      expect(flow.hasEmail()).withContext('email запоминается только после успеха').toBeFalse();
+      expect(flow.hasEmail())
+        .withContext('email запоминается только после успеха')
+        .toBeFalse();
     });
   });
 
   describe('сброс по sessionExpired$ — без HTTP (AC, ADR-019)', () => {
     it('событие сбрасывает кэш; запросов к /auth/logout нет (verify)', async () => {
-      const login = service.login({ login: 'teacher', password: 'teacher123!' });
+      const login = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await login;
       expect(service.isAuthenticated()).toBeTrue();
@@ -454,8 +548,12 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
       // Публикатор события — интерцептор (после неудачного refresh).
       lifecycle.notifySessionExpired();
 
-      expect(service.currentUser()).withContext('кэш сброшен подпиской').toBeNull();
-      expect(service.isAuthenticated()).withContext('сессия только в памяти').toBeFalse();
+      expect(service.currentUser())
+        .withContext('кэш сброшен подпиской')
+        .toBeNull();
+      expect(service.isAuthenticated())
+        .withContext('сессия только в памяти')
+        .toBeFalse();
 
       // Повторная публикация идемпотентна для сброса (IF-014).
       lifecycle.notifySessionExpired();
@@ -465,13 +563,19 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
     });
 
     it('после сброса по событию повторный вход работает (кэш и публикация восстанавливаются)', async () => {
-      const first = service.login({ login: 'teacher', password: 'teacher123!' });
+      const first = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await first;
       lifecycle.notifySessionExpired();
       expect(service.isAuthenticated()).toBeFalse();
 
-      const second = service.login({ login: 'teacher', password: 'teacher123!' });
+      const second = service.login({
+        login: 'teacher',
+        password: 'teacher123!',
+      });
       httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
       await second;
 
@@ -482,7 +586,9 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
 
   describe('initSession — provideAppInitializer (FR-092, ADR-016)', () => {
     it('200 от /auth/me: кэш заполнен, фаза инициализации завершена markInitDone', async () => {
-      expect(lifecycle.initializing).withContext('до init фаза активна').toBeTrue();
+      expect(lifecycle.initializing)
+        .withContext('до init фаза активна')
+        .toBeTrue();
 
       const pending = service.initSession();
       httpMock.expectOne(`${apiBase}/auth/me`).flush(TEACHER_ME);
@@ -490,34 +596,40 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
 
       expect(service.currentUser()).toEqual(TEACHER_ME);
       expect(service.isAuthenticated()).toBeTrue();
-      expect(lifecycle.initializing).withContext('markInitDone вызван').toBeFalse();
+      expect(lifecycle.initializing)
+        .withContext('markInitDone вызван')
+        .toBeFalse();
     });
 
     it('401 от /auth/me: аноним без исключений, markInitDone вызван', async () => {
       const pending = service.initSession();
-      httpMock.expectOne(`${apiBase}/auth/me`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
-      httpMock.expectOne(`${apiBase}/auth/refresh`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/auth/me`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
+      httpMock
+        .expectOne(`${apiBase}/auth/refresh`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
 
       await expectAsync(pending).toBeResolved();
       expect(service.currentUser()).withContext('аноним').toBeNull();
       expect(service.isAuthenticated()).toBeFalse();
-      expect(lifecycle.initializing).withContext('фаза завершена и при отказе').toBeFalse();
+      expect(lifecycle.initializing)
+        .withContext('фаза завершена и при отказе')
+        .toBeFalse();
     });
 
     it('сетевой отказ: initSession разрешается (анонимный старт), markInitDone вызван', async () => {
       const pending = service.initSession();
-      httpMock.expectOne(`${apiBase}/auth/me`).error(new ProgressEvent('error'));
+      httpMock
+        .expectOne(`${apiBase}/auth/me`)
+        .error(new ProgressEvent('error'));
 
       await expectAsync(pending).toBeResolved();
       expect(service.currentUser()).toBeNull();
       expect(service.isAuthenticated()).toBeFalse();
-      expect(lifecycle.initializing).withContext('фаза завершена при сетевом отказе').toBeFalse();
+      expect(lifecycle.initializing)
+        .withContext('фаза завершена при сетевом отказе')
+        .toBeFalse();
     });
   });
 
@@ -525,12 +637,13 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
     it('401 от /auth/me → refresh успешен → повтор me → MeDto и кэш', async () => {
       const pending = service.loadMe();
 
-      httpMock.expectOne(`${apiBase}/auth/me`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/auth/me`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
       const refresh = httpMock.expectOne(`${apiBase}/auth/refresh`);
-      expect(refresh.request.method).withContext('refresh выполняет интерцептор').toBe('POST');
+      expect(refresh.request.method)
+        .withContext('refresh выполняет интерцептор')
+        .toBe('POST');
       refresh.flush(TEACHER_ME);
 
       const retry = httpMock.expectOne(`${apiBase}/auth/me`);
@@ -546,25 +659,36 @@ describe('AuthService — домен Auth поверх HttpClient (IF-007, FR-09
 
       // Оба исходных запроса уходят и получают 401.
       const originals = httpMock.match(`${apiBase}/auth/me`);
-      expect(originals.length).withContext('два параллельных GET /auth/me').toBe(2);
+      expect(originals.length)
+        .withContext('два параллельных GET /auth/me')
+        .toBe(2);
       for (const request of originals) {
-        request.flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
+        request.flush(
+          { message: 'Не авторизован' },
+          status(401, 'Unauthorized'),
+        );
       }
 
       // Дедупликация: на оба 401 — единственный refresh-вызов.
       const refresh = httpMock.expectOne(`${apiBase}/auth/refresh`);
-      expect(refresh.request.method).withContext('refresh выполняет интерцептор').toBe('POST');
+      expect(refresh.request.method)
+        .withContext('refresh выполняет интерцептор')
+        .toBe('POST');
       refresh.flush(null, status(204, 'No Content'));
 
       // Каждый исходный запрос повторён ровно один раз.
       const retries = httpMock.match(`${apiBase}/auth/me`);
-      expect(retries.length).withContext('повтор каждого исходного ровно один раз').toBe(2);
+      expect(retries.length)
+        .withContext('повтор каждого исходного ровно один раз')
+        .toBe(2);
       retries[0].flush(TEACHER_ME);
       retries[1].flush(STUDENT_ME);
 
       await expectAsync(first).toBeResolvedTo(TEACHER_ME);
       await expectAsync(second).toBeResolvedTo(STUDENT_ME);
-      expect(service.isAuthenticated()).withContext('сессия восстановлена refresh').toBeTrue();
+      expect(service.isAuthenticated())
+        .withContext('сессия восстановлена refresh')
+        .toBeTrue();
     });
   });
 
@@ -613,10 +737,15 @@ describe('AuthService — пересоздание модуля, аналог п
     const apiBase = TestBed.inject(API_BASE_URL);
     const httpMock = TestBed.inject(HttpTestingController);
 
-    const pendingLogin = first.login({ login: 'teacher', password: 'teacher123!' });
+    const pendingLogin = first.login({
+      login: 'teacher',
+      password: 'teacher123!',
+    });
     httpMock.expectOne(`${apiBase}/auth/login`).flush(TEACHER_ME);
     await pendingLogin;
-    expect(first.isAuthenticated()).withContext('вход установил сессию в памяти').toBeTrue();
+    expect(first.isAuthenticated())
+      .withContext('вход установил сессию в памяти')
+      .toBeTrue();
     expect(localStorage.length)
       .withContext('маркер сессии в localStorage не пишется (FR-026)')
       .toBe(0);
@@ -627,7 +756,9 @@ describe('AuthService — пересоздание модуля, аналог п
     const second = TestBed.inject(AuthService);
     expect(second).withContext('новый экземпляр root-сервиса').not.toBe(first);
     expect(second.isAuthenticated())
-      .withContext('сессия НЕ восстанавливается из localStorage — признак только в памяти')
+      .withContext(
+        'сессия НЕ восстанавливается из localStorage — признак только в памяти',
+      )
       .toBeFalse();
     expect(second.currentUser()).toBeNull();
 
@@ -635,16 +766,17 @@ describe('AuthService — пересоздание модуля, аналог п
     //    loadMe → 401 → POST /auth/refresh → повтор me → сессия активна.
     const restored = TestBed.inject(HttpTestingController);
     const pending = second.loadMe();
-    restored.expectOne(`${apiBase}/auth/me`).flush(
-      { message: 'Не авторизован' },
-      status(401, 'Unauthorized'),
-    );
+    restored
+      .expectOne(`${apiBase}/auth/me`)
+      .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
     const refresh = restored.expectOne(`${apiBase}/auth/refresh`);
     expect(refresh.request.method).toBe('POST');
     refresh.flush(null, status(204, 'No Content'));
     restored.expectOne(`${apiBase}/auth/me`).flush(TEACHER_ME);
 
     await expectAsync(pending).toBeResolvedTo(TEACHER_ME);
-    expect(second.isAuthenticated()).withContext('сессия восстановлена через refresh').toBeTrue();
+    expect(second.isAuthenticated())
+      .withContext('сессия восстановлена через refresh')
+      .toBeTrue();
   });
 });

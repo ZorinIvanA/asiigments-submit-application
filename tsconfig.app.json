@@ -6,9 +6,7 @@
     "outDir": "./out-tsc/app",
     "types": []
   },
-  "include": [
-    "src/client/**/*.ts"
-  ],
+  "include": ["src/client/**/*.ts"],
   "exclude": [
     "src/client/**/*.spec.ts",
     // Тест-инфраструктура (integration-env, стабы, харнессы) не входит в

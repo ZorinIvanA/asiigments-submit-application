@@ -27,8 +27,15 @@
  * Конвенция URL — ADR-014: ожидаемые URL строятся из
  * TestBed.inject(API_BASE_URL); литералы с префиксом API в spec запрещены.
  */
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpClient,
+  provideHttpClient,
+  withInterceptors,
+} from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -90,13 +97,17 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     // Исходный запрос выполняется с withCredentials (cookie-аутентификация).
     const original = httpMock.expectOne(`${apiBase}/labs`);
     expect(original.request.method).toBe('GET');
-    expect(original.request.withCredentials).withContext('withCredentials на API-запросе').toBeTrue();
+    expect(original.request.withCredentials)
+      .withContext('withCredentials на API-запросе')
+      .toBeTrue();
     original.flush(API_401_BODY, UNAUTHORIZED);
 
     // Дедуплицируемый refresh: POST с withCredentials.
     const refresh = httpMock.expectOne(`${apiBase}/auth/refresh`);
     expect(refresh.request.method).toBe('POST');
-    expect(refresh.request.withCredentials).withContext('withCredentials на refresh').toBeTrue();
+    expect(refresh.request.withCredentials)
+      .withContext('withCredentials на refresh')
+      .toBeTrue();
     refresh.flush(null);
 
     // Повтор исходного запроса ровно один раз; данные доходят потребителю.
@@ -105,7 +116,9 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     retry.flush({ items: [], total: 0, page: 1, pageSize: 10 });
 
     await expectAsync(pending).toBeResolved();
-    expect(sessionExpiredEvents).withContext('успешный refresh без сброса сессии').toBe(0);
+    expect(sessionExpiredEvents)
+      .withContext('успешный refresh без сброса сессии')
+      .toBe(0);
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
@@ -115,10 +128,15 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     const pending = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
 
-    httpMock.expectOne(`${apiBase}/auth/refresh`).flush(API_401_BODY, UNAUTHORIZED);
+    httpMock
+      .expectOne(`${apiBase}/auth/refresh`)
+      .flush(API_401_BODY, UNAUTHORIZED);
 
     // Потребитель получает нормализованный ApiError исходного отказа.
-    await expectAsync(pending).toBeRejectedWith({ status: 401, body: API_401_BODY });
+    await expectAsync(pending).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
 
     // Сброс состояния сессии — ровно одно событие канала (подписчик-стаб).
     expect(sessionExpiredEvents).toBe(1);
@@ -129,22 +147,35 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
   });
 
   it('AC3: фаза инициализации (initializing=true) — событие публикуется, навигации на /login нет (ADR-016)', async () => {
-    expect(lifecycle.initializing).withContext('markInitDone не вызван').toBeTrue();
+    expect(lifecycle.initializing)
+      .withContext('markInitDone не вызван')
+      .toBeTrue();
 
     const pending = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
-    httpMock.expectOne(`${apiBase}/auth/refresh`).flush(API_401_BODY, UNAUTHORIZED);
+    httpMock
+      .expectOne(`${apiBase}/auth/refresh`)
+      .flush(API_401_BODY, UNAUTHORIZED);
 
-    await expectAsync(pending).toBeRejectedWith({ status: 401, body: API_401_BODY });
+    await expectAsync(pending).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
 
-    expect(sessionExpiredEvents).withContext('событие сброса публикуется и в init-фазе').toBe(1);
-    expect(router.navigate).withContext('навигация подавлена в фазе инициализации').not.toHaveBeenCalled();
+    expect(sessionExpiredEvents)
+      .withContext('событие сброса публикуется и в init-фазе')
+      .toBe(1);
+    expect(router.navigate)
+      .withContext('навигация подавлена в фазе инициализации')
+      .not.toHaveBeenCalled();
   });
 
   it('AC4: 3 параллельных 401 при стабильно 401 refresh — refresh ровно один, повторные 401 новых refresh не порождают', async () => {
     lifecycle.markInitDone();
 
-    const pendings = [0, 1, 2].map(() => firstValueFrom(http.get(`${apiBase}/labs`)));
+    const pendings = [0, 1, 2].map(() =>
+      firstValueFrom(http.get(`${apiBase}/labs`)),
+    );
 
     // Три параллельных исходных запроса, каждый получает 401.
     const originals = httpMock.match(`${apiBase}/labs`);
@@ -157,14 +188,22 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     refresh.flush(API_401_BODY, UNAUTHORIZED);
 
     for (const pending of pendings) {
-      await expectAsync(pending).toBeRejectedWith({ status: 401, body: API_401_BODY });
+      await expectAsync(pending).toBeRejectedWith({
+        status: 401,
+        body: API_401_BODY,
+      });
     }
-    expect(sessionExpiredEvents).withContext('одно событие на дедуплицированный refresh').toBe(1);
+    expect(sessionExpiredEvents)
+      .withContext('одно событие на дедуплицированный refresh')
+      .toBe(1);
 
     // Повторный 401 после неудачного refresh НЕ создаёт новый refresh-вызов.
     const later = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
-    await expectAsync(later).toBeRejectedWith({ status: 401, body: API_401_BODY });
+    await expectAsync(later).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
     expect(sessionExpiredEvents).toBe(1);
     // afterEach-verify() подтвердит отсутствие бесконечных повторов.
   });
@@ -172,7 +211,9 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
   it('AC4: 3 параллельных 401 при успешном refresh — один refresh, каждый исходный повторён ровно один раз', async () => {
     lifecycle.markInitDone();
 
-    const pendings = [0, 1, 2].map(() => firstValueFrom(http.get(`${apiBase}/labs`)));
+    const pendings = [0, 1, 2].map(() =>
+      firstValueFrom(http.get(`${apiBase}/labs`)),
+    );
 
     const originals = httpMock.match(`${apiBase}/labs`);
     expect(originals.length).toBe(3);
@@ -183,8 +224,12 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     refresh.flush(null);
 
     const retries = httpMock.match(`${apiBase}/labs`);
-    expect(retries.length).withContext('каждый исходный повторён ровно один раз').toBe(3);
-    retries.forEach((request) => request.flush({ items: [], total: 0, page: 1, pageSize: 10 }));
+    expect(retries.length)
+      .withContext('каждый исходный повторён ровно один раз')
+      .toBe(3);
+    retries.forEach((request) =>
+      request.flush({ items: [], total: 0, page: 1, pageSize: 10 }),
+    );
 
     for (const pending of pendings) {
       await expectAsync(pending).toBeResolved();
@@ -197,7 +242,10 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     lifecycle.markInitDone();
 
     const pending = firstValueFrom(
-      http.post(`${apiBase}/auth/login`, { login: 'teacher', password: 'wrong' }),
+      http.post(`${apiBase}/auth/login`, {
+        login: 'teacher',
+        password: 'wrong',
+      }),
     );
 
     const login = httpMock.expectOne(`${apiBase}/auth/login`);
@@ -225,10 +273,11 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     ];
     for (const path of excludedPaths) {
       const pending = firstValueFrom(http.post(`${apiBase}${path}`, {}));
-      httpMock
-        .expectOne(`${apiBase}${path}`)
-        .flush(API_401_BODY, UNAUTHORIZED);
-      await expectAsync(pending).toBeRejectedWith({ status: 401, body: API_401_BODY });
+      httpMock.expectOne(`${apiBase}${path}`).flush(API_401_BODY, UNAUTHORIZED);
+      await expectAsync(pending).toBeRejectedWith({
+        status: 401,
+        body: API_401_BODY,
+      });
     }
 
     expect(sessionExpiredEvents).toBe(0);
@@ -246,8 +295,13 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     const retry = httpMock.expectOne(`${apiBase}/labs`);
     retry.flush(API_401_BODY, UNAUTHORIZED);
 
-    await expectAsync(pending).toBeRejectedWith({ status: 401, body: API_401_BODY });
-    expect(sessionExpiredEvents).withContext('refresh сам успешен — сброса нет').toBe(0);
+    await expectAsync(pending).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
+    expect(sessionExpiredEvents)
+      .withContext('refresh сам успешен — сброса нет')
+      .toBe(0);
     // verify() (afterEach): ни нового refresh, ни второго повтора.
   });
 
@@ -302,9 +356,10 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     lifecycle.markInitDone();
 
     const pending = firstValueFrom(http.get(`${apiBase}/labs`));
-    httpMock
-      .expectOne(`${apiBase}/labs`)
-      .flush('Internal Server Error', { status: 500, statusText: 'Server Error' });
+    httpMock.expectOne(`${apiBase}/labs`).flush('Internal Server Error', {
+      status: 500,
+      statusText: 'Server Error',
+    });
 
     await expectAsync(pending).toBeRejectedWith({
       status: 500,
@@ -318,15 +373,25 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     // 1. Взводим фиксатор: 401 → refresh 401 — событие и редирект.
     const first = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
-    httpMock.expectOne(`${apiBase}/auth/refresh`).flush(API_401_BODY, UNAUTHORIZED);
-    await expectAsync(first).toBeRejectedWith({ status: 401, body: API_401_BODY });
-    expect(sessionExpiredEvents).withContext('одно событие на неудачный refresh').toBe(1);
+    httpMock
+      .expectOne(`${apiBase}/auth/refresh`)
+      .flush(API_401_BODY, UNAUTHORIZED);
+    await expectAsync(first).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
+    expect(sessionExpiredEvents)
+      .withContext('одно событие на неудачный refresh')
+      .toBe(1);
     expect(router.navigate).toHaveBeenCalledWith(['/login']);
 
     // 2. Повторный 401 при взведённом фиксаторе — без refresh-вызова.
     const second = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
-    await expectAsync(second).toBeRejectedWith({ status: 401, body: API_401_BODY });
+    await expectAsync(second).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
     expect(httpMock.match(`${apiBase}/auth/refresh`).length)
       .withContext('фиксатор: нового refresh-вызова нет')
       .toBe(0);
@@ -349,7 +414,9 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
 
     // Цикла нет: одна новая серия 401 — один refresh; событий сброса сессии
     // по-прежнему одно (успешный refresh событие не публикует).
-    expect(sessionExpiredEvents).withContext('успешный refresh без сброса сессии').toBe(1);
+    expect(sessionExpiredEvents)
+      .withContext('успешный refresh без сброса сессии')
+      .toBe(1);
   });
 
   it('CR-001: повторная публикация sessionRestored безопасна — сброс фиксатора идемпотентен (IF-014)', async () => {
@@ -358,8 +425,13 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     // Взводим фиксатор: 401 → refresh 401.
     const first = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
-    httpMock.expectOne(`${apiBase}/auth/refresh`).flush(API_401_BODY, UNAUTHORIZED);
-    await expectAsync(first).toBeRejectedWith({ status: 401, body: API_401_BODY });
+    httpMock
+      .expectOne(`${apiBase}/auth/refresh`)
+      .flush(API_401_BODY, UNAUTHORIZED);
+    await expectAsync(first).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
 
     // Двойная публикация восстановления (повторный вход) — безвредна.
     lifecycle.markSessionRestored();
@@ -382,28 +454,40 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     // Взводим фиксатор: 401 → refresh 401.
     const first = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
-    httpMock.expectOne(`${apiBase}/auth/refresh`).flush(API_401_BODY, UNAUTHORIZED);
-    await expectAsync(first).toBeRejectedWith({ status: 401, body: API_401_BODY });
+    httpMock
+      .expectOne(`${apiBase}/auth/refresh`)
+      .flush(API_401_BODY, UNAUTHORIZED);
+    await expectAsync(first).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
 
     // Успешный (2xx) API-ответ сам по себе фиксатор НЕ сбрасывает: сброс —
     // только явный канал markSessionRestored (ADR-021 отверг наблюдение
     // статусов/URL чужих ответов).
     const ok = firstValueFrom(http.get(`${apiBase}/auth/me`));
-    httpMock.expectOne(`${apiBase}/auth/me`).flush({ id: 'u-1', login: 'teacher' });
+    httpMock
+      .expectOne(`${apiBase}/auth/me`)
+      .flush({ id: 'u-1', login: 'teacher' });
     await expectAsync(ok).toBeResolved();
 
     // 409 тоже не сбрасывает — отказ нормализуется в ApiError потребителю.
     const conflict = firstValueFrom(http.post(`${apiBase}/labs`, {}));
-    httpMock.expectOne(`${apiBase}/labs`).flush(
-      { message: 'Конфликт' },
-      { status: 409, statusText: 'Conflict' },
-    );
-    await expectAsync(conflict).toBeRejectedWith({ status: 409, body: { message: 'Конфликт' } });
+    httpMock
+      .expectOne(`${apiBase}/labs`)
+      .flush({ message: 'Конфликт' }, { status: 409, statusText: 'Conflict' });
+    await expectAsync(conflict).toBeRejectedWith({
+      status: 409,
+      body: { message: 'Конфликт' },
+    });
 
     // Последующий 401 — без refresh-вызова (фиксатор всё ещё взведён).
     const later = firstValueFrom(http.get(`${apiBase}/labs`));
     flushUnauthorized('/labs');
-    await expectAsync(later).toBeRejectedWith({ status: 401, body: API_401_BODY });
+    await expectAsync(later).toBeRejectedWith({
+      status: 401,
+      body: API_401_BODY,
+    });
     expect(httpMock.match(`${apiBase}/auth/refresh`).length)
       .withContext('второго refresh-вызова нет')
       .toBe(0);
@@ -416,10 +500,14 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     //    сброса публикуется, навигации нет (ADR-016).
     const me = firstValueFrom(http.get(`${apiBase}/auth/me`));
     flushUnauthorized('/auth/me');
-    httpMock.expectOne(`${apiBase}/auth/refresh`).flush(API_401_BODY, UNAUTHORIZED);
+    httpMock
+      .expectOne(`${apiBase}/auth/refresh`)
+      .flush(API_401_BODY, UNAUTHORIZED);
     await expectAsync(me).toBeRejectedWith({ status: 401, body: API_401_BODY });
     expect(sessionExpiredEvents).toBe(1);
-    expect(router.navigate).withContext('фаза init — навигация подавлена').not.toHaveBeenCalled();
+    expect(router.navigate)
+      .withContext('фаза init — навигация подавлена')
+      .not.toHaveBeenCalled();
 
     // 2. Инициализация завершена, пользователь входит: 2xx login, после
     //    которого AuthService публикует markSessionRestored — фиксатор
@@ -443,7 +531,9 @@ describe('authInterceptor — контракт IF-014 (FR-025/FR-026)', () => {
     retry.flush({ items: [], total: 0, page: 1, pageSize: 10 });
 
     await expectAsync(pending).toBeResolved();
-    expect(sessionExpiredEvents).withContext('успешный refresh без сброса сессии').toBe(1);
+    expect(sessionExpiredEvents)
+      .withContext('успешный refresh без сброса сессии')
+      .toBe(1);
     expect(router.navigate).not.toHaveBeenCalled();
   });
 });

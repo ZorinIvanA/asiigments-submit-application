@@ -23,7 +23,6 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
-import { AuthService } from '../../../core/services/auth.service';
 import { GroupsService } from '../../../core/services/groups.service';
 import { StudentsService } from '../../../core/services/students.service';
 import { SubmissionsService } from '../../../core/services/submissions.service';
@@ -49,12 +48,14 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
   let fixture: ComponentFixture<AnyPage>;
 
   let ik221: string;
-  let ik222: string;
 
   beforeEach(() => {
     paramMap = new BehaviorSubject(convertToParamMap({ id: 'not-mounted' }));
     env = GridAccessEnv.setup({
-      providers: [provideRouter([]), { provide: ActivatedRoute, useValue: { paramMap } }],
+      providers: [
+        provideRouter([]),
+        { provide: ActivatedRoute, useValue: { paramMap } },
+      ],
     });
 
     notifications = env.notifications;
@@ -62,7 +63,6 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     studentsService = env.inject(StudentsService);
     submissionsService = env.inject(SubmissionsService);
     ik221 = env.backend.groupIdByName('ИК-221');
-    ik222 = env.backend.groupIdByName('ИК-222');
     env.serverSession('teacher');
   });
 
@@ -94,15 +94,17 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
       `button[aria-label="${ariaLabel}"]`,
     );
     if (button === null) {
-      throw new Error(`groups.spec: в строке ${rowText} нет кнопки ${ariaLabel}`);
+      throw new Error(
+        `groups.spec: в строке ${rowText} нет кнопки ${ariaLabel}`,
+      );
     }
     return button;
   }
 
   function rowByText(text: string): HTMLTableRowElement {
-    const found = Array.from(root().querySelectorAll<HTMLTableRowElement>('tbody tr')).find(
-      (row) => row.textContent?.includes(text),
-    );
+    const found = Array.from(
+      root().querySelectorAll<HTMLTableRowElement>('tbody tr'),
+    ).find((row) => row.textContent?.includes(text));
     if (found === undefined) {
       throw new Error(`groups.spec: не найдена строка ${text}`);
     }
@@ -127,11 +129,16 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
   }
 
   function confirmMessage(): string | null {
-    return root().querySelector('.p-confirmdialog-message')?.textContent?.trim() ?? null;
+    return (
+      root().querySelector('.p-confirmdialog-message')?.textContent?.trim() ??
+      null
+    );
   }
 
   function confirmButton(kind: 'accept' | 'reject'): HTMLButtonElement {
-    const found = root().querySelector<HTMLButtonElement>(`.p-confirmdialog-${kind}-button`);
+    const found = root().querySelector<HTMLButtonElement>(
+      `.p-confirmdialog-${kind}-button`,
+    );
     if (found === null) {
       throw new Error(`groups.spec: нет кнопки подтверждения ${kind}`);
     }
@@ -153,19 +160,30 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
 
     dialogButton('Создать группу').click();
     env.flushNgModel(fixture);
-    expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe('Создать группу');
+    expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe(
+      'Создать группу',
+    );
 
     typeName('group-create-name', 'ИК-224');
     dialogButton('Создать').click();
     env.settle(fixture, 2); // groups.create + перечитывание списка
 
-    expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
+    expect(notifications.desktopMessage()).toEqual({
+      severity: 'success',
+      text: 'Сохранено',
+    });
     env.drainNotifications();
-    expect(root().querySelector('.p-dialog-title')).withContext('диалог закрыт').toBeNull();
-    expect(env.backend.read().groups.some((group) => group.name === 'ИК-224')).toBeTrue();
+    expect(root().querySelector('.p-dialog-title'))
+      .withContext('диалог закрыт')
+      .toBeNull();
+    expect(
+      env.backend.read().groups.some((group) => group.name === 'ИК-224'),
+    ).toBeTrue();
 
     const row = rowByText('ИК-224');
-    expect(row.textContent).withContext('в списке с 0 студентов').toContain('0');
+    expect(row.textContent)
+      .withContext('в списке с 0 студентов')
+      .toContain('0');
     expect(listNames()).toEqual(['ИК-221', 'ИК-222', 'ИК-223', 'ИК-224']);
   }));
 
@@ -179,13 +197,15 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     dialogButton('Создать').click();
     env.settle(fixture, 1);
 
-    expect(root().querySelector('.groups-page__dialog-error')?.textContent?.trim()).toBe(
-      'Группа с таким названием уже существует',
-    );
+    expect(
+      root().querySelector('.groups-page__dialog-error')?.textContent?.trim(),
+    ).toBe('Группа с таким названием уже существует');
     expect(root().querySelector('.p-dialog-title')?.textContent?.trim())
       .withContext('диалог остаётся открытым')
       .toBe('Создать группу');
-    expect(env.backend.read().groups.length).withContext('группа не создана').toBe(3);
+    expect(env.backend.read().groups.length)
+      .withContext('группа не создана')
+      .toBe(3);
 
     // Переименование: «ИК-223» → «ик-221» — тот же 409, имя не изменено.
     dialogButton('Отмена').click();
@@ -196,9 +216,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     dialogButton('Сохранить').click();
     env.settle(fixture, 1);
 
-    expect(root().querySelector('.groups-page__dialog-error')?.textContent?.trim()).toBe(
-      'Группа с таким названием уже существует',
-    );
+    expect(
+      root().querySelector('.groups-page__dialog-error')?.textContent?.trim(),
+    ).toBe('Группа с таким названием уже существует');
     expect(listNames()).withContext('имя не изменено').toContain('ИК-223');
     expect(listNames()).not.toContain('ик-221');
   }));
@@ -212,9 +232,14 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     dialogButton('Сохранить').click();
     env.settle(fixture, 2); // rename + перечитывание списка
 
-    expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
+    expect(notifications.desktopMessage()).toEqual({
+      severity: 'success',
+      text: 'Сохранено',
+    });
     env.drainNotifications();
-    expect(root().querySelector('.p-dialog-title')).withContext('диалог закрыт').toBeNull();
+    expect(root().querySelector('.p-dialog-title'))
+      .withContext('диалог закрыт')
+      .toBeNull();
     expect(listNames()).toEqual(['ИК-221', 'ИК-222', 'ИК-223А']);
 
     // Конфликт: «ИК-223А» → «ИК-221».
@@ -224,10 +249,12 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     dialogButton('Сохранить').click();
     env.settle(fixture, 1);
 
-    expect(root().querySelector('.groups-page__dialog-error')?.textContent?.trim()).toBe(
-      'Группа с таким названием уже существует',
-    );
-    expect(listNames()).withContext('имя осталось «ИК-223А»').toContain('ИК-223А');
+    expect(
+      root().querySelector('.groups-page__dialog-error')?.textContent?.trim(),
+    ).toBe('Группа с таким названием уже существует');
+    expect(listNames())
+      .withContext('имя осталось «ИК-223А»')
+      .toContain('ИК-223А');
   }));
 
   /**
@@ -242,15 +269,20 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
 
     dialogButton('Создать группу').click();
     env.flushNgModel(fixture);
-    expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe('Создать группу');
+    expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe(
+      'Создать группу',
+    );
 
     const fieldError = (): string =>
-      root().querySelector('.groups-page__field-error')?.textContent?.trim() ?? '';
+      root().querySelector('.groups-page__field-error')?.textContent?.trim() ??
+      '';
 
     // Пустое имя: requiredTrim → «Заполните поле».
     dialogButton('Создать').click();
     env.flushNgModel(fixture);
-    expect(fieldError()).withContext('полевой текст у поля внутри диалога').toBe('Заполните поле');
+    expect(fieldError())
+      .withContext('полевой текст у поля внутри диалога')
+      .toBe('Заполните поле');
     expect(root().querySelector('.p-dialog-title')?.textContent?.trim())
       .withContext('диалог остаётся открытым')
       .toBe('Создать группу');
@@ -269,8 +301,12 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     env.flushNgModel(fixture);
     expect(fieldError()).toBe('Название группы — от 1 до 100 символов');
     expect(createSpy).not.toHaveBeenCalled();
-    expect(env.backend.read().groups.length).withContext('группа не создана').toBe(3);
-    expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe('Создать группу');
+    expect(env.backend.read().groups.length)
+      .withContext('группа не создана')
+      .toBe(3);
+    expect(root().querySelector('.p-dialog-title')?.textContent?.trim()).toBe(
+      'Создать группу',
+    );
 
     // Ровно 100 символов — успех: «Сохранено», группа создана.
     typeName('group-create-name', 'И'.repeat(100));
@@ -278,10 +314,17 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     env.settle(fixture, 2); // groups.create + перечитывание списка
 
     expect(createSpy).toHaveBeenCalledTimes(1);
-    expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
+    expect(notifications.desktopMessage()).toEqual({
+      severity: 'success',
+      text: 'Сохранено',
+    });
     env.drainNotifications();
-    expect(root().querySelector('.p-dialog-title')).withContext('диалог закрыт').toBeNull();
-    expect(env.backend.read().groups.length).withContext('группа создана').toBe(4);
+    expect(root().querySelector('.p-dialog-title'))
+      .withContext('диалог закрыт')
+      .toBeNull();
+    expect(env.backend.read().groups.length)
+      .withContext('группа создана')
+      .toBe(4);
     expect(rowByText('И'.repeat(100))).toBeDefined();
   }));
 
@@ -290,9 +333,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
 
     // Действия строки — только переименование и удаление (out_of_scope v1:
     // массовый импорт и восстановление групп отсутствуют).
-    const actionLabels = Array.from(rowByText('ИК-222').querySelectorAll('button')).map((button) =>
-      button.getAttribute('aria-label'),
-    );
+    const actionLabels = Array.from(
+      rowByText('ИК-222').querySelectorAll('button'),
+    ).map((button) => button.getAttribute('aria-label'));
     expect(actionLabels).toEqual(['Переименовать', 'Удалить']);
     expect(root().textContent).not.toContain('Восстанов');
     expect(root().textContent).not.toContain('Импорт');
@@ -307,7 +350,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     env.waitConfirmClosed(fixture);
     env.flushNgModel(fixture);
     expect(confirmMessage()).withContext('диалог закрыт').toBeNull();
-    expect(env.backend.read().groups.length).withContext('ничего не изменилось').toBe(3);
+    expect(env.backend.read().groups.length)
+      .withContext('ничего не изменилось')
+      .toBe(3);
     expect(listNames()).toContain('ИК-222');
 
     // Повторно → «Yes»: «Удалено», группа исчезла.
@@ -316,9 +361,14 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     confirmButton('accept').click();
     env.settle(fixture, 2); // groups.remove + перечитывание списка
 
-    expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Удалено' });
+    expect(notifications.desktopMessage()).toEqual({
+      severity: 'success',
+      text: 'Удалено',
+    });
     env.drainNotifications();
-    expect(listNames()).withContext('группа исчезла').toEqual(['ИК-221', 'ИК-223']);
+    expect(listNames())
+      .withContext('группа исчезла')
+      .toEqual(['ИК-221', 'ИК-223']);
     expect(env.backend.read().groups.length).toBe(2);
     fixture.destroy();
 
@@ -328,9 +378,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     env.settle(fixture, 2);
     root().querySelector<HTMLInputElement>('input[type="checkbox"]')!.click();
     env.settle(fixture, 1);
-    const names = Array.from(root().querySelectorAll('tbody tr td:first-child')).map((cell) =>
-      cell.textContent?.trim() ?? '',
-    );
+    const names = Array.from(
+      root().querySelectorAll('tbody tr td:first-child'),
+    ).map((cell) => cell.textContent?.trim() ?? '');
     expect(names).toEqual([
       'Иванов Иван Иванович 26',
       'Иванов Иван Иванович 27',
@@ -350,10 +400,14 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
         .getGrid({ groupId, semester: 1, page: 1 })
         .then((result) => (grid = result));
       env.settleRequests(1);
-      expect(grid.total).withContext(`ведомость группы ${groupId}`).toBe(groupId === ik221 ? 25 : 0);
+      expect(grid.total)
+        .withContext(`ведомость группы ${groupId}`)
+        .toBe(groupId === ik221 ? 25 : 0);
       const members = grid.students.map((student) => student.fullName);
       for (let nn = 26; nn <= 30; nn++) {
-        expect(members).not.toContain(`Иванов Иван Иванович ${String(nn).padStart(2, '0')}`);
+        expect(members).not.toContain(
+          `Иванов Иван Иванович ${String(nn).padStart(2, '0')}`,
+        );
       }
     }
 
@@ -361,18 +415,23 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     env.loginAs('student26');
     fixture = env.mount(MySubmissionsPage);
     env.settle(fixture, 2); // getSemesters + getMy
-    expect(root().querySelector('.no-group')?.textContent).toContain(TEXT_NO_GROUP);
+    expect(root().querySelector('.no-group')?.textContent).toContain(
+      TEXT_NO_GROUP,
+    );
     expect(root().querySelector('p-table')).toBeNull();
   }));
 
   it('TS-336: карточка ИК-221 — крошки, «Студентов: 25», колонки, пагинация 10 (стр.3 — 5 записей, подпись «с 21 по 25 из 25»), порядок ФИО↑', fakeAsync(() => {
     createGroupPage(ik221);
 
-    const crumbs = root().querySelector('.group-page__crumbs')?.textContent ?? '';
+    const crumbs =
+      root().querySelector('.group-page__crumbs')?.textContent ?? '';
     expect(crumbs).toContain('Группы');
     expect(crumbs).toContain('ИК-221');
     expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-221');
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 25');
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 25');
 
     const headers = Array.from(root().querySelectorAll('thead th')).map((th) =>
       th.textContent?.trim(),
@@ -380,13 +439,17 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     expect(headers).toEqual(['ФИО', 'Логин', 'Email', 'Действия']);
     // Кнопки исключения не имеют aria-label (p-button label) — матч по
     // тексту кнопки (CR-002).
-    const excludeButtons = Array.from(root().querySelectorAll('tbody button')).filter(
-      (button) => button.textContent?.trim() === 'Исключить из группы',
-    );
-    expect(excludeButtons.length).withContext('кнопка исключения у каждой строки').toBe(10);
+    const excludeButtons = Array.from(
+      root().querySelectorAll('tbody button'),
+    ).filter((button) => button.textContent?.trim() === 'Исключить из группы');
+    expect(excludeButtons.length)
+      .withContext('кнопка исключения у каждой строки')
+      .toBe(10);
 
-    const expected = Array.from({ length: 25 }, (_, index) =>
-      `Иванов Иван Иванович ${String(index + 1).padStart(2, '0')}`,
+    const expected = Array.from(
+      { length: 25 },
+      (_, index) =>
+        `Иванов Иван Иванович ${String(index + 1).padStart(2, '0')}`,
     );
     const firstNames = (): string[] =>
       Array.from(root().querySelectorAll('tbody tr td:first-child')).map(
@@ -394,9 +457,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
       );
 
     expect(firstNames()).toEqual(expected.slice(0, 10));
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 1 по 10 из 25',
-    );
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 1 по 10 из 25');
 
     const pageButton = (label: string): HTMLButtonElement => {
       const found = Array.from(
@@ -416,9 +479,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     env.settle(fixture, 1);
     expect(firstNames()).toEqual(expected.slice(20, 25));
     expect(firstNames().length).toBe(5);
-    expect(root().querySelector('.group-page__range')?.textContent?.trim()).toBe(
-      'Показать записи с 21 по 25 из 25',
-    );
+    expect(
+      root().querySelector('.group-page__range')?.textContent?.trim(),
+    ).toBe('Показать записи с 21 по 25 из 25');
   }));
 
   it('TS-337: исключение из карточки — подтверждение «Yes», «Сохранено», «Студентов: 24», студент ушёл со страницы, в /access «Без группы», счётчик списка обновлён', fakeAsync(() => {
@@ -426,20 +489,33 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
 
     root().querySelector<HTMLButtonElement>('tbody tr button')!.click();
     env.flushNgModel(fixture);
-    expect(confirmMessage()).toBe('Исключить студента Иванов Иван Иванович 01 из группы?');
+    expect(confirmMessage()).toBe(
+      'Исключить студента Иванов Иван Иванович 01 из группы?',
+    );
     confirmButton('accept').click();
     env.settle(fixture, 2); // setGroup + перечитывание состава
 
-    expect(notifications.desktopMessage()).toEqual({ severity: 'success', text: 'Сохранено' });
+    expect(notifications.desktopMessage()).toEqual({
+      severity: 'success',
+      text: 'Сохранено',
+    });
     env.drainNotifications();
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 24');
-    expect(root().querySelector('tbody')?.textContent).not.toContain('Иванов Иван Иванович 01');
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 24');
+    expect(root().querySelector('tbody')?.textContent).not.toContain(
+      'Иванов Иван Иванович 01',
+    );
 
     // В /access студент — «Без группы» (фильтр «none»).
     let none!: Awaited<ReturnType<StudentsService['getList']>>;
-    void studentsService.getList({ groupId: 'none', page: 1 }).then((result) => (none = result));
+    void studentsService
+      .getList({ groupId: 'none', page: 1 })
+      .then((result) => (none = result));
     env.settleRequests(1);
-    expect(none.items.some((student) => student.login === 'student01')).toBeTrue();
+    expect(
+      none.items.some((student) => student.login === 'student01'),
+    ).toBeTrue();
 
     // Счётчик в списке /groups обновился.
     let list!: Awaited<ReturnType<GroupsService['getList']>>;
@@ -455,7 +531,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     createGroupPage(env.backend.groupIdByName('ИК-223'));
 
     expect(root().querySelector('h1')?.textContent?.trim()).toBe('ИК-223');
-    expect(root().querySelector('.group-page__count')?.textContent?.trim()).toBe('Студентов: 0');
+    expect(
+      root().querySelector('.group-page__count')?.textContent?.trim(),
+    ).toBe('Студентов: 0');
     expect(root().querySelectorAll('tbody tr').length)
       .withContext('таблица в состоянии пусто')
       .toBe(0);
@@ -463,7 +541,9 @@ describe('GroupsPage/GroupPage — интеграция с реальным HTTP
     // Аменда 7 (ADR-111): подпись выводится всегда, скрытие при total=0
     // запрещено — «Показать записи с 1 по 0 из 0».
     const range = root().querySelector('.group-page__range');
-    expect(range).withContext('подпись присутствует при total=0 (аменда 7)').not.toBeNull();
+    expect(range)
+      .withContext('подпись присутствует при total=0 (аменда 7)')
+      .not.toBeNull();
     expect(range?.textContent?.trim()).toBe('Показать записи с 1 по 0 из 0');
   }));
 });

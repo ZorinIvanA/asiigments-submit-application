@@ -10,7 +10,12 @@
  * проверял сессию, кэш заполнен; крайний случай (кэш сброшен, например
  * сессия истекла во время показа) → /login.
  */
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 import { Router } from '@angular/router';
 
 import { ROLE_HOME } from '../../core/navigation/guards';

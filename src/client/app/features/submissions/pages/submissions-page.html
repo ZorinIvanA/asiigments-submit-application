@@ -16,7 +16,9 @@
         [disabled]="!hasGroups()"
       />
       @if (!hasGroups()) {
-        <span class="submissions-page__selector-caption" data-test="no-groups-caption"
+        <span
+          class="submissions-page__selector-caption"
+          data-test="no-groups-caption"
           >Нет групп</span
         >
       }
@@ -35,7 +37,9 @@
           [disabled]="!hasSemesters()"
         />
         @if (!hasSemesters()) {
-          <span class="submissions-page__selector-caption" data-test="no-semesters-caption"
+          <span
+            class="submissions-page__selector-caption"
+            data-test="no-semesters-caption"
             >Нет семестров с работами</span
           >
         }
@@ -65,7 +69,9 @@
 
         <ng-template #body let-student>
           <tr>
-            <td class="submissions-page__student-cell">{{ student.fullName }}</td>
+            <td class="submissions-page__student-cell">
+              {{ student.fullName }}
+            </td>
             @for (lab of labs(); track lab.id) {
               <!-- Ячейка даты: изолированный OnPush-компонент с примитивными
                    входами (VBUG-003: исключает writeValue-шторм 200 инстансов
@@ -75,7 +81,9 @@
                   [value]="recordDate(student.id, lab.id, 'submitDate')"
                   [saving]="isCellSaving(student.id, lab.id, 'submitDate')"
                   [revision]="cellRevision(student.id, lab.id, 'submitDate')"
-                  (dateChange)="onCellDateChange(student.id, lab.id, 'submitDate', $event)"
+                  (dateChange)="
+                    onCellDateChange(student.id, lab.id, 'submitDate', $event)
+                  "
                 />
               </td>
               <td>
@@ -83,7 +91,9 @@
                   [value]="recordDate(student.id, lab.id, 'defenseDate')"
                   [saving]="isCellSaving(student.id, lab.id, 'defenseDate')"
                   [revision]="cellRevision(student.id, lab.id, 'defenseDate')"
-                  (dateChange)="onCellDateChange(student.id, lab.id, 'defenseDate', $event)"
+                  (dateChange)="
+                    onCellDateChange(student.id, lab.id, 'defenseDate', $event)
+                  "
                 />
               </td>
             }

@@ -105,13 +105,19 @@ export class AuthService {
 
   /** Вход (US-1): POST /auth/login → кэш currentUser + markSessionRestored. */
   async login(params: LoginParams): Promise<MeDto> {
-    const me = await this.establishSession(`${this.apiBase}/auth/login`, params);
+    const me = await this.establishSession(
+      `${this.apiBase}/auth/login`,
+      params,
+    );
     return me;
   }
 
   /** Регистрация студента (US-15): успех → автоматический вход (§4.1). */
   async register(params: RegisterParams): Promise<MeDto> {
-    const me = await this.establishSession(`${this.apiBase}/auth/register`, params);
+    const me = await this.establishSession(
+      `${this.apiBase}/auth/register`,
+      params,
+    );
     return me;
   }
 
@@ -149,7 +155,10 @@ export class AuthService {
   }
 
   /** Шаг 2 потока (US-3): resetToken запоминается для шага смены пароля. */
-  async confirmRecoveryCode(email: string, code: string): Promise<ConfirmRecoveryResult> {
+  async confirmRecoveryCode(
+    email: string,
+    code: string,
+  ): Promise<ConfirmRecoveryResult> {
     const result = await this.post<ConfirmRecoveryResult>(
       `${this.apiBase}/auth/recovery/confirm`,
       { email, code },

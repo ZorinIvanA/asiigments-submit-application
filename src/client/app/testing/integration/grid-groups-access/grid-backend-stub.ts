@@ -212,10 +212,34 @@ function integrationSeed(): GridBackendSeed {
     groups: [{ name: 'ИК-221' }, { name: 'ИК-222' }, { name: 'ИК-223' }],
     labs,
     submissions: [
-      { studentLogin: 'student01', semester: 1, labNumber: 1, submitDate: '2026-09-01', defenseDate: '2026-09-11' },
-      { studentLogin: 'student01', semester: 1, labNumber: 2, submitDate: '2026-09-02', defenseDate: '2026-09-12' },
-      { studentLogin: 'student01', semester: 1, labNumber: 3, submitDate: '2026-09-03', defenseDate: null },
-      { studentLogin: 'student02', semester: 1, labNumber: 1, submitDate: '2026-09-01', defenseDate: null },
+      {
+        studentLogin: 'student01',
+        semester: 1,
+        labNumber: 1,
+        submitDate: '2026-09-01',
+        defenseDate: '2026-09-11',
+      },
+      {
+        studentLogin: 'student01',
+        semester: 1,
+        labNumber: 2,
+        submitDate: '2026-09-02',
+        defenseDate: '2026-09-12',
+      },
+      {
+        studentLogin: 'student01',
+        semester: 1,
+        labNumber: 3,
+        submitDate: '2026-09-03',
+        defenseDate: null,
+      },
+      {
+        studentLogin: 'student02',
+        semester: 1,
+        labNumber: 1,
+        submitDate: '2026-09-01',
+        defenseDate: null,
+      },
     ],
   };
 }
@@ -238,7 +262,8 @@ export class GridBackendStub {
   sessionLogin: string | null = null;
 
   /** Программируемый отказ следующего PUT /students/{id}/group. */
-  private nextSetGroupFailure: { status: number; message: string } | null = null;
+  private nextSetGroupFailure: { status: number; message: string } | null =
+    null;
 
   constructor(seed: GridBackendSeed = integrationSeed()) {
     const groups: BackendGroup[] = seed.groups.map((group) => ({
@@ -249,7 +274,9 @@ export class GridBackendStub {
       const rawGroupId = user.groupId;
       const groupId =
         rawGroupId !== null && rawGroupId.startsWith('ГРУППА:')
-          ? (groups.find((group) => group.name === rawGroupId.slice('ГРУППА:'.length))?.id ?? null)
+          ? (groups.find(
+              (group) => group.name === rawGroupId.slice('ГРУППА:'.length),
+            )?.id ?? null)
           : rawGroupId;
       return {
         id: user.id ?? this.nextId(),
@@ -269,12 +296,18 @@ export class GridBackendStub {
       assignmentUrl: lab.assignmentUrl ?? null,
       defenseRequired: lab.defenseRequired === true,
     }));
-    const labIdByPair = new Map(labs.map((lab) => [`${lab.semester}:${lab.number}`, lab.id]));
+    const labIdByPair = new Map(
+      labs.map((lab) => [`${lab.semester}:${lab.number}`, lab.id]),
+    );
     const submissions: BackendSubmission[] = seed.submissions.map((rule) => {
-      const student = users.find((candidate) => candidate.login === rule.studentLogin);
+      const student = users.find(
+        (candidate) => candidate.login === rule.studentLogin,
+      );
       const labId = labIdByPair.get(`${rule.semester}:${rule.labNumber}`);
       if (student === undefined || labId === undefined) {
-        throw new Error('grid-backend-stub: правило сид-сдачи невыполнимо — сид неполон');
+        throw new Error(
+          'grid-backend-stub: правило сид-сдачи невыполнимо — сид неполон',
+        );
       }
       return {
         id: this.nextId(),
@@ -313,7 +346,9 @@ export class GridBackendStub {
       users: this.state.users.map((user) => ({ ...user })),
       groups: this.state.groups.map((group) => ({ ...group })),
       labs: this.state.labs.map((lab) => ({ ...lab })),
-      submissions: this.state.submissions.map((submission) => ({ ...submission })),
+      submissions: this.state.submissions.map((submission) => ({
+        ...submission,
+      })),
     };
   }
 
@@ -324,7 +359,9 @@ export class GridBackendStub {
 
   /** uuid группы по названию сида; отсутствие — ошибка сценария. */
   groupIdByName(name: string): string {
-    const group = this.state.groups.find((candidate) => candidate.name === name);
+    const group = this.state.groups.find(
+      (candidate) => candidate.name === name,
+    );
     if (group === undefined) {
       throw new Error(`grid-backend-stub: в сиде нет группы ${name}`);
     }
@@ -333,7 +370,9 @@ export class GridBackendStub {
 
   /** uuid пользователя по логину сида; отсутствие — ошибка сценария. */
   userIdByLogin(login: string): string {
-    const user = this.state.users.find((candidate) => candidate.login === login);
+    const user = this.state.users.find(
+      (candidate) => candidate.login === login,
+    );
     if (user === undefined) {
       throw new Error(`grid-backend-stub: в сиде нет пользователя ${login}`);
     }
@@ -343,10 +382,13 @@ export class GridBackendStub {
   /** uuid работы по паре (семестр, номер); отсутствие — ошибка сценария. */
   labId(semester: number, number: number): string {
     const lab = this.state.labs.find(
-      (candidate) => candidate.semester === semester && candidate.number === number,
+      (candidate) =>
+        candidate.semester === semester && candidate.number === number,
     );
     if (lab === undefined) {
-      throw new Error(`grid-backend-stub: в сиде нет работы ${semester}:${number}`);
+      throw new Error(
+        `grid-backend-stub: в сиде нет работы ${semester}:${number}`,
+      );
     }
     return lab.id;
   }
@@ -370,7 +412,9 @@ export class GridBackendStub {
   removeLabDirect(id: string): void {
     this.mutate((state) => {
       state.labs = state.labs.filter((lab) => lab.id !== id);
-      state.submissions = state.submissions.filter((submission) => submission.labId !== id);
+      state.submissions = state.submissions.filter(
+        (submission) => submission.labId !== id,
+      );
     });
   }
 
@@ -391,12 +435,17 @@ export class GridBackendStub {
    */
   handle(req: HttpRequest<unknown>, apiBase: string): BackendResponse {
     if (!req.url.startsWith(`${apiBase}/`)) {
-      throw new Error(`grid-backend-stub: запрос вне API ${req.method} ${req.url}`);
+      throw new Error(
+        `grid-backend-stub: запрос вне API ${req.method} ${req.url}`,
+      );
     }
     const pathWithQuery = req.urlWithParams.slice(apiBase.length);
     const queryIndex = pathWithQuery.indexOf('?');
-    const path = queryIndex === -1 ? pathWithQuery : pathWithQuery.slice(0, queryIndex);
-    const query = new URLSearchParams(queryIndex === -1 ? '' : pathWithQuery.slice(queryIndex + 1));
+    const path =
+      queryIndex === -1 ? pathWithQuery : pathWithQuery.slice(0, queryIndex);
+    const query = new URLSearchParams(
+      queryIndex === -1 ? '' : pathWithQuery.slice(queryIndex + 1),
+    );
 
     if (req.method === 'GET' && path === '/auth/me') {
       return this.me();
@@ -426,13 +475,19 @@ export class GridBackendStub {
       return this.teacherGate(session) ?? ok(200, this.groupDtos());
     }
     if (req.method === 'POST' && path === '/groups') {
-      return this.teacherGate(session) ?? this.createGroup(req.body as { name: string });
+      return (
+        this.teacherGate(session) ??
+        this.createGroup(req.body as { name: string })
+      );
     }
     const groupMatch = /^\/groups\/([^/]+)$/.exec(path);
     if (groupMatch !== null) {
       const id = decodeURIComponent(groupMatch[1]!);
       if (req.method === 'PUT') {
-        return this.teacherGate(session) ?? this.renameGroup(id, req.body as { name: string });
+        return (
+          this.teacherGate(session) ??
+          this.renameGroup(id, req.body as { name: string })
+        );
       }
       if (req.method === 'DELETE') {
         return this.teacherGate(session) ?? this.deleteGroup(id);
@@ -442,7 +497,10 @@ export class GridBackendStub {
     if (membersMatch !== null && req.method === 'GET') {
       return (
         this.teacherGate(session) ??
-        this.groupStudents(decodeURIComponent(membersMatch[1]!), Number(query.get('page')))
+        this.groupStudents(
+          decodeURIComponent(membersMatch[1]!),
+          Number(query.get('page')),
+        )
       );
     }
 
@@ -460,20 +518,32 @@ export class GridBackendStub {
     if (groupOfStudent !== null && req.method === 'PUT') {
       return (
         this.teacherGate(session) ??
-        this.setGroup(decodeURIComponent(groupOfStudent[1]!), req.body as { groupId: string | null })
+        this.setGroup(
+          decodeURIComponent(groupOfStudent[1]!),
+          req.body as { groupId: string | null },
+        )
       );
     }
 
     if (req.method === 'GET' && path === '/semesters') {
-      return ok(200, [...new Set(this.state.labs.map((lab) => lab.semester))].sort((a, b) => a - b));
+      return ok(
+        200,
+        [...new Set(this.state.labs.map((lab) => lab.semester))].sort(
+          (a, b) => a - b,
+        ),
+      );
     }
     if (req.method === 'GET' && path === '/labs') {
       return this.teacherGate(session) ?? this.labsList(query);
     }
     const labMatch = /^\/labs\/([^/]+)$/.exec(path);
     if (labMatch !== null && req.method === 'GET') {
-      const lab = this.state.labs.find((candidate) => candidate.id === decodeURIComponent(labMatch[1]!));
-      return lab === undefined ? fail(404, TEXT_NOT_FOUND_LAB) : ok(200, { ...lab });
+      const lab = this.state.labs.find(
+        (candidate) => candidate.id === decodeURIComponent(labMatch[1]!),
+      );
+      return lab === undefined
+        ? fail(404, TEXT_NOT_FOUND_LAB)
+        : ok(200, { ...lab });
     }
 
     if (req.method === 'GET' && path === '/submissions') {
@@ -489,16 +559,20 @@ export class GridBackendStub {
     if (req.method === 'PUT' && path === '/submissions') {
       return (
         this.teacherGate(session) ??
-        this.upsertSubmission(req.body as {
-          studentId: string;
-          labId: string;
-          submitDate: string | null;
-          defenseDate: string | null;
-        })
+        this.upsertSubmission(
+          req.body as {
+            studentId: string;
+            labId: string;
+            submitDate: string | null;
+            defenseDate: string | null;
+          },
+        )
       );
     }
 
-    throw new Error(`grid-backend-stub: нет обработчика ${req.method} ${req.url}`);
+    throw new Error(
+      `grid-backend-stub: нет обработчика ${req.method} ${req.url}`,
+    );
   }
 
   // ---------- auth ----------
@@ -507,7 +581,9 @@ export class GridBackendStub {
     if (this.sessionLogin === null) {
       return null;
     }
-    return this.state.users.find((user) => user.login === this.sessionLogin) ?? null;
+    return (
+      this.state.users.find((user) => user.login === this.sessionLogin) ?? null
+    );
   }
 
   private meDtoOf(user: BackendUser): MeDto {
@@ -530,17 +606,23 @@ export class GridBackendStub {
   }
 
   private groupNameOf(groupId: string): string | null {
-    return this.state.groups.find((group) => group.id === groupId)?.name ?? null;
+    return (
+      this.state.groups.find((group) => group.id === groupId)?.name ?? null
+    );
   }
 
   private me(): BackendResponse {
     const session = this.sessionUser();
-    return session === null ? fail(401, TEXT_UNAUTHORIZED) : ok(200, this.meDtoOf(session));
+    return session === null
+      ? fail(401, TEXT_UNAUTHORIZED)
+      : ok(200, this.meDtoOf(session));
   }
 
   private login(body: { login: string; password: string }): BackendResponse {
     const user = this.state.users.find(
-      (candidate) => candidate.login === body?.login && candidate.password === body?.password,
+      (candidate) =>
+        candidate.login === body?.login &&
+        candidate.password === body?.password,
     );
     if (user === undefined) {
       return fail(401, TEXT_WRONG_CREDENTIALS);
@@ -551,7 +633,9 @@ export class GridBackendStub {
 
   /** Шлюз преподавателя: 403 для гостя и студента, null — пропуск. */
   private teacherGate(session: BackendUser | null): BackendResponse | null {
-    return session !== null && session.role === 'teacher' ? null : fail(403, TEXT_FORBIDDEN);
+    return session !== null && session.role === 'teacher'
+      ? null
+      : fail(403, TEXT_FORBIDDEN);
   }
 
   // ---------- groups ----------
@@ -610,11 +694,17 @@ export class GridBackendStub {
       return fail(409, TEXT_DUPLICATE_GROUP);
     }
     group.name = name.trim();
-    return ok(200, { id: group.id, name: group.name, studentCount: this.studentCountOf(id) });
+    return ok(200, {
+      id: group.id,
+      name: group.name,
+      studentCount: this.studentCountOf(id),
+    });
   }
 
   private deleteGroup(id: string): BackendResponse {
-    const index = this.state.groups.findIndex((candidate) => candidate.id === id);
+    const index = this.state.groups.findIndex(
+      (candidate) => candidate.id === id,
+    );
     if (index === -1) {
       return fail(404, TEXT_NOT_FOUND_GROUP);
     }
@@ -647,7 +737,10 @@ export class GridBackendStub {
     const page = normalizePage(rawPage);
     const members = this.state.users
       .filter((user) => user.role === 'student' && user.groupId === id)
-      .sort((a, b) => ruCompare(a.fullName, b.fullName) || ruCompare(a.login, b.login));
+      .sort(
+        (a, b) =>
+          ruCompare(a.fullName, b.fullName) || ruCompare(a.login, b.login),
+      );
     const start = (page - 1) * STUDENTS_PAGE_SIZE;
     const items = members
       .slice(start, start + STUDENTS_PAGE_SIZE)
@@ -683,7 +776,11 @@ export class GridBackendStub {
       if (groupFilter === 'none' && user.groupId !== null) {
         return false;
       }
-      if (groupFilter !== null && groupFilter !== 'none' && user.groupId !== groupFilter) {
+      if (
+        groupFilter !== null &&
+        groupFilter !== 'none' &&
+        user.groupId !== groupFilter
+      ) {
         return false;
       }
       if (tokens.length === 0) {
@@ -697,7 +794,8 @@ export class GridBackendStub {
       );
     });
     const ordered = matched.sort(
-      (a, b) => ruCompare(a.fullName, b.fullName) || ruCompare(a.login, b.login),
+      (a, b) =>
+        ruCompare(a.fullName, b.fullName) || ruCompare(a.login, b.login),
     );
     const start = (page - 1) * STUDENTS_PAGE_SIZE;
     const items = ordered
@@ -712,7 +810,10 @@ export class GridBackendStub {
     return ok(200, result);
   }
 
-  private setGroup(studentId: string, body: { groupId: string | null }): BackendResponse {
+  private setGroup(
+    studentId: string,
+    body: { groupId: string | null },
+  ): BackendResponse {
     if (this.nextSetGroupFailure !== null) {
       const failure = this.nextSetGroupFailure;
       this.nextSetGroupFailure = null;
@@ -741,12 +842,16 @@ export class GridBackendStub {
     const semesterRaw = query.get('semester');
     const semester = semesterRaw === null ? null : Number(semesterRaw);
     const page = normalizePage(Number(query.get('page')));
-    const sortField: LabsSortField = query.get('sortField') === 'number' ? 'number' : 'semester';
-    const sortDir: LabsSortDir = query.get('sortDir') === 'desc' ? 'desc' : 'asc';
+    const sortField: LabsSortField =
+      query.get('sortField') === 'number' ? 'number' : 'semester';
+    const sortDir: LabsSortDir =
+      query.get('sortDir') === 'desc' ? 'desc' : 'asc';
     const direction = sortDir === 'desc' ? -1 : 1;
     const compare = (a: BackendLab, b: BackendLab): number => {
       const primary =
-        (sortField === 'semester' ? a.semester - b.semester : a.number - b.number) * direction;
+        (sortField === 'semester'
+          ? a.semester - b.semester
+          : a.number - b.number) * direction;
       return primary !== 0
         ? primary
         : sortField === 'number'
@@ -757,22 +862,38 @@ export class GridBackendStub {
       .filter((lab) => semester === null || lab.semester === semester)
       .sort(compare);
     const start = (page - 1) * LABS_PAGE_SIZE;
-    const items: LabDto[] = filtered.slice(start, start + LABS_PAGE_SIZE).map((lab) => ({ ...lab }));
-    const result: PagedResult<LabDto> = { items, total: filtered.length, page, pageSize: LABS_PAGE_SIZE };
+    const items: LabDto[] = filtered
+      .slice(start, start + LABS_PAGE_SIZE)
+      .map((lab) => ({ ...lab }));
+    const result: PagedResult<LabDto> = {
+      items,
+      total: filtered.length,
+      page,
+      pageSize: LABS_PAGE_SIZE,
+    };
     return ok(200, result);
   }
 
   // ---------- submissions ----------
 
-  private grid(groupId: string, semester: number, rawPage: number): BackendResponse {
-    const group = this.state.groups.find((candidate) => candidate.id === groupId);
+  private grid(
+    groupId: string,
+    semester: number,
+    rawPage: number,
+  ): BackendResponse {
+    const group = this.state.groups.find(
+      (candidate) => candidate.id === groupId,
+    );
     if (group === undefined) {
       return fail(404, TEXT_NOT_FOUND_GROUP);
     }
     const page = normalizePage(rawPage);
     const members = this.state.users
       .filter((user) => user.role === 'student' && user.groupId === groupId)
-      .sort((a, b) => ruCompare(a.fullName, b.fullName) || ruCompare(a.login, b.login));
+      .sort(
+        (a, b) =>
+          ruCompare(a.fullName, b.fullName) || ruCompare(a.login, b.login),
+      );
     const labs = this.state.labs
       .filter((lab) => lab.semester === semester)
       .sort((a, b) => a.number - b.number);
@@ -783,7 +904,8 @@ export class GridBackendStub {
     const submissions = this.state.submissions
       .filter(
         (submission) =>
-          pageStudentIds.has(submission.studentId) && labIds.has(submission.labId),
+          pageStudentIds.has(submission.studentId) &&
+          labIds.has(submission.labId),
       )
       .map((submission) => ({
         studentId: submission.studentId,
@@ -792,8 +914,15 @@ export class GridBackendStub {
         defenseDate: submission.defenseDate,
       }));
     return ok(200, {
-      students: pageStudents.map((student) => ({ id: student.id, fullName: student.fullName })),
-      labs: labs.map((lab) => ({ id: lab.id, number: lab.number, defenseRequired: lab.defenseRequired })),
+      students: pageStudents.map((student) => ({
+        id: student.id,
+        fullName: student.fullName,
+      })),
+      labs: labs.map((lab) => ({
+        id: lab.id,
+        number: lab.number,
+        defenseRequired: lab.defenseRequired,
+      })),
       submissions,
       total: members.length,
       page,
@@ -806,17 +935,23 @@ export class GridBackendStub {
     submitDate: string | null;
     defenseDate: string | null;
   }): BackendResponse {
-    const student = this.state.users.find((candidate) => candidate.id === body?.studentId);
+    const student = this.state.users.find(
+      (candidate) => candidate.id === body?.studentId,
+    );
     if (student === undefined) {
       return fail(404, TEXT_NOT_FOUND_STUDENT);
     }
-    const lab = this.state.labs.find((candidate) => candidate.id === body?.labId);
+    const lab = this.state.labs.find(
+      (candidate) => candidate.id === body?.labId,
+    );
     if (lab === undefined) {
       return fail(404, TEXT_NOT_FOUND_LAB);
     }
     const teacher = this.sessionUser();
     const existing = this.state.submissions.find(
-      (candidate) => candidate.studentId === body.studentId && candidate.labId === body.labId,
+      (candidate) =>
+        candidate.studentId === body.studentId &&
+        candidate.labId === body.labId,
     );
     if (existing === undefined) {
       const created: BackendSubmission = {
@@ -839,7 +974,10 @@ export class GridBackendStub {
     return ok(200, saved);
   }
 
-  private mySubmissions(session: BackendUser | null, semester: number): BackendResponse {
+  private mySubmissions(
+    session: BackendUser | null,
+    semester: number,
+  ): BackendResponse {
     if (session === null || session.role !== 'student') {
       return fail(403, TEXT_FORBIDDEN);
     }
@@ -862,7 +1000,11 @@ export class GridBackendStub {
       }));
     return ok(200, {
       hasGroup: true,
-      labs: labs.map((lab) => ({ id: lab.id, number: lab.number, defenseRequired: lab.defenseRequired })),
+      labs: labs.map((lab) => ({
+        id: lab.id,
+        number: lab.number,
+        defenseRequired: lab.defenseRequired,
+      })),
       submissions,
     });
   }

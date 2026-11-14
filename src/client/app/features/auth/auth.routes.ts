@@ -21,6 +21,14 @@ export const AUTH_ROUTES: Routes = [
   // Восстановление пароля — шаги 1..3 (SCR-003/004/005, IF-102);
   // доступность шагов по store подключается задачей T-119 (IF-108).
   { path: 'recovery', component: RecoveryPage, title: 'Восстановление пароля' },
-  { path: 'recovery/code', component: RecoveryCodePage, title: 'Восстановление пароля — код' },
-  { path: 'reset-password', component: ResetPasswordPage, title: 'Новый пароль' },
+  {
+    path: 'recovery/code',
+    component: RecoveryCodePage,
+    title: 'Восстановление пароля — код',
+  },
+  {
+    path: 'reset-password',
+    component: ResetPasswordPage,
+    title: 'Новый пароль',
+  },
 ];

@@ -206,7 +206,11 @@ export async function startAuthProfileEnv(
   // с respond() — счётчики вызовов сценариям доступны единым образом).
   const init = auth.initSession();
   const meRequest = httpMock.expectOne(`${apiBase}/auth/me`);
-  requests.push({ method: 'GET', path: '/auth/me', body: meRequest.request.body });
+  requests.push({
+    method: 'GET',
+    path: '/auth/me',
+    body: meRequest.request.body,
+  });
   if (opts.session) {
     meRequest.flush(ME_FIXTURES[opts.session]);
   } else {
@@ -348,7 +352,10 @@ export async function waitForUrl(
  * через реальную загрузку /auth/me, программируемую ответом 200):
  * кэш currentUser заполнен, guard'ы видят сессию.
  */
-export async function loginAs(env: AuthProfileEnv, login: DemoLogin): Promise<void> {
+export async function loginAs(
+  env: AuthProfileEnv,
+  login: DemoLogin,
+): Promise<void> {
   const pending = env.auth.loadMe();
   respond(env, 'GET', '/auth/me', { body: ME_FIXTURES[login] });
   await pending;

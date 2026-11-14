@@ -11,12 +11,11 @@
  */
 import { formatDate } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import {
-  ANIMATION_MODULE_TYPE,
-  Component,
-  LOCALE_ID,
-} from '@angular/core';
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { ANIMATION_MODULE_TYPE, Component, LOCALE_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { firstValueFrom } from 'rxjs';
@@ -70,8 +69,12 @@ describe('appConfig — конфигурация каркаса', () => {
         }
       | undefined;
     expect(preset).withContext('кастомный пресет определён').toBeTruthy();
-    expect(preset!.semantic).withContext('секция semantic из Aura').toBeDefined();
-    expect(preset!.components).withContext('секция components из Aura').toBeDefined();
+    expect(preset!.semantic)
+      .withContext('секция semantic из Aura')
+      .toBeDefined();
+    expect(preset!.components)
+      .withContext('секция components из Aura')
+      .toBeDefined();
     // definePreset не трогает primitive-секцию: она обязана совпасть с базой
     // Aura (усиление ассерта — ревью CR-002 T-109).
     expect(preset!.primitive)
@@ -178,7 +181,9 @@ describe('appConfig — HTTP-ядро (T-017, IF-014, FR-091/FR-092)', () => {
       .withContext('мок-сид не записан (инициализатор мока удалён)')
       .toBeNull();
     expect(localStorage.getItem('legacy.session.userId'))
-      .withContext('мок-сессия не записана (признак сессии только в памяти, FR-092)')
+      .withContext(
+        'мок-сессия не записана (признак сессии только в памяти, FR-092)',
+      )
       .toBeNull();
 
     // Успешный бутстрап: после фазы инициализации HTTP-цепочка жива — запрос
@@ -192,6 +197,8 @@ describe('appConfig — HTTP-ядро (T-017, IF-014, FR-091/FR-092)', () => {
     expect(request.request.withCredentials).toBeTrue();
     request.flush(null);
     await pending;
-    expect(failure).withContext('запрос через цепочку appConfig разрешён').toBeNull();
+    expect(failure)
+      .withContext('запрос через цепочку appConfig разрешён')
+      .toBeNull();
   });
 });

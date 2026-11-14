@@ -20,7 +20,10 @@
  */
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
@@ -35,11 +38,21 @@ import { RecoveryCodePage } from '../../features/auth/pages/recovery-code-page/r
 import { RecoveryPage } from '../../features/auth/pages/recovery-page/recovery-page';
 import { RegisterPage } from '../../features/auth/pages/register-page/register-page';
 import { ResetPasswordPage } from '../../features/auth/pages/reset-password-page/reset-password-page';
-import { GroupPage, GROUPS_ROUTES, GroupsPage } from '../../features/groups/groups.routes';
+import {
+  GroupPage,
+  GROUPS_ROUTES,
+  GroupsPage,
+} from '../../features/groups/groups.routes';
 import { MY_SUBMISSIONS_ROUTES } from '../../features/my-submissions/my-submissions.routes';
 import { MySubmissionsPage } from '../../features/my-submissions/pages/my-submissions-page';
-import { ProfilePage, PROFILE_ROUTES } from '../../features/profile/profile.routes';
-import { SubmissionsPage, SUBMISSIONS_ROUTES } from '../../features/submissions/submissions.routes';
+import {
+  ProfilePage,
+  PROFILE_ROUTES,
+} from '../../features/profile/profile.routes';
+import {
+  SubmissionsPage,
+  SUBMISSIONS_ROUTES,
+} from '../../features/submissions/submissions.routes';
 import { WORKS_ROUTES } from '../../features/works/works.routes';
 import { LabFormPage } from '../../features/works/pages/lab-form-page/lab-form-page';
 import { WorksPage } from '../../features/works/pages/works-page/works-page';
@@ -90,7 +103,8 @@ function leaf(path: string): Route {
   const nodes = flatten(routes).filter(
     (node) =>
       node.path === path &&
-      (node.route.component !== undefined || node.route.loadComponent !== undefined),
+      (node.route.component !== undefined ||
+        node.route.loadComponent !== undefined),
   );
   expect(nodes.length).withContext(`ровно один лист ${path}`).toBe(1);
   return nodes[0].route;
@@ -135,12 +149,16 @@ describe('app.routes — таблица §7 и композиция guards (T-11
     for (const row of table) {
       const route = leaf(row.path);
       if (row.lazy) {
-        expect(route.loadComponent).withContext(`${row.path}: loadComponent`).toBeDefined();
-        expect(await route.loadComponent!()).withContext(`${row.path}: класс страницы`).toBe(
-          MySubmissionsPage,
-        );
+        expect(route.loadComponent)
+          .withContext(`${row.path}: loadComponent`)
+          .toBeDefined();
+        expect(await route.loadComponent!())
+          .withContext(`${row.path}: класс страницы`)
+          .toBe(MySubmissionsPage);
       } else {
-        expect(route.component).withContext(`${row.path}: компонент`).toBe(row.component);
+        expect(route.component)
+          .withContext(`${row.path}: компонент`)
+          .toBe(row.component);
       }
     }
 
@@ -174,11 +192,19 @@ describe('app.routes — таблица §7 и композиция guards (T-11
     const nodes = flatten(routes);
 
     // Корневые '' и '**' — ровно homeGuard (IF-108).
-    const homeRoots = nodes.filter((node) => node.route.canActivate?.includes(homeGuard));
-    expect(homeRoots.map((node) => node.path)).withContext('пути homeGuard').toEqual(['', '/**']);
+    const homeRoots = nodes.filter((node) =>
+      node.route.canActivate?.includes(homeGuard),
+    );
+    expect(homeRoots.map((node) => node.path))
+      .withContext('пути homeGuard')
+      .toEqual(['', '/**']);
     for (const root of homeRoots) {
-      expect(root.route.canActivate?.length).withContext(`guards ${root.path}`).toBe(1);
-      expect(root.route.component).withContext(`${root.path} — componentless`).toBeUndefined();
+      expect(root.route.canActivate?.length)
+        .withContext(`guards ${root.path}`)
+        .toBe(1);
+      expect(root.route.component)
+        .withContext(`${root.path} — componentless`)
+        .toBeUndefined();
     }
 
     // Гостевая обёртка: componentless, ровно guestGuard, внутри — гостевая
@@ -197,13 +223,22 @@ describe('app.routes — таблица §7 и композиция guards (T-11
     const guestShellNodes = nodes.filter(
       (node) => node.route.component === GuestShell && node.path === '',
     );
-    expect(guestShellNodes.length).withContext('ровно одна GuestShell-обёртка').toBe(1);
-    expect(guestShellNodes[0].route.canActivate).withContext('GuestShell без guards')
+    expect(guestShellNodes.length)
+      .withContext('ровно одна GuestShell-обёртка')
+      .toBe(1);
+    expect(guestShellNodes[0].route.canActivate)
+      .withContext('GuestShell без guards')
       .toBeUndefined();
-    expect(guestShellNodes[0].route.children?.some((child) => child.path === 'login')).toBeTrue();
+    expect(
+      guestShellNodes[0].route.children?.some(
+        (child) => child.path === 'login',
+      ),
+    ).toBeTrue();
 
     // Оболочка: AppShell, ровно authGuard.
-    const shell = nodes.find((node) => node.route.component === AppShell)!.route;
+    const shell = nodes.find(
+      (node) => node.route.component === AppShell,
+    )!.route;
     expect(shell.path).toBe('');
     expect(shell.canActivate?.length).toBe(1);
     expect(shell.canActivate![0]).toBe(authGuard);
@@ -222,7 +257,9 @@ describe('app.routes — таблица §7 и композиция guards (T-11
     ];
     for (const [name, list] of originals) {
       for (const route of list) {
-        expect(route.canActivate).withContext(`${name}: ${route.path} без canActivate`).toBeUndefined();
+        expect(route.canActivate)
+          .withContext(`${name}: ${route.path} без canActivate`)
+          .toBeUndefined();
       }
     }
 
@@ -244,9 +281,13 @@ describe('app.routes — таблица §7 и композиция guards (T-11
       ['/403', 0],
     ];
     for (const [path, guardCount] of guarded) {
-      expect(leaf(path).canActivate?.length ?? 0).withContext(`canActivate ${path}`).toBe(guardCount);
+      expect(leaf(path).canActivate?.length ?? 0)
+        .withContext(`canActivate ${path}`)
+        .toBe(guardCount);
     }
-    expect(leaf('/works')).withContext('копия, а не исходный объект').not.toBe(WORKS_ROUTES[0]);
+    expect(leaf('/works'))
+      .withContext('копия, а не исходный объект')
+      .not.toBe(WORKS_ROUTES[0]);
     expect(leaf('/recovery/code'))
       .withContext('копия, а не исходный объект')
       .not.toBe(AUTH_ROUTES[3]);
@@ -263,7 +304,9 @@ describe('app.routes — таблица §7 и композиция guards (T-11
     );
     expect(wrappers.length).withContext('по одной обёртке на путь').toBe(2);
     for (const wrapper of wrappers) {
-      expect(wrapper.route.canActivate).withContext(`обёртка ${wrapper.path}`).toBeUndefined();
+      expect(wrapper.route.canActivate)
+        .withContext(`обёртка ${wrapper.path}`)
+        .toBeUndefined();
     }
   });
 });
@@ -282,10 +325,19 @@ describe('app.routes — навигация по скомпонованному 
     spyOn(console, 'error');
 
     labs = new LabsServiceStub();
-    labs.getList.and.resolveTo({ items: [], total: 0, page: 1, pageSize: LABS_PAGE_SIZE });
+    labs.getList.and.resolveTo({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: LABS_PAGE_SIZE,
+    });
     labs.getSemesters.and.resolveTo([]);
     submissions = new SubmissionsServiceStub();
-    submissions.getMy.and.resolveTo({ hasGroup: false, labs: [], submissions: [] });
+    submissions.getMy.and.resolveTo({
+      hasGroup: false,
+      labs: [],
+      submissions: [],
+    });
     profile = new ProfileServiceStub();
     profile.get.and.resolveTo({
       login: 'student01',
@@ -353,9 +405,9 @@ describe('app.routes — навигация по скомпонованному 
     const shell = await harness.navigateByUrl('/works');
     expect(currentUrl()).toBe('/login');
     expect(shell).toBeInstanceOf(GuestShell);
-    expect(
-      harness.fixture.nativeElement.querySelector('app-login-page'),
-    ).withContext('страница входа активирована внутри гостевой оболочки').not.toBeNull();
+    expect(harness.fixture.nativeElement.querySelector('app-login-page'))
+      .withContext('страница входа активирована внутри гостевой оболочки')
+      .not.toBeNull();
     expect(console.error).not.toHaveBeenCalled();
   });
 
@@ -368,10 +420,16 @@ describe('app.routes — навигация по скомпонованному 
     const pending = TestBed.inject(AuthService).initSession();
     httpMock
       .expectOne(`${apiBase}/auth/me`)
-      .flush({ message: 'Не авторизован' }, { status: 401, statusText: 'Unauthorized' });
+      .flush(
+        { message: 'Не авторизован' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
     httpMock
       .expectOne(`${apiBase}/auth/refresh`)
-      .flush({ message: 'Не авторизован' }, { status: 401, statusText: 'Unauthorized' });
+      .flush(
+        { message: 'Не авторизован' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
     await expectAsync(pending).toBeResolved();
     expect(TestBed.inject(AuthService).isAuthenticated())
       .withContext('аноним после неудачного восстановления сессии')
@@ -387,7 +445,9 @@ describe('app.routes — навигация по скомпонованному 
     await harness.navigateByUrl('/login');
     const native = harness.fixture.nativeElement;
     const tabs = Array.from(
-      native.querySelectorAll('a.guest-topbar__tab') as NodeListOf<HTMLAnchorElement>,
+      native.querySelectorAll(
+        'a.guest-topbar__tab',
+      ) as NodeListOf<HTMLAnchorElement>,
     );
 
     // Состав и ссылки — дословно §4.8 («Неавторизованный: Вход,
@@ -435,9 +495,9 @@ describe('app.routes — навигация по скомпонованному 
     const shell = await harness.navigateByUrl('/recovery/code');
     expect(currentUrl()).toBe('/recovery');
     expect(shell).toBeInstanceOf(GuestShell);
-    expect(
-      harness.fixture.nativeElement.querySelector('app-recovery-page'),
-    ).withContext('страница восстановления активирована внутри оболочки').not.toBeNull();
+    expect(harness.fixture.nativeElement.querySelector('app-recovery-page'))
+      .withContext('страница восстановления активирована внутри оболочки')
+      .not.toBeNull();
     expect(console.error).not.toHaveBeenCalled();
   });
 
@@ -458,9 +518,9 @@ describe('app.routes — навигация по скомпонованному 
     await harness.navigateByUrl('/');
     expect(currentUrl()).toBe('/works');
     await settle();
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
-      'Лабораторные работы',
-    );
+    expect(
+      harness.routeNativeElement?.querySelector('h1')?.textContent,
+    ).toContain('Лабораторные работы');
     expect(labs.getList).toHaveBeenCalled();
     expect(console.error).not.toHaveBeenCalled();
   });
@@ -477,7 +537,9 @@ describe('app.routes — навигация по скомпонованному 
     await harness.navigateByUrl('/login');
     expect(currentUrl()).toBe('/my-submissions');
     // Страница — внутри outlet оболочки: проверяется селектором хоста.
-    expect(harness.fixture.nativeElement.querySelector('app-my-submissions-page'))
+    expect(
+      harness.fixture.nativeElement.querySelector('app-my-submissions-page'),
+    )
       .withContext('страница студента активирована (lazy loadComponent)')
       .not.toBeNull();
     expect(console.error).not.toHaveBeenCalled();
@@ -490,7 +552,9 @@ describe('app.routes — навигация по скомпонованному 
     expect(harness.fixture.nativeElement.querySelector('app-page-403'))
       .withContext('страница 403 активирована внутри оболочки')
       .not.toBeNull();
-    expect(harness.fixture.nativeElement.textContent).toContain('Доступ запрещён');
+    expect(harness.fixture.nativeElement.textContent).toContain(
+      'Доступ запрещён',
+    );
     expect(console.error).not.toHaveBeenCalled();
   });
 

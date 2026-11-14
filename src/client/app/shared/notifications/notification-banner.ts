@@ -6,7 +6,13 @@
  * позицией управляет NotificationService и якоря-хосты
  * (NotificationAnchor / HeaderNotification).
  */
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  output,
+} from '@angular/core';
 
 import { NotificationSeverity } from './notification-model';
 

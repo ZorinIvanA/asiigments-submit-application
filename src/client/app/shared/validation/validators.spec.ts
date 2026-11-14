@@ -8,7 +8,12 @@
  *    пробелы в обязательном поле, трим перед длиной;
  *  - соответствие ключей ошибок словарю ERROR_TEXTS (тексты у полей).
  */
-import { FormControl, FormGroup, ValidatorFn, Validators } from '@angular/forms';
+import {
+  FormControl,
+  FormGroup,
+  ValidatorFn,
+  Validators,
+} from '@angular/forms';
 
 import { ERROR_TEXTS } from './error-texts';
 import {
@@ -55,7 +60,9 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     });
 
     it('строка из неразрывных пробелов тоже пуста после трима', () => {
-      expect(errorsOf(requiredTrim(), '\u00A0\u00A0')).toEqual({ required: true });
+      expect(errorsOf(requiredTrim(), '\u00A0\u00A0')).toEqual({
+        required: true,
+      });
     });
 
     it('AC «Трим перед длиной»: «  А  » валидно — значащий символ есть', () => {
@@ -64,7 +71,10 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     });
 
     it('композиция с форматом: ФИО из пробелов даёт только required (без текста формата)', () => {
-      const control = new FormControl('   ', Validators.compose([requiredTrim(), fullName()]));
+      const control = new FormControl(
+        '   ',
+        Validators.compose([requiredTrim(), fullName()]),
+      );
       expect(control.errors).toEqual({ required: true });
     });
   });
@@ -72,13 +82,19 @@ describe('Валидаторы FR-023 (IF-010)', () => {
   describe('passwordRules — пароль >= 8, >= 1 цифра, >= 1 буква, >= 1 спецзнак', () => {
     it('AC «Слабый пароль»: «abcdefgh» → password.digit и password.special вместе', () => {
       const errors = errorsOf(passwordRules(), 'abcdefgh');
-      expect(errors).toEqual({ 'password.digit': true, 'password.special': true });
+      expect(errors).toEqual({
+        'password.digit': true,
+        'password.special': true,
+      });
     });
 
     it('AC «Слабый пароль»: тексты ошибок — дословно из словаря', () => {
       const errors = errorsOf(passwordRules(), 'abcdefgh');
       expect(firstErrorText(errors)).toBe(ERROR_TEXTS['password.digit']);
-      expect(Object.keys(errors ?? {})).toEqual(['password.digit', 'password.special']);
+      expect(Object.keys(errors ?? {})).toEqual([
+        'password.digit',
+        'password.special',
+      ]);
     });
 
     it('AC «Слабый пароль»: «abcdef1!» валиден', () => {
@@ -86,7 +102,9 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     });
 
     it('граница длины: 7 символов → password.min; ровно 8 → валиден', () => {
-      expect(errorsOf(passwordRules(), 'a1!aaaa')).toEqual({ 'password.min': true });
+      expect(errorsOf(passwordRules(), 'a1!aaaa')).toEqual({
+        'password.min': true,
+      });
       expect(errorsOf(passwordRules(), 'a1!bcdef')).toBeNull();
     });
 
@@ -105,9 +123,15 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     });
 
     it('каждое правило по отдельности: нет цифры / нет буквы / нет спецзнака', () => {
-      expect(errorsOf(passwordRules(), 'abcdefg!')).toEqual({ 'password.digit': true });
-      expect(errorsOf(passwordRules(), '1234567!')).toEqual({ 'password.letter': true });
-      expect(errorsOf(passwordRules(), 'abcdefg1')).toEqual({ 'password.special': true });
+      expect(errorsOf(passwordRules(), 'abcdefg!')).toEqual({
+        'password.digit': true,
+      });
+      expect(errorsOf(passwordRules(), '1234567!')).toEqual({
+        'password.letter': true,
+      });
+      expect(errorsOf(passwordRules(), 'abcdefg1')).toEqual({
+        'password.special': true,
+      });
     });
 
     it('несколько нарушений возвращаются вместе: «ab» → min + digit + special', () => {
@@ -134,7 +158,10 @@ describe('Валидаторы FR-023 (IF-010)', () => {
 
   describe('passwordMatch — пароль и повтор совпадают', () => {
     /** Форма смены пароля с валидатором совпадения на группе. */
-    function matchForm(password: string | null, repeat: string | null): FormGroup {
+    function matchForm(
+      password: string | null,
+      repeat: string | null,
+    ): FormGroup {
       return new FormGroup(
         {
           password: new FormControl(password),
@@ -166,7 +193,9 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     });
 
     it('сравнение дословное, без трима: «abc» и «abc » не совпадают', () => {
-      expect(matchForm('abc', 'abc ').errors).toEqual({ 'password.mismatch': true });
+      expect(matchForm('abc', 'abc ').errors).toEqual({
+        'password.mismatch': true,
+      });
       expect(matchForm(' abc', ' abc').errors).toBeNull();
     });
 
@@ -238,8 +267,12 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     });
 
     it('кириллица и прочие символы невалидны', () => {
-      expect(errorsOf(loginCharset(), 'студент01')).toEqual({ 'login.charset': true });
-      expect(errorsOf(loginCharset(), 'stu!dent')).toEqual({ 'login.charset': true });
+      expect(errorsOf(loginCharset(), 'студент01')).toEqual({
+        'login.charset': true,
+      });
+      expect(errorsOf(loginCharset(), 'stu!dent')).toEqual({
+        'login.charset': true,
+      });
     });
 
     it('граница длины: 1 символ, ровно 100 — валидны; 101 → login', () => {
@@ -306,7 +339,9 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     it('0 невалиден — число должно быть положительным', () => {
       const errors = errorsOf(labNumber(), '0');
       expect(errors).toEqual({ 'lab.number': true });
-      expect(firstErrorText(errors)).toBe('Номер должен быть положительным числом');
+      expect(firstErrorText(errors)).toBe(
+        'Номер должен быть положительным числом',
+      );
       expect(errorsOf(labNumber(), 0)).toEqual({ 'lab.number': true });
     });
 
@@ -390,13 +425,19 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     it('чужая схема, опечатка и отсутствие схемы → lab.url', () => {
       const errors = errorsOf(labUrl(), 'ftp://example.com');
       expect(errors).toEqual({ 'lab.url': true });
-      expect(firstErrorText(errors)).toBe('Ссылка должна начинаться с http:// или https://');
-      expect(errorsOf(labUrl(), 'htp://example.com')).toEqual({ 'lab.url': true });
+      expect(firstErrorText(errors)).toBe(
+        'Ссылка должна начинаться с http:// или https://',
+      );
+      expect(errorsOf(labUrl(), 'htp://example.com')).toEqual({
+        'lab.url': true,
+      });
       expect(errorsOf(labUrl(), 'example.com')).toEqual({ 'lab.url': true });
     });
 
     it('правило дословное: префикс в нижнем регистре; «HTTP://…» невалиден', () => {
-      expect(errorsOf(labUrl(), 'HTTP://example.com')).toEqual({ 'lab.url': true });
+      expect(errorsOf(labUrl(), 'HTTP://example.com')).toEqual({
+        'lab.url': true,
+      });
     });
 
     it('проверяется только префикс: «http://» без адреса проходит правило', () => {
@@ -419,7 +460,9 @@ describe('Валидаторы FR-023 (IF-010)', () => {
       expect(errorsOf(groupName(), 'a'.repeat(100))).toBeNull();
       const errors = errorsOf(groupName(), 'a'.repeat(101));
       expect(errors).toEqual({ 'group.name': true });
-      expect(firstErrorText(errors)).toBe('Название группы — от 1 до 100 символов');
+      expect(firstErrorText(errors)).toBe(
+        'Название группы — от 1 до 100 символов',
+      );
     });
 
     it('пустое значение не проверяется (обязательность — requiredTrim)', () => {
@@ -471,7 +514,9 @@ describe('Валидаторы FR-023 (IF-010)', () => {
     });
 
     it('внутренние пробелы сохраняются, значения без крайних пробелов не меняются', () => {
-      const form = new FormGroup({ fullName: new FormControl(' Иванов Иван ') });
+      const form = new FormGroup({
+        fullName: new FormControl(' Иванов Иван '),
+      });
       trimFormValues(form);
       expect(form.value).toEqual({ fullName: 'Иванов Иван' });
 

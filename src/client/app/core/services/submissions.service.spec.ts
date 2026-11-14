@@ -17,7 +17,10 @@
  *    ApiError {status: 401, body: {message}}.
  */
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
@@ -67,7 +70,10 @@ const MY: MySubmissionsDto = {
 };
 
 /** Заголовки HTTP-отказов бэкенда. */
-function status(status: number, statusText: string): { status: number; statusText: string } {
+function status(
+  status: number,
+  statusText: string,
+): { status: number; statusText: string } {
   return { status, statusText };
 }
 
@@ -96,10 +102,16 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
 
   describe('контракт вызовов (AC, HttpTestingController)', () => {
     it('getGrid: GET /submissions с query «groupId&semester&page» в контрактом порядке', async () => {
-      const query: SubmissionsGridQuery = { groupId: GROUP_ID, semester: 1, page: 2 };
+      const query: SubmissionsGridQuery = {
+        groupId: GROUP_ID,
+        semester: 1,
+        page: 2,
+      };
       const pending = service.getGrid(query);
 
-      const request = httpMock.expectOne(`${apiBase}/submissions?groupId=${GROUP_ID}&semester=1&page=2`);
+      const request = httpMock.expectOne(
+        `${apiBase}/submissions?groupId=${GROUP_ID}&semester=1&page=2`,
+      );
       expect(request.request.method).toBe('GET');
       expect(request.request.body).withContext('у GET тела нет').toBeNull();
       expect(request.request.withCredentials)
@@ -112,7 +124,11 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
 
     it('getGrid: query соответствует выборке — другие groupId/semester/page попадают в строку дословно', async () => {
       const otherGroupId = 'a9999999-9999-4999-8999-999999999999';
-      const pending = service.getGrid({ groupId: otherGroupId, semester: 10, page: 3 });
+      const pending = service.getGrid({
+        groupId: otherGroupId,
+        semester: 10,
+        page: 3,
+      });
 
       const request = httpMock.expectOne(
         `${apiBase}/submissions?groupId=${otherGroupId}&semester=10&page=3`,
@@ -133,10 +149,15 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
 
       const request = httpMock.expectOne(`${apiBase}/submissions`);
       expect(request.request.method).toBe('PUT');
-      expect(request.request.body).withContext('тело — обе даты целиком').toEqual(params);
+      expect(request.request.body)
+        .withContext('тело — обе даты целиком')
+        .toEqual(params);
       request.flush({ ...SAVED, defenseDate: '2026-09-22' });
 
-      await expectAsync(pending).toBeResolvedTo({ ...SAVED, defenseDate: '2026-09-22' });
+      await expectAsync(pending).toBeResolvedTo({
+        ...SAVED,
+        defenseDate: '2026-09-22',
+      });
     });
 
     it('update (сброс): null-дата присутствует в теле ключом со значением null — обе даты всегда передаются', async () => {
@@ -150,12 +171,9 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
       const request = httpMock.expectOne(`${apiBase}/submissions`);
       expect(request.request.method).toBe('PUT');
       const body = request.request.body as Record<string, unknown>;
-      expect(Object.keys(body).sort()).withContext('ровно 4 поля контракта').toEqual([
-        'defenseDate',
-        'labId',
-        'studentId',
-        'submitDate',
-      ]);
+      expect(Object.keys(body).sort())
+        .withContext('ровно 4 поля контракта')
+        .toEqual(['defenseDate', 'labId', 'studentId', 'submitDate']);
       expect(body['submitDate'])
         .withContext('сброс — null в теле, а не отсутствие поля')
         .toBeNull();
@@ -167,7 +185,9 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
     it('getMy: GET /me/submissions?semester={n} → MySubmissionsDto', async () => {
       const pending = service.getMy(3);
 
-      const request = httpMock.expectOne(`${apiBase}/me/submissions?semester=3`);
+      const request = httpMock.expectOne(
+        `${apiBase}/me/submissions?semester=3`,
+      );
       expect(request.request.method).toBe('GET');
       expect(request.request.body).toBeNull();
       expect(request.request.withCredentials).toBeTrue();
@@ -179,9 +199,15 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
     it('getMy: semester в query — дословное значение параметра', async () => {
       const pending = service.getMy(10);
 
-      httpMock.expectOne(`${apiBase}/me/submissions?semester=10`).flush({ hasGroup: false, labs: [], submissions: [] });
+      httpMock
+        .expectOne(`${apiBase}/me/submissions?semester=10`)
+        .flush({ hasGroup: false, labs: [], submissions: [] });
 
-      await expectAsync(pending).toBeResolvedTo({ hasGroup: false, labs: [], submissions: [] });
+      await expectAsync(pending).toBeResolvedTo({
+        hasGroup: false,
+        labs: [],
+        submissions: [],
+      });
     });
 
     it('константа контракта: SUBMISSIONS_PAGE_SIZE=5 (§4.4, ADR-109)', () => {
@@ -191,9 +217,15 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
 
   describe('нормализация отказов (ApiError, баннеры страниц без изменений)', () => {
     it('getGrid: 404 «Группа не найдена» → ApiError {status, body:{message}}', async () => {
-      const pending = service.getGrid({ groupId: GROUP_ID, semester: 1, page: 1 });
+      const pending = service.getGrid({
+        groupId: GROUP_ID,
+        semester: 1,
+        page: 1,
+      });
       httpMock
-        .expectOne(`${apiBase}/submissions?groupId=${GROUP_ID}&semester=1&page=1`)
+        .expectOne(
+          `${apiBase}/submissions?groupId=${GROUP_ID}&semester=1&page=1`,
+        )
         .flush({ message: 'Группа не найдена' }, status(404, 'Not Found'));
 
       await expectAsync(pending).toBeRejectedWith({
@@ -203,9 +235,15 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
     });
 
     it('getGrid: 403 «Доступ запрещён» не-teacher → ApiError', async () => {
-      const pending = service.getGrid({ groupId: GROUP_ID, semester: 1, page: 1 });
+      const pending = service.getGrid({
+        groupId: GROUP_ID,
+        semester: 1,
+        page: 1,
+      });
       httpMock
-        .expectOne(`${apiBase}/submissions?groupId=${GROUP_ID}&semester=1&page=1`)
+        .expectOne(
+          `${apiBase}/submissions?groupId=${GROUP_ID}&semester=1&page=1`,
+        )
         .flush({ message: 'Доступ запрещён' }, status(403, 'Forbidden'));
 
       await expectAsync(pending).toBeRejectedWith({
@@ -222,10 +260,12 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
         defenseDate: null,
       });
       const errors = { submitDate: ['Неконтрактный формат даты'] };
-      httpMock.expectOne(`${apiBase}/submissions`).flush(
-        { message: 'Данные заполнены неверно', errors },
-        status(400, 'Bad Request'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/submissions`)
+        .flush(
+          { message: 'Данные заполнены неверно', errors },
+          status(400, 'Bad Request'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 400,
@@ -259,7 +299,10 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
       });
       httpMock
         .expectOne(`${apiBase}/submissions`)
-        .flush({ message: 'Лабораторная не найдена' }, status(404, 'Not Found'));
+        .flush(
+          { message: 'Лабораторная не найдена' },
+          status(404, 'Not Found'),
+        );
 
       await expectAsync(pending).toBeRejectedWith({
         status: 404,
@@ -285,14 +328,12 @@ describe('SubmissionsService — домен сдач поверх HttpClient (FR
       spyOn(TestBed.inject(Router), 'navigate');
 
       const pending = service.getMy(1);
-      httpMock.expectOne(`${apiBase}/me/submissions?semester=1`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
-      httpMock.expectOne(`${apiBase}/auth/refresh`).flush(
-        { message: 'Не авторизован' },
-        status(401, 'Unauthorized'),
-      );
+      httpMock
+        .expectOne(`${apiBase}/me/submissions?semester=1`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
+      httpMock
+        .expectOne(`${apiBase}/auth/refresh`)
+        .flush({ message: 'Не авторизован' }, status(401, 'Unauthorized'));
 
       await expectAsync(pending).toBeRejectedWith({
         status: 401,

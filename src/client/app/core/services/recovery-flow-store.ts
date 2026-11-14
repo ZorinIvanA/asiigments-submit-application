@@ -37,7 +37,8 @@ function readFlow(): RecoveryFlowState {
     const record = parsed as Record<string, unknown>;
     return {
       email: typeof record['email'] === 'string' ? record['email'] : null,
-      resetToken: typeof record['resetToken'] === 'string' ? record['resetToken'] : null,
+      resetToken:
+        typeof record['resetToken'] === 'string' ? record['resetToken'] : null,
     };
   } catch {
     return { ...EMPTY_FLOW };

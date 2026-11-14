@@ -9,7 +9,12 @@
  * переменной --app-header-height (fallback 56px на случай, когда оболочка
  * её не объявила).
  */
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 
 import { NotificationBanner } from './notification-banner';
 import { MobileNotification } from './notification-model';

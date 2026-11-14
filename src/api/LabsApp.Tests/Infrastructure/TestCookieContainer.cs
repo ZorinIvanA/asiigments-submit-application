@@ -47,18 +47,18 @@ public sealed class TestCookieContainer
         if (request.Headers.TryGetValues(CookieHeaderName, out var existingHeaders))
         {
             foreach (var headerValue in existingHeaders)
-            foreach (var pair in headerValue.Split(
-                         ';',
-                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var separator = pair.IndexOf('=');
-                if (separator <= 0)
+                foreach (var pair in headerValue.Split(
+                             ';',
+                             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
-                    continue;
-                }
+                    var separator = pair.IndexOf('=');
+                    if (separator <= 0)
+                    {
+                        continue;
+                    }
 
-                pairs[pair[..separator]] = pair[(separator + 1)..];
-            }
+                    pairs[pair[..separator]] = pair[(separator + 1)..];
+                }
         }
 
         foreach (var (name, value) in _cookies)

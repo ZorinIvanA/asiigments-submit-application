@@ -93,7 +93,9 @@ describe('NotificationService', () => {
         formId: 'profile-form',
       });
 
-      service.notifyError('Неверный текущий пароль', { formId: 'password-form' });
+      service.notifyError('Неверный текущий пароль', {
+        formId: 'password-form',
+      });
       expect(service.mobileMessage()?.formId).toBe('password-form');
     });
 

@@ -14,7 +14,12 @@
  * триммится (trimFormValues, IF-010); на время запроса кнопка в
  * состоянии loading (submitting, FR-025).
  */
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
@@ -38,7 +43,12 @@ type RecoveryField = 'email';
 
 @Component({
   selector: 'app-recovery-page',
-  imports: [ReactiveFormsModule, ButtonModule, InputTextModule, NotificationAnchor],
+  imports: [
+    ReactiveFormsModule,
+    ButtonModule,
+    InputTextModule,
+    NotificationAnchor,
+  ],
   templateUrl: './recovery-page.html',
   styleUrl: './recovery-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,7 +97,9 @@ export class RecoveryPage {
     }
     if (this.form.invalid) {
       this.attempted.set(true);
-      this.notifications.notifyError(this.invalidDataText, { formId: this.formId });
+      this.notifications.notifyError(this.invalidDataText, {
+        formId: this.formId,
+      });
       return;
     }
     trimFormValues(this.form);
@@ -99,7 +111,9 @@ export class RecoveryPage {
         await this.auth.requestRecoveryCode(email);
         await this.router.navigateByUrl('/recovery/code');
       } catch (error: unknown) {
-        this.notifications.notifyError(toApiError(error).body.message, { formId: this.formId });
+        this.notifications.notifyError(toApiError(error).body.message, {
+          formId: this.formId,
+        });
       }
     });
   }

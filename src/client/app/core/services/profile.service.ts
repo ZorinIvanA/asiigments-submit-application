@@ -37,12 +37,16 @@ export class ProfileService {
 
   /** Профиль текущего пользователя сессии (GET /me/profile). */
   get(): Promise<ProfileDto> {
-    return firstValueFrom(this.http.get<ProfileDto>(`${this.apiBase}/me/profile`));
+    return firstValueFrom(
+      this.http.get<ProfileDto>(`${this.apiBase}/me/profile`),
+    );
   }
 
   /** Редактирование ФИО и email → обновлённый ProfileDto (PUT /me/profile). */
   update(input: ProfileUpdateInput): Promise<ProfileDto> {
-    return firstValueFrom(this.http.put<ProfileDto>(`${this.apiBase}/me/profile`, input));
+    return firstValueFrom(
+      this.http.put<ProfileDto>(`${this.apiBase}/me/profile`, input),
+    );
   }
 
   /** Смена пароля из профиля (PUT /me/password → 204). */

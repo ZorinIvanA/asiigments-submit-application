@@ -24,13 +24,21 @@
  * CR-001 T-111). Повторная отправка того же погашенного токена даёт ту же
  * ошибку (переход потока token_issued → idle, ADR-106).
  */
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 
-import { AUTH_ERRORS, AuthService } from '../../../../core/services/auth.service';
+import {
+  AUTH_ERRORS,
+  AuthService,
+} from '../../../../core/services/auth.service';
 import { RecoveryFlowStore } from '../../../../core/services/recovery-flow-store';
 import { toApiError } from '../../../../shared/api-error';
 import { submitting } from '../../../../shared/loading/submitting';
@@ -49,7 +57,13 @@ type ResetPasswordField = 'password' | 'repeatPassword';
 
 @Component({
   selector: 'app-reset-password-page',
-  imports: [ReactiveFormsModule, RouterLink, ButtonModule, InputTextModule, NotificationAnchor],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    ButtonModule,
+    InputTextModule,
+    NotificationAnchor,
+  ],
   templateUrl: './reset-password-page.html',
   styleUrl: './reset-password-page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -120,7 +134,9 @@ export class ResetPasswordPage {
     }
     if (this.form.invalid) {
       this.attempted.set(true);
-      this.notifications.notifyError(this.invalidDataText, { formId: this.formId });
+      this.notifications.notifyError(this.invalidDataText, {
+        formId: this.formId,
+      });
       return;
     }
     trimFormValues(this.form);
@@ -143,7 +159,9 @@ export class ResetPasswordPage {
           // отдельной подстраховки страницы не требуется (ревью CR-001 T-111).
           this.resetLinkInvalid.set(true);
         }
-        this.notifications.notifyError(apiError.body.message, { formId: this.formId });
+        this.notifications.notifyError(apiError.body.message, {
+          formId: this.formId,
+        });
       }
     });
   }

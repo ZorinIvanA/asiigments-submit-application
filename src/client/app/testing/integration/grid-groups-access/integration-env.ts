@@ -38,19 +38,16 @@ import {
 } from '@angular/common/http/testing';
 import { EnvironmentProviders, Provider, Type } from '@angular/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { Router, provideRouter } from '@angular/router';
+import { Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { By } from '@angular/platform-browser';
 import { Select } from 'primeng/select';
 
 import { API_BASE_URL } from '../../../core/api-base-url';
 import { authInterceptor } from '../../../core/auth-interceptor';
-import { routes } from '../../../core/config/app.routes';
 import { AuthService } from '../../../core/services/auth.service';
 import { NotificationService } from '../../../shared/notifications/notification-service';
-import {
-  NOTIFICATION_AUTO_CLOSE_MS,
-} from '../../../shared/notifications/notification-model';
+import { NOTIFICATION_AUTO_CLOSE_MS } from '../../../shared/notifications/notification-model';
 import { MockBreakpointObserver } from '../../../../testing/mock-breakpoint-observer';
 import { GridBackendSeed, GridBackendStub } from './grid-backend-stub';
 
@@ -232,7 +229,9 @@ export class GridAccessEnv {
   // ---------- маршрутизаторные спеки (реальные таймеры) ----------
 
   /** Создаёт RouterTestingHarness на полном дереве маршрутов приложения. */
-  async attachRoutingHarness(initialUrl?: string): Promise<RouterTestingHarness> {
+  async attachRoutingHarness(
+    initialUrl?: string,
+  ): Promise<RouterTestingHarness> {
     this.routingHarness = await RouterTestingHarness.create(initialUrl);
     return this.routingHarness;
   }
@@ -263,7 +262,11 @@ export class GridAccessEnv {
    * Между попытками — волна ответов: появившиеся запросы страниц честно
    * обслуживаются бэкендом.
    */
-  async waitFor(condition: () => boolean, what: string, timeoutMs = 15000): Promise<void> {
+  async waitFor(
+    condition: () => boolean,
+    what: string,
+    timeoutMs = 15000,
+  ): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       await this.pump(1);
@@ -294,13 +297,22 @@ export class GridAccessEnv {
 // ---------- DOM-помощники (прошлая зона батча 3) ----------
 
 /** Поиск по фикстуре с фолбэком в документ — оверлеи PrimeNG вне фикстуры. */
-export function qsIn(fixture: ComponentFixture<unknown>, selector: string): HTMLElement | null {
+export function qsIn(
+  fixture: ComponentFixture<unknown>,
+  selector: string,
+): HTMLElement | null {
   const root = fixture.nativeElement as HTMLElement;
-  return root.querySelector(selector) ?? (document.querySelector(selector) as HTMLElement | null);
+  return (
+    root.querySelector(selector) ??
+    (document.querySelector(selector) as HTMLElement | null)
+  );
 }
 
 /** То же для querySelectorAll. */
-export function qsAllIn(fixture: ComponentFixture<unknown>, selector: string): HTMLElement[] {
+export function qsAllIn(
+  fixture: ComponentFixture<unknown>,
+  selector: string,
+): HTMLElement[] {
   const root = fixture.nativeElement as HTMLElement;
   const inFixture = Array.from(root.querySelectorAll<HTMLElement>(selector));
   return inFixture.length > 0
@@ -309,7 +321,10 @@ export function qsAllIn(fixture: ComponentFixture<unknown>, selector: string): H
 }
 
 /** Кнопка по точному тексту — в фикстуре или в документе (оверлеи). */
-export function buttonByText(fixture: ComponentFixture<unknown>, label: string): HTMLButtonElement {
+export function buttonByText(
+  fixture: ComponentFixture<unknown>,
+  label: string,
+): HTMLButtonElement {
   const found = qsAllIn(fixture, 'button').find(
     (candidate) => candidate.textContent?.trim() === label,
   );
@@ -320,18 +335,26 @@ export function buttonByText(fixture: ComponentFixture<unknown>, label: string):
 }
 
 /** Открывает оверлей p-select (клик, как пользователь). */
-export function openSelect(fixture: ComponentFixture<unknown>, select: Element): void {
+export function openSelect(
+  fixture: ComponentFixture<unknown>,
+  select: Element,
+): void {
   (select as HTMLElement).click();
   fixture.detectChanges();
 }
 
 /** Выбирает опцию с подписью label в открытом оверлее p-select. */
-export function pickOption(fixture: ComponentFixture<unknown>, label: string): void {
+export function pickOption(
+  fixture: ComponentFixture<unknown>,
+  label: string,
+): void {
   const option = qsAllIn(fixture, 'li.p-select-option').find(
     (candidate) => candidate.textContent?.trim() === label,
   );
   if (option === undefined) {
-    throw new Error(`integration-env: в открытом селекторе нет опции «${label}»`);
+    throw new Error(
+      `integration-env: в открытом селекторе нет опции «${label}»`,
+    );
   }
   option.click();
   fixture.detectChanges();
@@ -357,5 +380,7 @@ export function selectModelValueOf(
   if (selectDe === null) {
     throw new Error('integration-env: в строке нет p-select');
   }
-  return (selectDe.componentInstance as unknown as { modelValue(): unknown }).modelValue();
+  return (
+    selectDe.componentInstance as unknown as { modelValue(): unknown }
+  ).modelValue();
 }

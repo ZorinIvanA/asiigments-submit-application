@@ -68,7 +68,9 @@ describe('Интеграция: восстановление пароля (FR-4.
     buttonByLabel(env, 'Отправить код').click();
     respond(env, 'POST', '/auth/recovery/request', { body: null });
     await waitForUrl(env, '/recovery/code');
-    expect(requestsOf(env, 'POST', '/auth/recovery/request')).toBeGreaterThan(0);
+    expect(requestsOf(env, 'POST', '/auth/recovery/request')).toBeGreaterThan(
+      0,
+    );
     return nextCode();
   }
 
@@ -108,10 +110,7 @@ describe('Интеграция: восстановление пароля (FR-4.
   }
 
   /** Переотправка кода кнопкой экрана шага 2. */
-  async function resend(
-    status: number,
-    body: unknown = null,
-  ): Promise<string> {
+  async function resend(status: number, body: unknown = null): Promise<string> {
     buttonByLabel(env, 'Переотправить код').click();
     respond(env, 'POST', '/auth/recovery/request', { status, body });
     await settle(env);
@@ -120,15 +119,24 @@ describe('Интеграция: восстановление пароля (FR-4.
 
   it('TS-014: полный поток — email → код → новый пароль → вход новым паролем', async () => {
     const code = await requestCode(KNOWN_EMAIL);
-    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
+    await enterCode(
+      code,
+      200,
+      { resetToken: 'reset-token-1' },
+      '/reset-password',
+    );
     expect(env.flow.resetToken())
       .withContext('confirm возвращает resetToken (в store)')
       .toBe('reset-token-1');
 
     await submitNewPassword('NewPass1!', 204, null, '/login');
-    expect(env.router.url).withContext('сброс успешен — редирект на /login').toBe('/login');
+    expect(env.router.url)
+      .withContext('сброс успешен — редирект на /login')
+      .toBe('/login');
     // DTO сброса на границе HTTP.
-    expect(env.requests.find((r) => r.path === '/auth/reset-password')?.body).toEqual({
+    expect(
+      env.requests.find((r) => r.path === '/auth/reset-password')?.body,
+    ).toEqual({
       resetToken: 'reset-token-1',
       password: 'NewPass1!',
       confirmPassword: 'NewPass1!',
@@ -143,7 +151,9 @@ describe('Интеграция: восстановление пароля (FR-4.
       body: { message: 'Неверный логин или пароль' },
     });
     await settle(env);
-    expect(env.notifications.desktopMessage()?.text).toBe('Неверный логин или пароль');
+    expect(env.notifications.desktopMessage()?.text).toBe(
+      'Неверный логин или пароль',
+    );
     env.notifications.dismissMobile();
 
     // Вход с новым паролем успешен.
@@ -175,17 +185,21 @@ describe('Интеграция: восстановление пароля (FR-4.
 
     // Тела запросов шага 1 идентичны по форме (различие только в значении
     // email; существует ли он — клиенту не раскрывается).
-    const requests = env.requests.filter((r) => r.path === '/auth/recovery/request');
+    const requests = env.requests.filter(
+      (r) => r.path === '/auth/recovery/request',
+    );
     expect(requests.map((r) => (r.body as { email: string }).email)).toEqual([
       KNOWN_EMAIL,
       GHOST_EMAIL,
     ]);
     // Полевых ошибок нет (400 без errors).
-    expect(env.harness.fixture.nativeElement.querySelector('.field__error')).toBeNull();
+    expect(
+      env.harness.fixture.nativeElement.querySelector('.field__error'),
+    ).toBeNull();
   }, 20000);
 
   it('TS-016: неверный код восстановления — формат ловится клиентом, 400 оставляет экран', async () => {
-    const code = await requestCode(KNOWN_EMAIL);
+    await requestCode(KNOWN_EMAIL);
 
     // Не-6-цифровая строка блокируется клиентским валидатором — запроса нет.
     setInput(env, '#code-input', '12a456');
@@ -195,7 +209,8 @@ describe('Интеграция: восстановление пароля (FR-4.
       root(env)
         .querySelector('#code-input')
         ?.closest('.field')
-        ?.querySelector<HTMLElement>('.field__error')?.textContent?.trim(),
+        ?.querySelector<HTMLElement>('.field__error')
+        ?.textContent?.trim(),
     ).toBe('Код должен состоять из 6 цифр');
     expect(requestsOf(env, 'POST', '/auth/recovery/confirm'))
       .withContext('форматного 400 у confirm нет — запрос не отправлен')
@@ -220,7 +235,9 @@ describe('Интеграция: восстановление пароля (FR-4.
       expect(env.notifications.desktopMessage()?.text)
         .withContext(`попытка ${i} — 400`)
         .toBe(CODE_REJECTED);
-      expect(env.router.url).withContext('экран остаётся').toBe('/recovery/code');
+      expect(env.router.url)
+        .withContext('экран остаётся')
+        .toBe('/recovery/code');
       env.notifications.dismissMobile();
     }
 
@@ -240,14 +257,24 @@ describe('Интеграция: восстановление пароля (FR-4.
     const freshCode = await resend(200);
     expect(freshCode).withContext('новый код выдан').not.toBe(code);
 
-    await enterCode(freshCode, 200, { resetToken: 'reset-token-2' }, '/reset-password');
+    await enterCode(
+      freshCode,
+      200,
+      { resetToken: 'reset-token-2' },
+      '/reset-password',
+    );
     await submitNewPassword('Restart1!pass', 204, null, '/login');
     expect(env.router.url).withContext('поток завершён успешно').toBe('/login');
   }, 30000);
 
   it('TS-019: терминальная ветка resetToken (400 «Ссылка…») — экран остаётся, токен погашен, email сохранён', async () => {
     const code = await requestCode(KNOWN_EMAIL);
-    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
+    await enterCode(
+      code,
+      200,
+      { resetToken: 'reset-token-1' },
+      '/reset-password',
+    );
 
     await submitNewPassword('TooLate1!pass', 400, { message: LINK_INVALID });
 
@@ -261,7 +288,9 @@ describe('Интеграция: восстановление пароля (FR-4.
     expect(link.getAttribute('href'))
       .withContext('ссылка рестарта потока')
       .toContain('/recovery');
-    expect(env.flow.resetToken()).withContext('resetToken удалён из store').toBeNull();
+    expect(env.flow.resetToken())
+      .withContext('resetToken удалён из store')
+      .toBeNull();
     expect(env.flow.email()).withContext('email сохранён').toBe(KNOWN_EMAIL);
     env.notifications.dismissMobile();
 
@@ -284,7 +313,12 @@ describe('Интеграция: восстановление пароля (FR-4.
       .toBe(CODE_REJECTED);
     env.notifications.dismissMobile();
 
-    await enterCode(newCode, 200, { resetToken: 'reset-token-1' }, '/reset-password');
+    await enterCode(
+      newCode,
+      200,
+      { resetToken: 'reset-token-1' },
+      '/reset-password',
+    );
 
     // 3-й запрос кода в окне часа — разрешён (ответ бэкенда 200).
     await env.harness.navigateByUrl('/recovery');
@@ -319,9 +353,16 @@ describe('Интеграция: восстановление пароля (FR-4.
     expect(env.router.url)
       .withContext('шаг восстановлен — редиректа recoveryStepGuard нет')
       .toBe('/recovery/code');
-    expect(env.flow.email()).withContext('email из recovery.flow.v1').toBe(KNOWN_EMAIL);
+    expect(env.flow.email())
+      .withContext('email из recovery.flow.v1')
+      .toBe(KNOWN_EMAIL);
 
-    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
+    await enterCode(
+      code,
+      200,
+      { resetToken: 'reset-token-1' },
+      '/reset-password',
+    );
 
     // F5 на шаге смены пароля.
     env = await restartApp(env, { keepStorage: true });
@@ -334,12 +375,19 @@ describe('Интеграция: восстановление пароля (FR-4.
       .toBe('reset-token-1');
 
     await submitNewPassword('AfterF51!pass', 204, null, '/login');
-    expect(env.router.url).withContext('поток продолжается до успеха').toBe('/login');
+    expect(env.router.url)
+      .withContext('поток продолжается до успеха')
+      .toBe('/login');
   }, 30000);
 
   it('TS-023: полевая ошибка на /reset-password не гасит resetToken', async () => {
     const code = await requestCode(KNOWN_EMAIL);
-    await enterCode(code, 200, { resetToken: 'reset-token-1' }, '/reset-password');
+    await enterCode(
+      code,
+      200,
+      { resetToken: 'reset-token-1' },
+      '/reset-password',
+    );
     const tokenBefore = env.flow.resetToken();
     expect(tokenBefore).not.toBeNull();
 
@@ -355,7 +403,8 @@ describe('Интеграция: восстановление пароля (FR-4.
       root(env)
         .querySelector('#password-input')
         ?.closest('.field')
-        ?.querySelector<HTMLElement>('.field__error')?.textContent?.trim(),
+        ?.querySelector<HTMLElement>('.field__error')
+        ?.textContent?.trim(),
     ).toBe('Пароль должен содержать не менее 8 символов');
     expect(requestsOf(env, 'POST', '/auth/reset-password'))
       .withContext('запрос не списал токен')
@@ -366,9 +415,9 @@ describe('Интеграция: восстановление пароля (FR-4.
     // Повторный сабмит с валидным паролем — успех тем же resetToken.
     await submitNewPassword('Valid1!pass', 204, null, '/login');
     expect(env.router.url).withContext('сброс успешен').toBe('/login');
-    expect(env.requests.find((r) => r.path === '/auth/reset-password')?.body).toEqual(
-      jasmine.objectContaining({ resetToken: tokenBefore }),
-    );
+    expect(
+      env.requests.find((r) => r.path === '/auth/reset-password')?.body,
+    ).toEqual(jasmine.objectContaining({ resetToken: tokenBefore }));
   }, 20000);
 
   it('TS-024: сброс пароля отзывает сессию — 401 → неудачный refresh → сброс памяти → /login', async () => {

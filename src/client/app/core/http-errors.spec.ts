@@ -20,12 +20,19 @@ import { normalizeHttpError } from './http-errors';
 
 /** HttpErrorResponse с заданным статусом и телом (как от HttpClient). */
 function httpError(status: number, body?: unknown): HttpErrorResponse {
-  return new HttpErrorResponse({ status, statusText: 'Error', url: '/x', error: body });
+  return new HttpErrorResponse({
+    status,
+    statusText: 'Error',
+    url: '/x',
+    error: body,
+  });
 }
 
 describe('normalizeHttpError — контракт IF-014 (FR-025)', () => {
   it('409 {message} → ApiError {status: 409, body: {message}} — баннер body.message работает', () => {
-    const normalized = normalizeHttpError(httpError(409, { message: 'Конфликт' }));
+    const normalized = normalizeHttpError(
+      httpError(409, { message: 'Конфликт' }),
+    );
 
     expect(normalized).toEqual({ status: 409, body: { message: 'Конфликт' } });
   });
@@ -48,33 +55,53 @@ describe('normalizeHttpError — контракт IF-014 (FR-025)', () => {
   });
 
   it('errors переносится только при наличии — без errors поля в ApiError нет', () => {
-    const normalized = normalizeHttpError(httpError(404, { message: 'Не найдено' }));
+    const normalized = normalizeHttpError(
+      httpError(404, { message: 'Не найдено' }),
+    );
 
     expect(normalized.status).toBe(404);
     expect(normalized.body.message).toBe('Не найдено');
-    expect('errors' in normalized.body ? normalized.body.errors : undefined).toBeUndefined();
+    expect(
+      'errors' in normalized.body ? normalized.body.errors : undefined,
+    ).toBeUndefined();
   });
 
   it('тело null (401 без тела) — запасное сообщение, статус сохранён', () => {
     const normalized = normalizeHttpError(httpError(401, null));
 
-    expect(normalized).toEqual({ status: 401, body: { message: 'Неизвестная ошибка' } });
+    expect(normalized).toEqual({
+      status: 401,
+      body: { message: 'Неизвестная ошибка' },
+    });
   });
 
   it('тело-строка (500 text/html) — запасное сообщение, статус сохранён', () => {
-    const normalized = normalizeHttpError(httpError(500, 'Internal Server Error'));
+    const normalized = normalizeHttpError(
+      httpError(500, 'Internal Server Error'),
+    );
 
-    expect(normalized).toEqual({ status: 500, body: { message: 'Неизвестная ошибка' } });
+    expect(normalized).toEqual({
+      status: 500,
+      body: { message: 'Неизвестная ошибка' },
+    });
   });
 
   it('тело-объект без message — запасное сообщение, статус сохранён', () => {
-    const normalized = normalizeHttpError(httpError(502, { details: 'bad gateway' }));
+    const normalized = normalizeHttpError(
+      httpError(502, { details: 'bad gateway' }),
+    );
 
-    expect(normalized).toEqual({ status: 502, body: { message: 'Неизвестная ошибка' } });
+    expect(normalized).toEqual({
+      status: 502,
+      body: { message: 'Неизвестная ошибка' },
+    });
   });
 
   it('уже готовая ApiError возвращается как есть (тот же объект)', () => {
-    const existing: ApiError = { status: 429, body: { message: 'Слишком много попыток' } };
+    const existing: ApiError = {
+      status: 429,
+      body: { message: 'Слишком много попыток' },
+    };
 
     expect(normalizeHttpError(existing)).toBe(existing);
   });
@@ -91,6 +118,9 @@ describe('normalizeHttpError — контракт IF-014 (FR-025)', () => {
   it('произвольное значение (не Error, не HttpErrorResponse) — запасное сообщение', () => {
     const normalized = normalizeHttpError('что-то упало');
 
-    expect(normalized).toEqual({ status: NON_HTTP_ERROR_STATUS, body: { message: 'Неизвестная ошибка' } });
+    expect(normalized).toEqual({
+      status: NON_HTTP_ERROR_STATUS,
+      body: { message: 'Неизвестная ошибка' },
+    });
   });
 });

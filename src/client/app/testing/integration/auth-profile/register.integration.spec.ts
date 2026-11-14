@@ -106,8 +106,12 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
     expect(env.notifications.desktopMessage()?.text)
       .withContext('баннер с текстом из контракта IF-101')
       .toBe('Пользователь с таким логином уже существует');
-    expect(env.auth.isAuthenticated()).withContext('сессия НЕ установлена').toBeFalse();
-    expect(env.router.url).withContext('экран регистрации остаётся').toBe('/register');
+    expect(env.auth.isAuthenticated())
+      .withContext('сессия НЕ установлена')
+      .toBeFalse();
+    expect(env.router.url)
+      .withContext('экран регистрации остаётся')
+      .toBe('/register');
     env.notifications.dismissMobile();
   }, 20000);
 
@@ -137,7 +141,9 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
     // Пустая форма: тексты «Заполните поле» у всех обязательных полей.
     submitButton(env).click();
     await settle(env);
-    expect(env.notifications.desktopMessage()?.text).toBe('Данные заполнены неверно');
+    expect(env.notifications.desktopMessage()?.text).toBe(
+      'Данные заполнены неверно',
+    );
     expect(setFieldError(env, '#full-name-input')).toBe('Заполните поле');
     expect(setFieldError(env, '#login-input')).toBe('Заполните поле');
     expect(setFieldError(env, '#email-input')).toBe('Заполните поле');
@@ -156,7 +162,10 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
     env.notifications.dismissMobile();
 
     // Слабый пароль (первый нарушенный класс — текст из словаря ERROR_TEXTS).
-    fillRegisterForm(env, { '#password-input': 'abc', '#repeat-password-input': 'abc' });
+    fillRegisterForm(env, {
+      '#password-input': 'abc',
+      '#repeat-password-input': 'abc',
+    });
     submitButton(env).click();
     await settle(env);
     expect(setFieldError(env, '#password-input')).toBe(
@@ -171,7 +180,9 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
     });
     submitButton(env).click();
     await settle(env);
-    expect(setFieldError(env, '#repeat-password-input')).toBe('Пароли не совпадают');
+    expect(setFieldError(env, '#repeat-password-input')).toBe(
+      'Пароли не совпадают',
+    );
     env.notifications.dismissMobile();
 
     // Исправление поля: текст исчезает сразу, без повторной отправки.
@@ -183,7 +194,12 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
     expect(requestsOf(env, 'POST', '/auth/register'))
       .withContext('auth/register НЕ отправлен ни разу')
       .toBe(0);
-    expect(env.httpMock.match({ method: 'POST', url: `${env.apiBase}/auth/register` }).length)
+    expect(
+      env.httpMock.match({
+        method: 'POST',
+        url: `${env.apiBase}/auth/register`,
+      }).length,
+    )
       .withContext('незапрограммированных запросов нет')
       .toBe(0);
   }, 20000);
@@ -249,7 +265,9 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
     respond(env, 'POST', '/auth/register', { body: ME_FIXTURES.student01 });
     await waitForUrl(env, '/my-submissions');
     expect(requestsOf(env, 'POST', '/auth/register')).toBe(1);
-    expect(env.router.url).withContext('регистрация прошла').toBe('/my-submissions');
+    expect(env.router.url)
+      .withContext('регистрация прошла')
+      .toBe('/my-submissions');
   }, 20000);
 
   it('TS-013: двойной сабмит во время запроса — один вызов login', async () => {
@@ -298,7 +316,10 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
   }, 20000);
 
   /** Текст полевой ошибки под полем (div.field__error соседнего .field). */
-  function setFieldError(localEnv: AuthProfileEnv, inputSelector: string): string | null {
+  function setFieldError(
+    localEnv: AuthProfileEnv,
+    inputSelector: string,
+  ): string | null {
     const input = root(localEnv).querySelector(inputSelector);
     if (input === null) {
       return null;
@@ -306,6 +327,8 @@ describe('Интеграция: регистрация (FR-4.1, batch1 TS-001..T
     const error = input
       .closest('.field')
       ?.querySelector<HTMLElement>('.field__error');
-    return error === undefined || error === null ? null : error.textContent!.trim();
+    return error === undefined || error === null
+      ? null
+      : error.textContent!.trim();
   }
 });

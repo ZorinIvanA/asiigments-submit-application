@@ -125,12 +125,18 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
   }
 
   /** Сабмит заполненного кода с программируемым ответом POST /auth/recovery/confirm. */
-  async function submitAndFlushConfirm(status: number, body: unknown): Promise<void> {
+  async function submitAndFlushConfirm(
+    status: number,
+    body: unknown,
+  ): Promise<void> {
     fill(CODE);
     submit();
     const request = httpMock.expectOne(`${apiBase}/auth/recovery/confirm`);
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ email: EMAIL, code: codeInput().value.trim() });
+    expect(request.request.body).toEqual({
+      email: EMAIL,
+      code: codeInput().value.trim(),
+    });
     request.flush(body as object | null, {
       status,
       statusText: status === 200 ? 'OK' : 'Error',
@@ -139,7 +145,10 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
   }
 
   /** Переотправка с программируемым ответом POST /auth/recovery/request. */
-  async function resendAndFlush(status: number, body: unknown = null): Promise<void> {
+  async function resendAndFlush(
+    status: number,
+    body: unknown = null,
+  ): Promise<void> {
     resendButton().click();
     const request = httpMock.expectOne(`${apiBase}/auth/recovery/request`);
     expect(request.request.method).toBe('POST');
@@ -152,12 +161,22 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
   }
 
   it('тексты макета дословно: заголовок, «Шаг 2 из 3», «Код восстановления», подсказки, кнопки, «Переотправить код»', () => {
-    expect(root().querySelector('h1')!.textContent!.trim()).toBe('Восстановление пароля');
-    expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe('Шаг 2 из 3');
-    expect(root().querySelector('label')!.textContent!.trim()).toBe('Код восстановления');
-    const hints = Array.from(root().querySelectorAll('.field__hint')).map((h) => h.textContent!.trim());
+    expect(root().querySelector('h1')!.textContent!.trim()).toBe(
+      'Восстановление пароля',
+    );
+    expect(root().querySelector('.auth-card__step')!.textContent!.trim()).toBe(
+      'Шаг 2 из 3',
+    );
+    expect(root().querySelector('label')!.textContent!.trim()).toBe(
+      'Код восстановления',
+    );
+    const hints = Array.from(root().querySelectorAll('.field__hint')).map((h) =>
+      h.textContent!.trim(),
+    );
     expect(hints[0]).toBe('Код из 6 цифр');
-    expect(hints[1]).toBe('В демо-режиме код отправляется в консоль браузера (F12) — [mock-email]');
+    expect(hints[1]).toBe(
+      'В демо-режиме код отправляется в консоль браузера (F12) — [mock-email]',
+    );
     expect(submitButton().textContent).toContain('Ввести код');
     expect(cancelButton().textContent).toContain('Отмена');
     expect(resendButton().textContent!.trim()).toBe('Переотправить код');
@@ -178,7 +197,9 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
     await settle();
     expect(fieldError()).toBe('Код должен состоять из 6 цифр');
 
-    expect(notifications.desktopMessage()!.text).toBe('Данные заполнены неверно');
+    expect(notifications.desktopMessage()!.text).toBe(
+      'Данные заполнены неверно',
+    );
     expect(httpMock.match(`${apiBase}/auth/recovery/confirm`).length)
       .withContext('confirm не отправлен')
       .toBe(0);
@@ -218,7 +239,9 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
 
     expect(flow.email()).toBe(EMAIL);
     expect(router.navigateByUrl).not.toHaveBeenCalled();
-    expect(root().querySelector('h1')!.textContent).toContain('Восстановление пароля');
+    expect(root().querySelector('h1')!.textContent).toContain(
+      'Восстановление пароля',
+    );
   });
 
   it('429 переотправки: баннер «Слишком много попыток. Повторите позже», экран остаётся', async () => {
@@ -249,7 +272,9 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
 
     // Ответ не программируется: запрос подтверждения «висит» — busy.
     expect(submitButton().disabled).toBeTrue();
-    expect(resendButton().disabled).withContext('переотправка заблокирована').toBeTrue();
+    expect(resendButton().disabled)
+      .withContext('переотправка заблокирована')
+      .toBeTrue();
 
     resendButton().click(); // клик по disabled-кнопке — ничего не делает
     expect(httpMock.match(`${apiBase}/auth/recovery/request`).length)
@@ -258,9 +283,14 @@ describe('RecoveryCodePage — шаг 2 восстановления парол�
     // match() ПОТРЕБЛЯЕТ найденные запросы (удаляет из открытых), поэтому
     // «ровно одно подтверждение» проверяется здесь и ответ уходит через него.
     const pending = httpMock.match(`${apiBase}/auth/recovery/confirm`);
-    expect(pending.length).withContext('подтверждение в полёте — ровно одно').toBe(1);
+    expect(pending.length)
+      .withContext('подтверждение в полёте — ровно одно')
+      .toBe(1);
 
-    pending[0].flush({ resetToken: 'reset-token-1' }, { status: 200, statusText: 'OK' });
+    pending[0].flush(
+      { resetToken: 'reset-token-1' },
+      { status: 200, statusText: 'OK' },
+    );
     await settle();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/reset-password');
   });

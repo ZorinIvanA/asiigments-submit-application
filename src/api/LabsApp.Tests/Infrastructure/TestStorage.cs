@@ -40,16 +40,16 @@ internal static class TestEntities
         string role = UserRoles.Student,
         Guid? groupId = null,
         string? fullName = null) => new()
-    {
-        Id = Guid.NewGuid(),
-        Login = login,
-        Email = email ?? $"{login}@example.com",
-        PasswordHash = "hash",
-        FullName = fullName ?? "Тест Тестович Тестов",
-        Role = role,
-        GroupId = groupId,
-        CreatedAt = DateTime.UtcNow,
-    };
+        {
+            Id = Guid.NewGuid(),
+            Login = login,
+            Email = email ?? $"{login}@example.com",
+            PasswordHash = "hash",
+            FullName = fullName ?? "Тест Тестович Тестов",
+            Role = role,
+            GroupId = groupId,
+            CreatedAt = DateTime.UtcNow,
+        };
 
     public static Group Group(string name) => new()
     {
